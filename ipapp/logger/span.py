@@ -2,13 +2,14 @@ import re
 import sys
 import time
 import traceback
+from contextvars import Token
 from typing import Optional, List, Dict, Type, Mapping, Any, Tuple
 
 import aiozipkin.helpers as azh
 import aiozipkin.utils as azu
 
 import ipapp.logger  # noqa
-from ..misc import ctx_app_get, dict_merge
+from ..misc import ctx_app_get, ctx_span_set, ctx_span_reset, dict_merge
 
 RE_P8S_METRIC_NAME = re.compile(r'[^a-zA-Z0-9_]')
 
@@ -53,6 +54,7 @@ class Span:
         self._exception: Optional[Exception] = None
         self._is_handled = False
         self._exception: Optional[Exception] = None
+        self._ctx_token: Optional[Token] = None
 
     def skip(self):
         """
@@ -278,10 +280,13 @@ class Span:
 
     def __enter__(self) -> 'Span':
         self.start()
+        self._ctx_token = ctx_span_set(self)
         return self
 
     def __exit__(self, exception_type, exception_value, traceback) -> None:
         self.finish(exception=exception_value)
+        if self._ctx_token is not None:
+            ctx_span_reset(self._ctx_token)
 
     def __str__(self):
         if self._start_stamp is not None and self._finish_stamp is not None:
@@ -311,5 +316,3 @@ class HttpSpan(Span):
     ann_req_body: bool = True
     ann_resp_hdrs: bool = True
     ann_resp_body: bool = True
-
-

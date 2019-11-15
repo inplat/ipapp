@@ -1,4 +1,3 @@
-from contextvars import copy_context
 from functools import wraps
 from typing import Optional, Callable, Type
 
@@ -6,7 +5,7 @@ from .adapters import (ZipkinConfig, PrometheusConfig, SentryConfig,
                        RequestsConfig)
 from .logger import Logger
 from .span import Span, HttpSpan
-from ..misc import (ctx_span_get, ctx_span_set, ctx_span_reset, ctx_app_get,
+from ..misc import (ctx_span_get, ctx_app_get,
                     ctx_request_get, )
 
 
@@ -15,14 +14,6 @@ def wrap2span(*, name: Optional[str] = None, kind: Optional[str] = None,
     def create_wrapper(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
-
-            async def exec(span):
-                token = ctx_span_set(span)
-                try:
-                    return await func(*args, **kwargs)
-                finally:
-                    ctx_span_reset(token)
-
             span = ctx_span_get()
             if span is None:
                 app = ctx_app_get()
@@ -40,9 +31,8 @@ def wrap2span(*, name: Optional[str] = None, kind: Optional[str] = None,
             else:
                 new_span = span.new_child(name, kind, cls=cls)
             with new_span:
-                ctx = copy_context()
                 try:
-                    return await ctx.run(exec, new_span)
+                    return await func(*args, **kwargs)
                 except Exception as err:
                     new_span.error(err)
                     raise
