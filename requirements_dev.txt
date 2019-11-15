@@ -1,0 +1,20 @@
+-r requirements.txt
+
+idna
+
+flake8
+mypy
+bandit
+aiohttp
+pytest-aiohttp
+pytest
+pytest-asyncio
+pytest-cov
+coverage
+Sphinx
+sphinx-rtd-theme
+pip
+wheel
+tox
+async-generator=
+async_timeout

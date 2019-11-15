@@ -1,0 +1,60 @@
+version: '3'
+services:
+  jaeger:
+    container_name: ipapp-jaeger
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "127.0.0.1:9002:9411"
+      - "127.0.0.1:9003:16686"
+    environment:
+      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
+
+  # https://github.com/yhirano55/sentry-docker-compose
+  sentry:
+    container_name: ipapp-sentry
+    image: sentry
+    env_file:
+      - .env
+    ports:
+      - '9000:9000'
+    depends_on:
+      - db
+      - redis
+    tty: true
+    stdin_open: true
+  cron:
+    container_name: ipapp-sentry-cron
+    image: sentry
+    command: run cron
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+  worker:
+    container_name: ipapp-sentry-worker
+    image: sentry
+    command: run worker
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+  redis:
+    container_name: ipapp-sentry-redis
+    image: redis
+    volumes:
+      - redis-data:/data
+  db:
+    container_name: ipapp-postgres
+    image: postgres
+    environment:
+      POSTGRES_USER: ipapp
+      POSTGRES_PASSWORD: secretpwd
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    ports:
+      - '9001:5432'
+volumes:
+  redis-data:
+  pg-data:

@@ -1,0 +1,8 @@
+pydantic
+
+aiohttp
+asyncpg
+
+aiozipkin
+prometheus-client
+sentry-sdk
