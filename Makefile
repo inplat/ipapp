@@ -88,16 +88,6 @@ lint: safety bandit mypy flake8  ## Run flake8, bandit, mypy
 test: venv  ## Run tests
 	$(VENV_BIN)/pytest -v -s tests
 
-.PHONY: coverage-quiet
-coverage-quiet: venv  ## Make coverage report
-		$(VENV_BIN)/coverage run --source ipapp -m pytest tests
-		$(VENV_BIN)/coverage report -m
-		$(VENV_BIN)/coverage html
-
-.PHONY: coverage
-coverage: venv coverage-quiet  ## Make coverage report and open it in browser
-		$(BROWSER) htmlcov/index.html
-
 .PHONY: docs
 docs-quiet: venv  ## Make documentation
 	rm -f docs/source/ipapp.rst

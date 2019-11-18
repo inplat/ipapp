@@ -1,0 +1,4 @@
+[run]
+branch = True
+source = ipapp
+omit = site-packages, .tox
