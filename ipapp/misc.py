@@ -1,12 +1,11 @@
 import datetime
-import datetime
 import decimal
 import inspect
 import json
 import string
 import types
 from asyncio import ensure_future
-from contextvars import ContextVar, Token
+from contextvars import Token
 from copy import deepcopy
 from functools import partial
 from getpass import getuser
@@ -22,47 +21,43 @@ from yarl import URL
 import ipapp.app  # noqa
 import ipapp.logger  # noqa
 
-var_app = ContextVar('app', default=None)
-
-var_request = ContextVar('request', default=None)
-
-var_span = ContextVar('span', default=None)
+from .ctx import app, span, request
 
 
 def ctx_app_get() -> Optional['ipapp.app.Application']:
-    return var_app.get()
+    return app.__ctx__.get()  # type: ignore
 
 
 def ctx_app_set(ctx: 'ipapp.app.Application') -> Token:
-    return var_app.set(ctx)
+    return app.__ctx__.set(ctx)  # type: ignore
 
 
 def ctx_app_reset(token: Token) -> None:
-    var_app.reset(token)
+    app.__ctx__.reset(token)  # type: ignore
 
 
 def ctx_request_get() -> Optional[web.Request]:
-    return var_request.get()
+    return request.__ctx__.get()  # type: ignore
 
 
 def ctx_request_set(request: web.Request) -> Token:
-    return var_request.set(request)
+    return request.__ctx__.set(request)  # type: ignore
 
 
 def ctx_request_reset(token: Token) -> None:
-    var_request.reset(token)
+    request.__ctx__.reset(token)  # type: ignore
 
 
 def ctx_span_get() -> Optional['ipapp.logger.Span']:
-    return var_span.get()
+    return span.__ctx__.get()  # type: ignore
 
 
 def ctx_span_set(ctx: 'ipapp.logger.Span') -> Token:
-    return var_span.set(ctx)
+    return span.__ctx__.set(ctx)  # type: ignore
 
 
 def ctx_span_reset(token: Token) -> None:
-    var_span.reset(token)
+    span.__ctx__.reset(token)  # type: ignore
 
 
 def async_call(loop, func, *args, delay=None, **kwargs):

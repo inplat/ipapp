@@ -10,7 +10,7 @@ from ipapp import Application
 from ipapp.http import (ServerHandler, Server, ServerHttpSpan, Client)
 from ipapp.logger import (PrometheusConfig, ZipkinConfig, SentryConfig,
                           RequestsConfig)
-from ipapp.logger import ctx_span_get
+from ipapp.ctx import span
 
 SPAN_TAG_WIDGET_ID = 'api.widget_id'
 
@@ -38,7 +38,6 @@ class HttpHandler(ServerHandler):
 
     async def error_handler(self, request: web.Request,
                             err: Exception) -> web.Response:
-        span = ctx_span_get()
         span.error(err)
         return web.Response(text='%r' % err, status=500)
 
@@ -48,7 +47,6 @@ class HttpHandler(ServerHandler):
         return web.Response(text=html)
 
     async def home_handler(self, request: web.Request) -> web.Response:
-        span = ctx_span_get()
         span.tag(SPAN_TAG_WIDGET_ID, request.query.get('widget_id'))
         span.name = 'call something'
 
