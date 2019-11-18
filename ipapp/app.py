@@ -97,7 +97,7 @@ class Application(object):
     def log_debug(self, debug, *args, **kwargs):
         logging.debug(debug, *args, **kwargs)
 
-    async def _shutdown_tracer(self):
+    async def _stop_logger(self):
         self.log_info("Shutting down tracer")
         await self.logger.stop()
 
@@ -127,7 +127,7 @@ class Application(object):
 
             return 0
         finally:
-            self.loop.run_until_complete(self.shutdown())
+            self.loop.run_until_complete(self.stop())
             if hasattr(self.loop, 'shutdown_asyncgens'):
                 self.loop.run_until_complete(self.loop.shutdown_asyncgens())
             self.loop.close()
@@ -151,11 +151,11 @@ class Application(object):
 
         self.log_info('Running...')
 
-    async def shutdown(self):
+    async def stop(self):
         self.log_info('Shutting down...')
         for comp_name in self._components:
             await self._stop_comp(comp_name)
-        await self._shutdown_tracer()
+        await self._stop_logger()
         await self.loop.shutdown_asyncgens()
 
     async def _stop_comp(self, name):

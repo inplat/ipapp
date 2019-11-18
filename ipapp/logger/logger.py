@@ -37,15 +37,16 @@ class Logger:
         await asyncio.gather(*self._configs, loop=self.app.loop)
 
     async def stop(self):
-        if not self._started:
+        if not self._started:  # pragma: no cover
             raise UserWarning
 
         await asyncio.gather(*[adapter.stop() for adapter in self.adapters],
                              loop=self.app.loop)
 
     @staticmethod
-    def span_new(cls: Type[Span] = Span):
-        return cls.new()
+    def span_new(name: Optional[str] = None, kind: Optional[str] = None,
+                 cls: Type[Span] = Span) -> 'Span':
+        return cls.new(name=name, kind=kind)
 
     @staticmethod
     def span_from_headers(headers: Mapping, cls: Type[Span] = Span):
@@ -54,7 +55,7 @@ class Logger:
     def add(self, cfg: AbcConfig, *,
             adapter_cls: Optional[Type[AbcAdapter]] = None
             ) -> AbcAdapter:
-        if self._started:
+        if self._started:  # pragma: no cover
             raise UserWarning
         if isinstance(cfg, PrometheusConfig):
             adapter = PrometheusAdapter()
@@ -77,5 +78,5 @@ class Logger:
         for adapter in self.adapters:
             try:
                 adapter.handle(span)
-            except Exception as err:
+            except Exception as err:  # pragma: no cover
                 self.app.log_err(err)

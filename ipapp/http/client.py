@@ -75,7 +75,7 @@ class Client(Component, ClientServerAnnotator):
                       request_kwargs: Optional[dict] = None
                       ) -> ClientResponse:
         span = ctx_span_get()
-        if span is None:
+        if span is None:  # pragma: no cover
             raise UserWarning
 
         if not isinstance(url, URL):

@@ -39,7 +39,8 @@ class ZipkinAdapter(AbcAdapter):
 
     def handle(self, span: Span):
         if self.tracer is None:
-            raise AdapterConfigurationError('ZipkinAdapter is not configured')
+            raise AdapterConfigurationError(
+                '%s is not configured' % self.__class__.__name__)
 
         tracer_span = self.tracer.to_span(
             azs.TraceContext(
@@ -52,8 +53,6 @@ class ZipkinAdapter(AbcAdapter):
 
             ))
 
-        if span.start_stamp is None:
-            return
         tracer_span.start(ts=span.start_stamp)
 
         for _tag_name, _tag_val in span.get_tags4adapter(self.name).items():
@@ -73,6 +72,7 @@ class ZipkinAdapter(AbcAdapter):
 
     async def stop(self):
         if self.tracer is None:
-            raise AdapterConfigurationError('ZipkinAdapter is not configured')
+            raise AdapterConfigurationError(
+                '%s is not configured' % self.__class__.__name__)
 
         await self.tracer.close()

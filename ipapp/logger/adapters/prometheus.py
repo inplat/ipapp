@@ -4,7 +4,7 @@ from typing import Dict
 from prometheus_client import Histogram, start_http_server
 
 import ipapp.logger  # noqa
-from ._abc import AbcConfig, AbcAdapter
+from ._abc import AbcConfig, AbcAdapter, AdapterConfigurationError
 from ..span import Span
 from ...misc import dict_merge
 
@@ -79,6 +79,10 @@ class PrometheusAdapter(AbcAdapter):
         start_http_server(cfg.port, cfg.addr)
 
     def handle(self, span: Span):
+        if self.cfg is None:
+            raise AdapterConfigurationError(
+                '%s is not configured' % self.__class__.__name__)
+
         name = span.get_name4adapter(self.name)
         tags = span.get_tags4adapter(self.name)
 
@@ -96,4 +100,6 @@ class PrometheusAdapter(AbcAdapter):
             hist.observe(span.duration)
 
     async def stop(self):
-        pass
+        if self.cfg is None:
+            raise AdapterConfigurationError(
+                '%s is not configured' % self.__class__.__name__)

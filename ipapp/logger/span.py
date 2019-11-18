@@ -56,7 +56,7 @@ class Span:
         self._exception: Optional[Exception] = None
         self._ctx_token: Optional[Token] = None
 
-    def skip(self):
+    def skip(self) -> 'Span':
         """
         Не сохранять нигде этот span
         :return:
@@ -64,13 +64,14 @@ class Span:
         self._skip = True
         for child in self._children:
             child.skip()
+        return self
 
     def to_headers(self) -> Dict[str, str]:
         headers = {
             azh.TRACE_ID_HEADER: self.trace_id,
             azh.SPAN_ID_HEADER: self.id,
             azh.FLAGS_HEADER: '0',
-            azh.SAMPLED_ID_HEADER: '1',
+            azh.SAMPLED_ID_HEADER: '1' if not self._skip else '0',
         }
         if self.parent_id is not None:
             headers[azh.PARENT_ID_HEADER] = self.parent_id
@@ -83,21 +84,24 @@ class Span:
         else:
             headers = {}
 
-        if not all(h in headers
-                   for h in (azh.TRACE_ID_HEADER.lower(),
-                             azh.SPAN_ID_HEADER.lower())):
-            return cls.new()
+        sampled = azh.parse_sampled_header(headers)
 
-        trace_id = headers.get(azh.TRACE_ID_HEADER.lower())
-        if not trace_id:
-            trace_id = azu.generate_random_128bit_string()
-        app = ctx_app_get()
-        span = cls(
-            logger=app.logger,
-            trace_id=trace_id,
-            id=azu.generate_random_64bit_string(),
-            parent_id=headers.get(azh.SPAN_ID_HEADER.lower())
-        )
+        if azh.TRACE_ID_HEADER.lower() not in headers:
+            span = cls.new()
+        else:
+            trace_id = headers.get(azh.TRACE_ID_HEADER.lower())
+            if not trace_id:
+                trace_id = azu.generate_random_128bit_string()
+            app = ctx_app_get()
+            span = cls(
+                logger=app.logger,
+                trace_id=trace_id,
+                id=azu.generate_random_64bit_string(),
+                parent_id=headers.get(azh.SPAN_ID_HEADER.lower())
+            )
+
+        if sampled is not None and not sampled:
+            span.skip()
 
         return span
 
@@ -123,7 +127,6 @@ class Span:
             logger=self.logger,
             trace_id=self.trace_id,
             id=azu.generate_random_64bit_string(),
-            parent_id=self.id,
             parent=self
         )
         if self._skip:
@@ -184,7 +187,7 @@ class Span:
         if merge:
             return dict_merge(self._tags, tags)
         else:
-            return self._tags
+            return tags
 
     @property
     def annotations(self) -> Dict[str, List[Tuple[str, float]]]:
@@ -218,7 +221,7 @@ class Span:
         if merge:
             return dict_merge(self._annotations, anns)
         else:
-            return self._annotations
+            return anns
 
     def error(self, err: Exception) -> 'Span':
         self.tag(self.TAG_ERROR, 'true')
@@ -267,16 +270,20 @@ class Span:
             self.error(exception)
 
         if self.parent is None or self.parent._is_handled:
+            self._handle_children(self)
             if not self._skip:
                 self.logger.handle_span(self)
             self._is_handled = True
-            for child in self._children:
-                if child._finish_stamp is not None:
-                    if not child._skip:
-                        self.logger.handle_span(child)
-                    child._is_handled = True
 
         return self
+
+    def _handle_children(self, span: 'Span') -> None:
+        for child in span._children:
+            if child._finish_stamp is not None:
+                if not child._skip:
+                    self._handle_children(child)
+                    self.logger.handle_span(child)
+                child._is_handled = True
 
     def __enter__(self) -> 'Span':
         self.start()
@@ -289,12 +296,9 @@ class Span:
             ctx_span_reset(self._ctx_token)
 
     def __str__(self):
-        if self._start_stamp is not None and self._finish_stamp is not None:
-            duration = (' in %s ms' % (
-                (self._finish_stamp - self._start_stamp) / 1000.,))
-        else:
-            duration = ''
-        return 'IPAppSpan: %s%s' % (self._name, duration)
+        dur = self.duration * 1000
+        d = ' in %.02f ms' % dur if self.start_stamp is not None else ''
+        return '%s[%s]%s' % (self.__class__.__name__, self._name, d)
 
 
 class HttpSpan(Span):

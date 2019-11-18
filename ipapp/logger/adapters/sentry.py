@@ -15,6 +15,7 @@ class SentryConfig(AbcConfig):
 class SentryAdapter(AbcAdapter):
     name = 'prometheus'
     cfg: SentryConfig
+    logger: 'ipapp.logger.Logger'
 
     def __init__(self):
         self.client: Optional[sentry_sdk.Client] = None
@@ -22,6 +23,7 @@ class SentryAdapter(AbcAdapter):
     async def start(self, logger: 'ipapp.logger.Logger',
                     cfg: SentryConfig):
         self.cfg = cfg
+        self.logger = logger
 
         self.client = sentry_sdk.Client(dsn=self.cfg.dsn)
         sentry_sdk.Hub.current.bind_client(self.client)
@@ -31,4 +33,4 @@ class SentryAdapter(AbcAdapter):
             capture_exception(span.get_error())
 
     async def stop(self):
-        self.client.close()
+        await self.logger.app.loop.run_in_executor(None, self.client.close)

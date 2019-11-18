@@ -17,7 +17,7 @@ def wrap2span(*, name: Optional[str] = None, kind: Optional[str] = None,
             span = ctx_span_get()
             if span is None:
                 app = ctx_app_get()
-                if app is None:
+                if app is None:  # pragma: no cover
                     raise UserWarning
 
                 web_request = ctx_request_get()

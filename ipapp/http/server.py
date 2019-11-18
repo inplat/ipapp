@@ -205,7 +205,7 @@ class Server(Component, ClientServerAnnotator):
     def add_route(self, method: str, path: str,
                   handler: Callable[[web.Request], Awaitable[web.Response]]
                   ) -> 'AbstractRoute':
-        if self.web_app is None:
+        if self.web_app is None:  # pragma: no cover
             raise UserWarning('You must add routes in ServerHandler.prepare')
         return self.web_app.router.add_route(method, path, handler)
 
