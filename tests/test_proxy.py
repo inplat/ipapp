@@ -4,7 +4,7 @@ from math import floor, trunc, ceil
 
 from pytest import raises
 
-from ipapp.proxy import Proxy
+from ipapp.ctx import Proxy
 
 
 class Example(dict):
