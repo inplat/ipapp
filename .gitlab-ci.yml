@@ -1,0 +1,64 @@
+stages:
+  - venv
+  - lint
+  - test
+
+venv:
+  stage: venv
+  script:
+    - env
+    - make venv
+  artifacts:
+    paths:
+    - .venv/
+  tags:
+    - build
+
+flake8:
+  stage: lint
+  script:
+    - make flake8
+  dependencies:
+    - venv
+  tags:
+    - build
+
+bandit:
+  stage: lint
+  script:
+    - make bandit
+  dependencies:
+    - venv
+  tags:
+    - build
+
+mypy:
+  stage: lint
+  script:
+    - make mypy
+  dependencies:
+    - venv
+  tags:
+    - build
+
+safety:
+  stage: lint
+  script:
+    - make safety
+  dependencies:
+    - venv
+  tags:
+    - build
+
+build:
+  stage: test
+  artifacts:
+    paths:
+      - coverage
+  script:
+    - pytest -s -v tests/
+  coverage: /\d+\%\s*$/
+  dependencies:
+    - venv
+  tags:
+    - build
