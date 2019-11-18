@@ -40,3 +40,15 @@ def wrap2span(*, name: Optional[str] = None, kind: Optional[str] = None,
         return wrapper
 
     return create_wrapper
+
+
+__all__ = [
+    "Span",
+    "HttpSpan",
+    "wrap2span",
+    "ZipkinConfig",
+    "PrometheusConfig",
+    "SentryConfig",
+    "RequestsConfig",
+    "Logger",
+]

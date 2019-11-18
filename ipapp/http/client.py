@@ -1,4 +1,3 @@
-import json
 import logging
 import re
 import time
@@ -9,13 +8,13 @@ from aiohttp import ClientResponse
 from aiohttp import ClientSession
 from aiohttp import ClientTimeout
 from aiohttp.typedefs import StrOrURL
-from multidict import CIMultiDictProxy
 from yarl import URL
 
 from ipapp.app import Component
 from ipapp.logger import (Span, HttpSpan, wrap2span)
-from ..misc import ctx_span_get
 from ._base import ClientServerAnnotator
+from ..misc import ctx_span_get
+
 __version__ = '0.0.1b6'
 
 SPAN_TYPE_HTTP = 'http'
@@ -116,8 +115,6 @@ class Client(Component, ClientServerAnnotator):
             span.tag(HttpSpan.TAG_HTTP_STATUS_CODE, str(resp.status))
 
             return resp
-
-
 
     async def health(self):
         pass

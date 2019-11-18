@@ -209,30 +209,6 @@ class Server(Component, ClientServerAnnotator):
             raise UserWarning('You must add routes in ServerHandler.prepare')
         return self.web_app.router.add_route(method, path, handler)
 
-    # async def _span_annotate_req(self, span: ServerHttpSpan,
-    #                              request: web.Request) -> None:
-    #     try:
-    #         if span.ann_req_hdrs:
-    #             hdrs = b'\r\n'.join([b'%s: %s' % (name, val)
-    #                                  for name, val in request.raw_headers])
-    #             span.annotate(HttpSpan.ANN_REQUEST_HDRS, str(hdrs.decode()))
-    #         if span.ann_req_body:
-    #             span.annotate(HttpSpan.ANN_REQUEST_BODY, await request.text())
-    #     except Exception as err:
-    #         self.app.log_err(err)
-    #
-    # async def _span_annotate_resp(self, span: ServerHttpSpan,
-    #                               response: web.Response) -> None:
-    #     try:
-    #         if span.ann_resp_hdrs:
-    #             hdrs = '\r\n'.join('%s: %s' % (name, val)
-    #                                for name, val in response.headers.items())
-    #             span.annotate(HttpSpan.ANN_RESPONSE_HDRS, str(hdrs))
-    #         if span.ann_resp_body:
-    #             span.annotate(HttpSpan.ANN_RESPONSE_BODY, response.text)
-    #     except Exception as err:
-    #         self.app.log_err(err)
-
     async def prepare(self) -> None:
         await self.handler.prepare()
         await self.runner.setup()
