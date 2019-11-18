@@ -6,3 +6,5 @@ asyncpg
 aiozipkin
 prometheus-client
 sentry-sdk
+
+deepmerge

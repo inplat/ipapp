@@ -6,6 +6,7 @@ flake8
 mypy
 bandit
 aiohttp
+pylint
 pytest-aiohttp
 pytest
 pytest-asyncio
@@ -16,5 +17,5 @@ sphinx-rtd-theme
 pip
 wheel
 tox
-async-generator=
+async-generator
 async_timeout
