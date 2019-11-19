@@ -65,7 +65,7 @@ build:
     paths:
       - coverage
   script:
-    - pytest -s -v tests/
+    - make test
   coverage: /\d+\%\s*$/
   dependencies:
     - venv
