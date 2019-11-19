@@ -133,8 +133,10 @@ def get_func_params(method, called_params):
             raise TypeError('Argument "%s" not given' % kwarg)
     if insp.varkw is None:
         if len(_called_params) > 0:
-            raise TypeError('Got unexpected parameter(s): %s'
-                            '' % (", ".join(_called_params)))
+            raise TypeError(
+                'Got unexpected parameter(s): %s'
+                '' % (", ".join(_called_params))
+            )
     else:
         params.update(_called_params)
     return params
@@ -182,8 +184,7 @@ def parse_dsn(dsn, default_port=5432, protocol='http://'):
     return [
         parsed.hostname or 'localhost',
         parsed.port or default_port,
-        unquote(parsed.username)
-        if parsed.username is not None else getuser(),
+        unquote(parsed.username) if parsed.username is not None else getuser(),
         unquote(parsed.password) if parsed.password is not None else None,
         parsed.path.lstrip('/'),
     ]
@@ -194,13 +195,7 @@ def rndstr(size=6, chars=string.ascii_uppercase + string.digits):
     return ''.join(cryptogen.choice(chars) for _ in range(size))
 
 
-dict_merger = Merger(
-    [
-        (dict, "merge")
-    ],
-    ["override"],
-    ["override"]
-)
+dict_merger = Merger([(dict, "merge")], ["override"], ["override"])
 
 
 def dict_merge(*args: dict) -> dict:

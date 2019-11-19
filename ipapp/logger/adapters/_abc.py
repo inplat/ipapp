@@ -37,5 +37,4 @@ class AbcAdapter(ABC):
 __all__ = [
     "AbcConfig",
     "AbcAdapter",
-
 ]

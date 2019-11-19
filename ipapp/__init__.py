@@ -10,5 +10,12 @@ try:
 except ImportError:
     pass
 
-__all__ = ['app', 'error', 'Component', 'Application', 'Span', 'Config',
-           'http_server']
+__all__ = [
+    'app',
+    'error',
+    'Component',
+    'Application',
+    'Span',
+    'Config',
+    'http_server',
+]

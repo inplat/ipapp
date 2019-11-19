@@ -2,6 +2,7 @@
 
 idna
 
+black
 flake8
 mypy
 bandit

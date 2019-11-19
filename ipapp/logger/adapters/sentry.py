@@ -21,8 +21,7 @@ class SentryAdapter(AbcAdapter):
     def __init__(self):
         self.client: Optional[sentry_sdk.Client] = None
 
-    async def start(self, logger: 'ipapp.logger.Logger',
-                    cfg: SentryConfig):
+    async def start(self, logger: 'ipapp.logger.Logger', cfg: SentryConfig):
         self.cfg = cfg
         self.logger = logger
 

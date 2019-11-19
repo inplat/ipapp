@@ -10,7 +10,6 @@ from ipapp.logger.adapters import SentryAdapter, SentryConfig
 
 
 class SentryServer:
-
     def __init__(self):
         self.app = web.Application()
         self.app.middlewares.append(self.handler)

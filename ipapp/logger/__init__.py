@@ -2,14 +2,22 @@ from functools import wraps
 from typing import Callable, Optional, Type
 
 from ..misc import ctx_app_get, ctx_request_get, ctx_span_get
-from .adapters import (PrometheusConfig, RequestsConfig, SentryConfig,
-                       ZipkinConfig)
+from .adapters import (
+    PrometheusConfig,
+    RequestsConfig,
+    SentryConfig,
+    ZipkinConfig,
+)
 from .logger import Logger
 from .span import HttpSpan, Span
 
 
-def wrap2span(*, name: Optional[str] = None, kind: Optional[str] = None,
-              cls: Type[Span] = Span) -> Callable:
+def wrap2span(
+    *,
+    name: Optional[str] = None,
+    kind: Optional[str] = None,
+    cls: Type[Span] = Span,
+) -> Callable:
     def create_wrapper(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -25,7 +33,8 @@ def wrap2span(*, name: Optional[str] = None, kind: Optional[str] = None,
                     new_span.kind = kind
                 else:
                     new_span = app.logger.span_from_headers(
-                        web_request.headers)
+                        web_request.headers
+                    )
                     new_span.kind = Span.KIND_SERVER
             else:
                 new_span = span.new_child(name, kind, cls=cls)

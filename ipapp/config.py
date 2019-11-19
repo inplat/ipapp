@@ -12,7 +12,6 @@ class ConfigError(Exception):
 
 
 class Val:
-
     def __init__(self, name: str, value: Any) -> None:
         self.name = name
         self.value = value
@@ -29,10 +28,13 @@ class Val:
 
 
 class StrVal(Val):
-
-    def __init__(self, name: str, value: Any,
-                 max: Optional[int] = None,
-                 min: Optional[int] = None) -> None:
+    def __init__(
+        self,
+        name: str,
+        value: Any,
+        max: Optional[int] = None,
+        min: Optional[int] = None,
+    ) -> None:
         super().__init__(name, value)
         self.min = min
         self.max = max
@@ -41,12 +43,16 @@ class StrVal(Val):
         if not isinstance(self.value, str):
             raise ConfigError("%s must be a string" % self.name)
         if self.min is not None and len(self.value) < self.min:
-            raise ConfigError("length of %s must be greater than or equal to "
-                              "%s"
-                              "" % (self.name, self.min))
+            raise ConfigError(
+                "length of %s must be greater than or equal to "
+                "%s"
+                "" % (self.name, self.min)
+            )
         if self.max is not None and len(self.value) > self.max:
-            raise ConfigError("length of %s must be less than or equal to %s"
-                              "" % (self.name, self.max))
+            raise ConfigError(
+                "length of %s must be less than or equal to %s"
+                "" % (self.name, self.max)
+            )
 
         return self.value
 
@@ -64,7 +70,6 @@ class StrVal(Val):
 
 
 class BoolVal(Val):
-
     def __call__(self) -> bool:
         if isinstance(self.value, bool):
             return self.value
@@ -83,10 +88,13 @@ class BoolVal(Val):
 
 
 class IntVal(Val):
-
-    def __init__(self, name: str, value: Any,
-                 max: Optional[int] = None,
-                 min: Optional[int] = None) -> None:
+    def __init__(
+        self,
+        name: str,
+        value: Any,
+        max: Optional[int] = None,
+        min: Optional[int] = None,
+    ) -> None:
         super().__init__(name, value)
         self.min = min
         self.max = max
@@ -97,11 +105,15 @@ class IntVal(Val):
         except Exception:
             raise ConfigError("%s must be an integer" % self.name)
         if self.min is not None and val < self.min:
-            raise ConfigError("%s must be greater than or equal to %s"
-                              "" % (self.name, self.min))
+            raise ConfigError(
+                "%s must be greater than or equal to %s"
+                "" % (self.name, self.min)
+            )
         if self.max is not None and val > self.max:
-            raise ConfigError("%s must be less than or equal to %s"
-                              "" % (self.name, self.max))
+            raise ConfigError(
+                "%s must be less than or equal to %s"
+                "" % (self.name, self.max)
+            )
         return val
 
     @staticmethod
@@ -118,10 +130,13 @@ class IntVal(Val):
 
 
 class FloatVal(Val):
-
-    def __init__(self, name: str, value: Any,
-                 max: Optional[float] = None,
-                 min: Optional[float] = None) -> None:
+    def __init__(
+        self,
+        name: str,
+        value: Any,
+        max: Optional[float] = None,
+        min: Optional[float] = None,
+    ) -> None:
         super().__init__(name, value)
         self.min = min
         self.max = max
@@ -132,11 +147,15 @@ class FloatVal(Val):
         except Exception:
             raise ConfigError("%s must be a float" % self.name)
         if self.min is not None and val < self.min:
-            raise ConfigError("%s must be greater than or equal to %s"
-                              "" % (self.name, self.min))
+            raise ConfigError(
+                "%s must be greater than or equal to %s"
+                "" % (self.name, self.min)
+            )
         if self.max is not None and val > self.max:
-            raise ConfigError("%s must be less than or equal to %s"
-                              "" % (self.name, self.max))
+            raise ConfigError(
+                "%s must be less than or equal to %s"
+                "" % (self.name, self.max)
+            )
         return val
 
     @staticmethod
@@ -153,10 +172,9 @@ class FloatVal(Val):
 
 
 class FileVal(Val):
-
-    def __init__(self, name: str, value: Any,
-                 mode: str = 'r',
-                 encoding: str = 'UTF-8') -> None:
+    def __init__(
+        self, name: str, value: Any, mode: str = 'r', encoding: str = 'UTF-8'
+    ) -> None:
         super().__init__(name, value)
         self.mode = mode
         self.encoding = encoding
@@ -166,8 +184,10 @@ class FileVal(Val):
             with open(self.value, mode, encoding=encoding):
                 pass
         except Exception as e:
-            raise ConfigError("Could not access to file %s with error: %s"
-                              "" % (self.value, e))
+            raise ConfigError(
+                "Could not access to file %s with error: %s"
+                "" % (self.value, e)
+            )
         return self.value
 
     @staticmethod
@@ -184,11 +204,9 @@ class FileVal(Val):
 
 
 class DirVal(Val):
-
     def __call__(self) -> str:
         if not os.path.exists(self.value):
-            raise ConfigError("Directory %s does not exist"
-                              "" % self.value)
+            raise ConfigError("Directory %s does not exist" "" % self.value)
         return self.value
 
     @staticmethod
@@ -199,8 +217,7 @@ class DirVal(Val):
 class Config:
     _vars: Dict[str, Union[Dict, OrderedDict]] = {}
 
-    def __init__(self,
-                 env: Optional[Env] = None) -> None:
+    def __init__(self, env: Optional[Env] = None) -> None:
         self._env = env or os.environ
         self._conf = copy.deepcopy(self._vars)
         self._description: Dict[str, Dict] = {}
@@ -265,8 +282,11 @@ class Config:
             descr = ''
             if 'descr' in options:
                 descr = ': %s' % options.pop('descr')
-            text = '* %s%s\n  type: %s' % (env_name, descr,
-                                           type_cls.type_name())
+            text = '* %s%s\n  type: %s' % (
+                env_name,
+                descr,
+                type_cls.type_name(),
+            )
             if 'required' in options:
                 required = options.pop('required')
                 if required:

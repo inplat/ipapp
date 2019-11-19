@@ -3,10 +3,18 @@ from typing import Coroutine, List, Mapping, Optional, Type
 
 import ipapp.app
 
-from .adapters import (AbcAdapter, AbcConfig, PrometheusAdapter,
-                       PrometheusConfig, RequestsAdapter, RequestsConfig,
-                       SentryAdapter, SentryConfig, ZipkinAdapter,
-                       ZipkinConfig)
+from .adapters import (
+    AbcAdapter,
+    AbcConfig,
+    PrometheusAdapter,
+    PrometheusConfig,
+    RequestsAdapter,
+    RequestsConfig,
+    SentryAdapter,
+    SentryConfig,
+    ZipkinAdapter,
+    ZipkinConfig,
+)
 from .span import Span
 
 
@@ -32,21 +40,25 @@ class Logger:
         if not self._started:  # pragma: no cover
             raise UserWarning
 
-        await asyncio.gather(*[adapter.stop() for adapter in self.adapters],
-                             loop=self.app.loop)
+        await asyncio.gather(
+            *[adapter.stop() for adapter in self.adapters], loop=self.app.loop
+        )
 
     @staticmethod
-    def span_new(name: Optional[str] = None, kind: Optional[str] = None,
-                 cls: Type[Span] = Span) -> 'Span':
+    def span_new(
+        name: Optional[str] = None,
+        kind: Optional[str] = None,
+        cls: Type[Span] = Span,
+    ) -> 'Span':
         return cls.new(name=name, kind=kind)
 
     @staticmethod
     def span_from_headers(headers: Mapping, cls: Type[Span] = Span):
         return cls.from_headers(headers)
 
-    def add(self, cfg: AbcConfig, *,
-            adapter_cls: Optional[Type[AbcAdapter]] = None
-            ) -> AbcAdapter:
+    def add(
+        self, cfg: AbcConfig, *, adapter_cls: Optional[Type[AbcAdapter]] = None
+    ) -> AbcAdapter:
         if self._started:  # pragma: no cover
             raise UserWarning
         if isinstance(cfg, PrometheusConfig):

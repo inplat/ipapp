@@ -8,7 +8,6 @@ from ipapp.ctx import Proxy
 
 
 class Example(dict):
-
     def __missing__(self, key):
         return {}
 

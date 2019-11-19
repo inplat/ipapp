@@ -30,7 +30,7 @@ class Request(BaseModel):
 class RequestsConfig(AbcConfig):
     dsn: str
     db_table_name: str = 'log.request'
-    send_interval: float = 5.  # 5 seconds
+    send_interval: float = 5.0  # 5 seconds
     send_max_count: int = 10  # 10 requests
     max_hdrs_length: int = 64 * 1024  # 64kB
     max_body_length: int = 64 * 1024  # 64kB
@@ -41,9 +41,20 @@ class RequestsAdapter(AbcAdapter):
     name = 'requests'
     cfg: RequestsConfig
 
-    _QUERY_COLS = ('stamp_begin', 'stamp_end', 'is_out', 'url', 'method',
-                   'req_hdrs', 'req_body', 'resp_hdrs', 'resp_body',
-                   'status_code', 'error', 'tags')
+    _QUERY_COLS = (
+        'stamp_begin',
+        'stamp_end',
+        'is_out',
+        'url',
+        'method',
+        'req_hdrs',
+        'req_body',
+        'resp_hdrs',
+        'resp_body',
+        'status_code',
+        'error',
+        'tags',
+    )
 
     def __init__(self):
         self.logger: Optional['ipapp.logger.Logger'] = None
@@ -56,12 +67,10 @@ class RequestsAdapter(AbcAdapter):
         self._anns_mapping: List[Tuple[str, str, int]] = []
         self._stopping: bool = False
         self._query_template = (
-            'INSERT INTO {table_name}'
-            '(%s)'
-            'VALUES{placeholders}') % ','.join(self._QUERY_COLS)
+            'INSERT INTO {table_name}' '(%s)' 'VALUES{placeholders}'
+        ) % ','.join(self._QUERY_COLS)
 
-    async def start(self, logger: 'ipapp.logger.Logger',
-                    cfg: RequestsConfig):
+    async def start(self, logger: 'ipapp.logger.Logger', cfg: RequestsConfig):
         self.cfg = cfg
         self.logger = logger
         self._tags_mapping = [
@@ -71,14 +80,18 @@ class RequestsAdapter(AbcAdapter):
             ('error', HttpSpan.TAG_ERROR_MESSAGE),
         ]
         self._anns_mapping = [
-            ('req_hdrs', HttpSpan.ANN_REQUEST_HDRS,
-             self.cfg.max_hdrs_length),
-            ('req_body', HttpSpan.ANN_REQUEST_BODY,
-             self.cfg.max_body_length),
-            ('resp_hdrs', HttpSpan.ANN_RESPONSE_HDRS,
-             self.cfg.max_hdrs_length),
-            ('resp_body', HttpSpan.ANN_RESPONSE_BODY,
-             self.cfg.max_body_length),
+            ('req_hdrs', HttpSpan.ANN_REQUEST_HDRS, self.cfg.max_hdrs_length),
+            ('req_body', HttpSpan.ANN_REQUEST_BODY, self.cfg.max_body_length),
+            (
+                'resp_hdrs',
+                HttpSpan.ANN_RESPONSE_HDRS,
+                self.cfg.max_hdrs_length,
+            ),
+            (
+                'resp_body',
+                HttpSpan.ANN_RESPONSE_BODY,
+                self.cfg.max_body_length,
+            ),
         ]
 
         self._queue = deque(maxlen=cfg.max_queue_size)
@@ -122,9 +135,11 @@ class RequestsAdapter(AbcAdapter):
         HttpSpan.TAG_HTTP_PATH in tags and tags.pop(HttpSpan.TAG_HTTP_PATH)
         HttpSpan.TAG_HTTP_ROUTE in tags and tags.pop(HttpSpan.TAG_HTTP_ROUTE)
         HttpSpan.TAG_HTTP_REQUEST_SIZE in tags and tags.pop(
-            HttpSpan.TAG_HTTP_REQUEST_SIZE)
+            HttpSpan.TAG_HTTP_REQUEST_SIZE
+        )
         HttpSpan.TAG_HTTP_RESPONSE_SIZE in tags and tags.pop(
-            HttpSpan.TAG_HTTP_RESPONSE_SIZE)
+            HttpSpan.TAG_HTTP_RESPONSE_SIZE
+        )
 
         if len(tags) > 0:
             kwargs['tags'] = json.dumps(tags)
@@ -148,7 +163,8 @@ class RequestsAdapter(AbcAdapter):
                 self.logger.app.log_err(err)
             try:
                 self._sleep_fut = asyncio.ensure_future(
-                    asyncio.sleep(self.cfg.send_interval))
+                    asyncio.sleep(self.cfg.send_interval)
+                )
                 await asyncio.wait_for(self._sleep_fut, None)
             except asyncio.CancelledError:
                 pass
@@ -162,8 +178,8 @@ class RequestsAdapter(AbcAdapter):
             cnt = min(self.cfg.max_queue_size, len(self._queue))
             phs, params = self._build_query(cnt)
             query = self._query_template.format(
-                table_name=self.cfg.db_table_name,
-                placeholders=','.join(phs))
+                table_name=self.cfg.db_table_name, placeholders=','.join(phs)
+            )
             await self.db.execute(query, *params)
 
     def _build_query(self, count) -> Tuple[List[str], List[Any]]:

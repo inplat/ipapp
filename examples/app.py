@@ -9,21 +9,24 @@ from yarl import URL
 from ipapp import Application
 from ipapp.ctx import span
 from ipapp.http import Client, Server, ServerHandler, ServerHttpSpan
-from ipapp.logger import (PrometheusConfig, RequestsConfig, SentryConfig,
-                          ZipkinConfig)
+from ipapp.logger import (
+    PrometheusConfig,
+    RequestsConfig,
+    SentryConfig,
+    ZipkinConfig,
+)
 
 SPAN_TAG_WIDGET_ID = 'api.widget_id'
 
 
 class InplatSiteClient(Client):
-
     def __init__(self, base_url: str):
         self.base_url = URL(base_url)
 
     async def get_home_page(self):
-        return await self.request('GET',
-                                  self.base_url.with_query(
-                                      {'passwd': 'some secret'}))
+        return await self.request(
+            'GET', self.base_url.with_query({'passwd': 'some secret'})
+        )
 
 
 class HttpHandler(ServerHandler):
@@ -36,8 +39,9 @@ class HttpHandler(ServerHandler):
         self.server.add_route('GET', '/view/{id}', self.view_handler)
         self.server.add_route('GET', '/', self.home_handler)
 
-    async def error_handler(self, request: web.Request,
-                            err: Exception) -> web.Response:
+    async def error_handler(
+        self, request: web.Request, err: Exception
+    ) -> web.Response:
         span.error(err)
         return web.Response(text='%r' % err, status=500)
 
@@ -63,43 +67,40 @@ class HttpHandler(ServerHandler):
 
 
 class App(Application):
-
     def __init__(self):
         super().__init__()
 
         self._version = '0.0.0.1'
         self._build_stamp = 1573734614
 
-        self.add(
-            'srv',
-            Server(HttpHandler(), host='127.0.0.1', port=8888, )
-        )
+        self.add('srv', Server(HttpHandler(), host='127.0.0.1', port=8888,))
 
-        self.add(
-            'inplat',
-            InplatSiteClient(base_url='https://inplat.ru/123')
-        )
+        self.add('inplat', InplatSiteClient(base_url='https://inplat.ru/123'))
 
         self.logger.add(
             PrometheusConfig(
                 hist_labels={
-                    ServerHttpSpan.P8S_NAME: {
-                        'widget_id': SPAN_TAG_WIDGET_ID}})
+                    ServerHttpSpan.P8S_NAME: {'widget_id': SPAN_TAG_WIDGET_ID}
+                }
+            )
         )
 
         self.logger.add(
-            ZipkinConfig(name='testapp',
-                         addr='http://127.0.0.1:9002/api/v2/spans')
+            ZipkinConfig(
+                name='testapp', addr='http://127.0.0.1:9002/api/v2/spans'
+            )
         )
 
         self.logger.add(
             SentryConfig(
-                dsn="http://0e1fcbe44a5541c2bd20ed5ead2ca033@localhost:9000/2")
+                dsn="http://0e1fcbe44a5541c2bd20ed5ead2ca033@localhost:9000/2"
+            )
         )
 
         self.logger.add(
             RequestsConfig(
-                dsn='postgres://ipapp:secretpwd@localhost:9001/ipapp')
+                dsn='postgres://ipapp:secretpwd@localhost:9001/ipapp'
+            )
         )
 
     @property

@@ -45,7 +45,7 @@ class Application(object):
         self.logger: Logger = Logger(self)
         self.on_start: Optional[Callable] = on_start
         self._version = ''
-        self._build_stamp: float = 0.
+        self._build_stamp: float = 0.0
         self._start_stamp: Optional[float] = None
 
     @property
@@ -60,8 +60,7 @@ class Application(object):
     def start_stamp(self) -> float:
         return self._start_stamp
 
-    def add(self, name: str, comp: Component,
-            stop_after: list = None):
+    def add(self, name: str, comp: Component, stop_after: list = None):
         if not isinstance(comp, Component):
             raise UserWarning()
         if name in self._components:
@@ -112,10 +111,12 @@ class Application(object):
                 return 1
 
             try:
-                self.loop.add_signal_handler(signal.SIGINT,
-                                             _raise_graceful_exit)
-                self.loop.add_signal_handler(signal.SIGTERM,
-                                             _raise_graceful_exit)
+                self.loop.add_signal_handler(
+                    signal.SIGINT, _raise_graceful_exit
+                )
+                self.loop.add_signal_handler(
+                    signal.SIGTERM, _raise_graceful_exit
+                )
             except NotImplementedError:  # pragma: no cover
                 # add_signal_handler is not implemented on Windows
                 pass
@@ -139,15 +140,17 @@ class Application(object):
 
         self.log_info('Prepare for start')
 
-        await asyncio.gather(*[comp.prepare()
-                               for comp in self._components.values()],
-                             loop=self.loop)
+        await asyncio.gather(
+            *[comp.prepare() for comp in self._components.values()],
+            loop=self.loop,
+        )
 
         self.log_info('Starting...')
         self._start_stamp = time.time()
-        await asyncio.gather(*[comp.start()
-                               for comp in self._components.values()],
-                             loop=self.loop)
+        await asyncio.gather(
+            *[comp.start() for comp in self._components.values()],
+            loop=self.loop,
+        )
 
         self.log_info('Running...')
 

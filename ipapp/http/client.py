@@ -21,8 +21,9 @@ SPAN_KIND_HTTP_IN = 'in'
 SPAN_KIND_HTTP_OUT = 'out'
 
 access_logger = logging.getLogger('aiohttp.access')
-RE_SECRET_WORDS = re.compile("(pas+wo?r?d|pass(phrase)?|pwd|token|secrete?)",
-                             re.IGNORECASE)
+RE_SECRET_WORDS = re.compile(
+    "(pas+wo?r?d|pass(phrase)?|pwd|token|secrete?)", re.IGNORECASE
+)
 
 
 class ClientHttpSpan(HttpSpan):
@@ -33,8 +34,9 @@ class ClientHttpSpan(HttpSpan):
     # ann_resp_hdrs: bool = True
     # ann_resp_body: bool = True
 
-    def finish(self, ts: Optional[float] = None,
-               exception: Optional[Exception] = None) -> 'Span':
+    def finish(
+        self, ts: Optional[float] = None, exception: Optional[Exception] = None
+    ) -> 'Span':
 
         method = self._tags.get(self.TAG_HTTP_METHOD)
         host = self._tags.get(self.TAG_HTTP_HOST)
@@ -62,16 +64,18 @@ class Client(Component, ClientServerAnnotator):
         pass
 
     @wrap2span(kind=HttpSpan.KIND_SERVER, cls=ClientHttpSpan)
-    async def request(self,
-                      method: str,
-                      url: StrOrURL, *,
-                      body: Optional[bytes] = None,
-                      headers: Dict[str, str] = None,
-                      timeout: Optional[ClientTimeout] = None,
-                      ssl: Optional[SSLContext] = None,
-                      session_kwargs: Optional[dict] = None,
-                      request_kwargs: Optional[dict] = None
-                      ) -> ClientResponse:
+    async def request(
+        self,
+        method: str,
+        url: StrOrURL,
+        *,
+        body: Optional[bytes] = None,
+        headers: Dict[str, str] = None,
+        timeout: Optional[ClientTimeout] = None,
+        ssl: Optional[SSLContext] = None,
+        session_kwargs: Optional[dict] = None,
+        request_kwargs: Optional[dict] = None,
+    ) -> ClientResponse:
         span = ctx_span_get()
         if span is None:  # pragma: no cover
             raise UserWarning
@@ -91,9 +95,9 @@ class Client(Component, ClientServerAnnotator):
         if timeout is None:
             timeout = ClientTimeout()
 
-        async with ClientSession(loop=self.app.loop,
-                                 timeout=timeout,
-                                 **(session_kwargs or {})) as session:
+        async with ClientSession(
+            loop=self.app.loop, timeout=timeout, **(session_kwargs or {})
+        ) as session:
             ts1 = time.time()
             resp = await session.request(
                 method=method,
@@ -101,7 +105,7 @@ class Client(Component, ClientServerAnnotator):
                 data=body,
                 headers=headers,
                 ssl=ssl,
-                **(request_kwargs or {})
+                **(request_kwargs or {}),
             )
             ts2 = time.time()
             self._span_annotate_req_hdrs(span, resp.request_info.headers, ts1)

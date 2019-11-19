@@ -59,6 +59,15 @@ isort:
   tags:
     - build
 
+black:
+  stage: lint
+  script:
+    - make black
+  dependencies:
+    - venv
+  tags:
+    - build
+
 build:
   stage: test
   artifacts:

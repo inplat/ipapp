@@ -27,21 +27,22 @@ class ZipkinAdapter(AbcAdapter):
     def __init__(self):
         self.tracer: Optional[az.Tracer] = None
 
-    async def start(self, logger: 'ipapp.logger.Logger',
-                    cfg: ZipkinConfig):
+    async def start(self, logger: 'ipapp.logger.Logger', cfg: ZipkinConfig):
         self.cfg = cfg
         self.logger = logger
 
         endpoint = az.create_endpoint(cfg.name)
         sampler = az.Sampler(sample_rate=cfg.sample_rate)
-        transport = azt.Transport(cfg.addr, send_interval=cfg.send_interval,
-                                  loop=logger.app.loop)
+        transport = azt.Transport(
+            cfg.addr, send_interval=cfg.send_interval, loop=logger.app.loop
+        )
         self.tracer = az.Tracer(transport, sampler, endpoint)
 
     def handle(self, span: Span):
         if self.tracer is None:
             raise AdapterConfigurationError(
-                '%s is not configured' % self.__class__.__name__)
+                '%s is not configured' % self.__class__.__name__
+            )
 
         tracer_span = self.tracer.to_span(
             azs.TraceContext(
@@ -50,9 +51,9 @@ class ZipkinAdapter(AbcAdapter):
                 span_id=span.id,
                 sampled=True,
                 debug=False,
-                shared=True
-
-            ))
+                shared=True,
+            )
+        )
 
         tracer_span.start(ts=span.start_stamp)
 
@@ -74,6 +75,7 @@ class ZipkinAdapter(AbcAdapter):
     async def stop(self):
         if self.tracer is None:
             raise AdapterConfigurationError(
-                '%s is not configured' % self.__class__.__name__)
+                '%s is not configured' % self.__class__.__name__
+            )
 
         await self.tracer.close()

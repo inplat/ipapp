@@ -16,5 +16,4 @@ __all__ = [
     "SentryAdapter",
     "RequestsConfig",
     "RequestsAdapter",
-
 ]

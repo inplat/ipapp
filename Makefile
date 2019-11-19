@@ -83,7 +83,11 @@ safety: venv  # checks your installed dependencies for known security vulnerabil
 
 .PHONY: isort
 isort: venv  # checks imports order
-	$(VENV_BIN)/isort -rc --check-only ipapp examples tests
+	$(VENV_BIN)/isort -rc --check-only ipapp examples tests setup.py
+
+.PHONY: black
+black: venv  # checks imports order
+	$(VENV_BIN)/black -S -l 79 --target-version  py37 examples ipapp tests setup.py --check
 
 .PHONY: lint
 lint: safety bandit mypy flake8 isort  ## Run flake8, bandit, mypy
@@ -91,6 +95,7 @@ lint: safety bandit mypy flake8 isort  ## Run flake8, bandit, mypy
 .PHONY: format
 format: venv  ## Autoformat code
 	$(VENV_BIN)/isort -rc ipapp examples tests
+	$(VENV_BIN)/black -S -l 79 --target-version  py37 examples ipapp tests setup.py
 
 .PHONY: test
 test: venv  ## Run tests

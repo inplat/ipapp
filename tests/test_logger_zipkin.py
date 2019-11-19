@@ -7,8 +7,11 @@ from pydantic import BaseModel
 
 from ipapp import Application
 from ipapp.logger import Span
-from ipapp.logger.adapters import (AdapterConfigurationError, ZipkinAdapter,
-                                   ZipkinConfig)
+from ipapp.logger.adapters import (
+    AdapterConfigurationError,
+    ZipkinAdapter,
+    ZipkinConfig,
+)
 
 
 class EndpointModel(BaseModel):
@@ -36,7 +39,6 @@ class SpanModel(BaseModel):
 
 
 class ZipkinServer:
-
     def __init__(self):
         self.app = web.Application()
         self.app.router.add_post('/api/v2/spans', self.tracer_handle)
@@ -94,15 +96,19 @@ async def test_success():
     assert span.name == 't1'
     assert span.tags == {'tag': 'abc'}
     assert span.annotations == [
-        Annotation(value='val1', timestamp=123456000000)]
+        Annotation(value='val1', timestamp=123456000000)
+    ]
     assert span.duration > 0
     assert span.timestamp > 0
     assert not span.debug
     assert span.shared
 
     assert span2.name == 't2'
-    assert span2.tags == {'error': 'true', 'error.class': 'Exception',
-                          'error.message': ''}
+    assert span2.tags == {
+        'error': 'true',
+        'error.class': 'Exception',
+        'error.message': '',
+    }
     assert len(span2.annotations) == 1
     assert 'Traceback ' in span2.annotations[0].value
 

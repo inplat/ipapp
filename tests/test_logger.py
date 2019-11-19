@@ -282,8 +282,9 @@ async def test_span():
                 span2.error(err)
 
             try:
-                with span2.new_child(name='t3',
-                                     kind=Span.KIND_CLIENT) as span3:
+                with span2.new_child(
+                    name='t3', kind=Span.KIND_CLIENT
+                ) as span3:
                     assert span3.parent_id == span2.id
                     assert span3.parent is span2
                     raise exc2
@@ -320,35 +321,44 @@ async def test_span():
     # tags
     assert span.tags == {'tag1': '11'}
     assert span.get_tags4adapter(TestAdapter.name) == {
-        'tag1': '11', 'tag2': '22'}
+        'tag1': '11',
+        'tag2': '22',
+    }
     assert span.get_tags4adapter(TestAdapter.name, merge=False) == {
-        'tag2': '22'}
+        'tag2': '22'
+    }
     assert span.get_tags4adapter('unknown') == {'tag1': '11'}
     assert span.get_tags4adapter('unknown', merge=False) == {}
 
     # annotations
     assert span.annotations == {'k1': [('1', 1)]}
     assert span.get_annotations4adapter(TestAdapter.name) == {
-        'k1': [('1', 1)], 'k2': [('2', 2)]}
+        'k1': [('1', 1)],
+        'k2': [('2', 2)],
+    }
     assert span.get_annotations4adapter(TestAdapter.name, merge=False) == {
-        'k2': [('2', 2)]}
-    assert span.get_annotations4adapter('unknown...') == {
-        'k1': [('1', 1)]}
+        'k2': [('2', 2)]
+    }
+    assert span.get_annotations4adapter('unknown...') == {'k1': [('1', 1)]}
     assert span.get_annotations4adapter('unknown...', merge=False) == {}
 
     # log error
-    assert span2.tags == {'error': 'true',
-                          'error.class': 'Exception',
-                          'error.message': 'Err'}
+    assert span2.tags == {
+        'error': 'true',
+        'error.class': 'Exception',
+        'error.message': 'Err',
+    }
     assert 'traceback' in span2.annotations
     assert len(span2.annotations['traceback']) == 1
     assert isinstance(span2.annotations['traceback'][0][0], str)
     assert len(span2.annotations['traceback'][0][0]) > 0
     assert span2.get_error() is exc
 
-    assert span3.tags == {'error': 'true',
-                          'error.class': 'Exception',
-                          'error.message': 'Err2'}
+    assert span3.tags == {
+        'error': 'true',
+        'error.class': 'Exception',
+        'error.message': 'Err2',
+    }
     assert 'traceback' in span3.annotations
     assert len(span3.annotations['traceback']) == 1
     assert isinstance(span3.annotations['traceback'][0][0], str)

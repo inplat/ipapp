@@ -25,13 +25,14 @@ class Span:
 
     ANN_TRACEBACK = 'traceback'
 
-    def __init__(self,
-                 logger: Optional['ipapp.logger.Logger'],
-                 trace_id: str,
-                 id: Optional[str] = None,
-                 parent_id: Optional[str] = None,
-                 parent: Optional['Span'] = None,
-                 ) -> None:
+    def __init__(
+        self,
+        logger: Optional['ipapp.logger.Logger'],
+        trace_id: str,
+        id: Optional[str] = None,
+        parent_id: Optional[str] = None,
+        parent: Optional['Span'] = None,
+    ) -> None:
         self.logger = logger
         self.trace_id = trace_id
         self.id = id
@@ -47,7 +48,8 @@ class Span:
         self._kind: Optional[str] = None
         self._annotations: Dict[str, List[Tuple[str, float]]] = {}
         self._annotations4adapter: Dict[
-            str, Dict[str, List[Tuple[str, float]]]] = {}
+            str, Dict[str, List[Tuple[str, float]]]
+        ] = {}
         self._tags: Dict[str, str] = {}
         self._tags4adapter: Dict[str, Dict[str, str]] = {}
         self._start_stamp: Optional[float] = None
@@ -98,7 +100,7 @@ class Span:
                 logger=app.logger,
                 trace_id=trace_id,
                 id=azu.generate_random_64bit_string(),
-                parent_id=headers.get(azh.SPAN_ID_HEADER.lower())
+                parent_id=headers.get(azh.SPAN_ID_HEADER.lower()),
             )
 
         if sampled is not None and not sampled:
@@ -112,23 +114,27 @@ class Span:
         span = cls(
             logger=app.logger,
             trace_id=azu.generate_random_128bit_string(),
-            id=azu.generate_random_64bit_string())
+            id=azu.generate_random_64bit_string(),
+        )
         if name is not None:
             span.name = name
         if kind:
             span.kind = kind
         return span
 
-    def new_child(self, name: Optional[str] = None,
-                  kind: Optional[str] = None,
-                  cls: Optional[Type['Span']] = None) -> 'Span':
+    def new_child(
+        self,
+        name: Optional[str] = None,
+        kind: Optional[str] = None,
+        cls: Optional[Type['Span']] = None,
+    ) -> 'Span':
         if cls is None:
             cls = Span
         span = cls(
             logger=self.logger,
             trace_id=self.trace_id,
             id=azu.generate_random_64bit_string(),
-            parent=self
+            parent=self,
         )
         if self._skip:
             span.skip()
@@ -150,8 +156,9 @@ class Span:
     def set_name4adapter(self, adapter: str, name: str) -> None:
         self._name4adapter[adapter] = name
 
-    def get_name4adapter(self, adapter: str,
-                         merge: bool = True) -> Optional[str]:
+    def get_name4adapter(
+        self, adapter: str, merge: bool = True
+    ) -> Optional[str]:
         if merge:
             return self._name4adapter.get(adapter, self.name)
         else:
@@ -178,8 +185,9 @@ class Span:
             self._tags4adapter[adapter] = {}
         self._tags4adapter[adapter][name] = str(value)
 
-    def get_tags4adapter(self, adapter: str,
-                         merge: bool = True) -> Dict[str, str]:
+    def get_tags4adapter(
+        self, adapter: str, merge: bool = True
+    ) -> Dict[str, str]:
         if adapter not in self._tags4adapter:
             tags = {}
         else:
@@ -194,15 +202,17 @@ class Span:
     def annotations(self) -> Dict[str, List[Tuple[str, float]]]:
         return self._annotations
 
-    def annotate(self, kind: str, value: Any,
-                 ts: Optional[float] = None) -> 'Span':
+    def annotate(
+        self, kind: str, value: Any, ts: Optional[float] = None
+    ) -> 'Span':
         if kind not in self._annotations:
             self._annotations[kind] = []
         self._annotations[kind].append((str(value), ts or time.time()))
         return self
 
-    def annotate4adapter(self, adapter: str, kind: str, value: Any,
-                         ts: Optional[float] = None) -> None:
+    def annotate4adapter(
+        self, adapter: str, kind: str, value: Any, ts: Optional[float] = None
+    ) -> None:
         if adapter not in self._annotations4adapter:
             self._annotations4adapter[adapter] = {}
         if kind not in self._annotations4adapter[adapter]:
@@ -211,9 +221,9 @@ class Span:
             (str(value), ts or time.time())
         )
 
-    def get_annotations4adapter(self, adapter: str,
-                                merge: bool = True
-                                ) -> Dict[str, List[Tuple[str, float]]]:
+    def get_annotations4adapter(
+        self, adapter: str, merge: bool = True
+    ) -> Dict[str, List[Tuple[str, float]]]:
         if adapter not in self._annotations4adapter:
             anns = {}
         else:
@@ -234,9 +244,10 @@ class Span:
             self.annotate(
                 self.ANN_TRACEBACK,
                 "".join(
-                    traceback.format_exception(exc_type,
-                                               exc_value,
-                                               exc_traceback))
+                    traceback.format_exception(
+                        exc_type, exc_value, exc_traceback
+                    )
+                ),
             )
         return self
 
@@ -264,8 +275,9 @@ class Span:
         self._start_stamp = ts or time.time()
         return self
 
-    def finish(self, ts: Optional[float] = None,
-               exception: Optional[Exception] = None) -> 'Span':
+    def finish(
+        self, ts: Optional[float] = None, exception: Optional[Exception] = None
+    ) -> 'Span':
         self._finish_stamp = ts or time.time()
         if exception is not None:
             self.error(exception)

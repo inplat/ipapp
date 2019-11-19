@@ -43,16 +43,14 @@ class ServerHandler(object):
 
         if result["is_sick"]:
             raise web.HTTPInternalServerError(
-                text=json.dumps(result, indent=4),
-                headers=headers)
+                text=json.dumps(result, indent=4), headers=headers
+            )
         else:
             span = ctx_span_get()
             if span:
                 span.skip()
 
-        return web.Response(
-            text=json.dumps(result, indent=4),
-            headers=headers)
+        return web.Response(text=json.dumps(result, indent=4), headers=headers)
 
     async def _health_handler_head(self, request: web.Request) -> web.Response:
         result = await self._healthcheck()
@@ -74,19 +72,19 @@ class ServerHandler(object):
                 break
         res = {
             "is_sick": is_sick,
-            "checks": {key: str(val) if val is not None else 'ok'
-                       for key, val in res.items()}
+            "checks": {
+                key: str(val) if val is not None else 'ok'
+                for key, val in res.items()
+            },
         }
         if self.app.version:
             res['version'] = self.app.version
         if self.app.build_stamp:
-            bdt = datetime.fromtimestamp(self.app.build_stamp,
-                                         tz=timezone.utc)
+            bdt = datetime.fromtimestamp(self.app.build_stamp, tz=timezone.utc)
             res['build_time'] = bdt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
         if self.app.start_stamp:
-            sdt = datetime.fromtimestamp(self.app.start_stamp,
-                                         tz=timezone.utc)
+            sdt = datetime.fromtimestamp(self.app.start_stamp, tz=timezone.utc)
 
             res['start_time'] = sdt.strftime('%Y-%m-%dT%H:%M:%SZ')
             res['up_time'] = str(datetime.now(tz=timezone.utc) - sdt)
@@ -95,16 +93,18 @@ class ServerHandler(object):
     async def prepare(self) -> None:
         pass
 
-    async def error_handler(self, request: web.Request,
-                            err: Exception) -> web.Response:
+    async def error_handler(
+        self, request: web.Request, err: Exception
+    ) -> web.Response:
         return web.HTTPInternalServerError()
 
 
 class ServerHttpSpan(HttpSpan):
     P8S_NAME = 'http_in'
 
-    def finish(self, ts: Optional[float] = None,
-               exception: Optional[Exception] = None) -> 'Span':
+    def finish(
+        self, ts: Optional[float] = None, exception: Optional[Exception] = None
+    ) -> 'Span':
 
         method = self._tags.get(self.TAG_HTTP_METHOD)
         route = self._tags.get(self.TAG_HTTP_ROUTE)
@@ -120,21 +120,22 @@ class ServerHttpSpan(HttpSpan):
 
 
 class Server(Component, ClientServerAnnotator):
-
-    def __init__(self, handler: ServerHandler,
-                 *,
-                 host: str = '127.0.0.1',
-                 port: int = 8080,
-                 access_log_class: Type[AbstractAccessLogger] = AccessLogger,
-                 access_log_format: str = AccessLogger.LOG_FORMAT,
-                 access_log: Optional[logging.Logger] = access_logger,
-                 handle_signals: bool = True,
-                 shutdown_timeout: float = 60.0,
-                 ssl_context: Optional[SSLContext] = None,
-                 backlog: int = 128,
-                 reuse_address: Optional[bool] = None,
-                 reuse_port: Optional[bool] = None
-                 ) -> None:
+    def __init__(
+        self,
+        handler: ServerHandler,
+        *,
+        host: str = '127.0.0.1',
+        port: int = 8080,
+        access_log_class: Type[AbstractAccessLogger] = AccessLogger,
+        access_log_format: str = AccessLogger.LOG_FORMAT,
+        access_log: Optional[logging.Logger] = access_logger,
+        handle_signals: bool = True,
+        shutdown_timeout: float = 60.0,
+        ssl_context: Optional[SSLContext] = None,
+        backlog: int = 128,
+        reuse_address: Optional[bool] = None,
+        reuse_port: Optional[bool] = None,
+    ) -> None:
         handler._set_server(self)
         self.handler = handler
         self.host = host
@@ -148,11 +149,13 @@ class Server(Component, ClientServerAnnotator):
         self.sites: List[BaseSite] = []
 
         self.web_app = web.Application()
-        self.runner = AppRunner(self.web_app,
-                                handle_signals=handle_signals,
-                                access_log_class=access_log_class,
-                                access_log_format=access_log_format,
-                                access_log=access_log, )
+        self.runner = AppRunner(
+            self.web_app,
+            handle_signals=handle_signals,
+            access_log_class=access_log_class,
+            access_log_format=access_log_format,
+            access_log=access_log,
+        )
         self.web_app.middlewares.append(self.req_wrapper)
 
     @web.middleware
@@ -168,8 +171,9 @@ class Server(Component, ClientServerAnnotator):
             span.tag(HttpSpan.TAG_HTTP_URL, self._mask_url(request.url))
 
             self._span_annotate_req_hdrs(span, request.headers, ts=ts1)
-            self._span_annotate_req_body(span, await request.read(), ts=ts1,
-                                         encoding=request.charset)
+            self._span_annotate_req_body(
+                span, await request.read(), ts=ts1, encoding=request.charset
+            )
 
             resource = request.match_info.route.resource
             # available only in aiohttp >= 3.3.1
@@ -196,16 +200,20 @@ class Server(Component, ClientServerAnnotator):
             span.tag(HttpSpan.TAG_HTTP_STATUS_CODE, str(resp.status))
 
             self._span_annotate_resp_hdrs(span, resp.headers, ts=ts2)
-            self._span_annotate_resp_body(span, resp.body, ts=ts2,
-                                          encoding=resp.charset)
+            self._span_annotate_resp_body(
+                span, resp.body, ts=ts2, encoding=resp.charset
+            )
 
             return resp
         finally:
             ctx_request_reset(request_token)
 
-    def add_route(self, method: str, path: str,
-                  handler: Callable[[web.Request], Awaitable[web.Response]]
-                  ) -> 'AbstractRoute':
+    def add_route(
+        self,
+        method: str,
+        path: str,
+        handler: Callable[[web.Request], Awaitable[web.Response]],
+    ) -> 'AbstractRoute':
         if self.web_app is None:  # pragma: no cover
             raise UserWarning('You must add routes in ServerHandler.prepare')
         return self.web_app.router.add_route(method, path, handler)
@@ -214,12 +222,18 @@ class Server(Component, ClientServerAnnotator):
         await self.handler.prepare()
         await self.runner.setup()
         self.sites = []
-        self.sites.append(TCPSite(self.runner, self.host, self.port,
-                                  shutdown_timeout=self.shutdown_timeout,
-                                  ssl_context=self.ssl_context,
-                                  backlog=self.backlog,
-                                  reuse_address=self.reuse_address,
-                                  reuse_port=self.reuse_port))
+        self.sites.append(
+            TCPSite(
+                self.runner,
+                self.host,
+                self.port,
+                shutdown_timeout=self.shutdown_timeout,
+                ssl_context=self.ssl_context,
+                backlog=self.backlog,
+                reuse_address=self.reuse_address,
+                reuse_port=self.reuse_port,
+            )
+        )
 
     async def start(self) -> None:
         self.app.log_info("Starting HTTP server")

@@ -20,15 +20,15 @@ DEFAULT_HISTOGRAM_LABELS: LabelsCfg = {  # {name: {label: tag}, }
         'host': 'http.host',
         'method': 'http.method',
         'status_code': 'http.status_code',
-        'error': 'error.class'
+        'error': 'error.class',
     },
     'http_out': {
         'le': '0.01,0.1,1,10,Inf',  # le mapping to quantiles
         'host': 'http.host',
         'method': 'http.method',
         'status_code': 'http.status_code',
-        'error': 'error.class'
-    }
+        'error': 'error.class',
+    },
 }
 DEFAULT_HISTOGRAM_DOCS = {
     'http_in': 'Incoming HTTP request',
@@ -52,16 +52,17 @@ class PrometheusAdapter(AbcAdapter):
         self.p8s_hist_labels: LabelsCfg = {}
         self.p8s_hist_docs: Dict[str, str] = {}
 
-    async def start(self, logger: 'ipapp.logger.Logger',
-                    cfg: PrometheusConfig):
+    async def start(
+        self, logger: 'ipapp.logger.Logger', cfg: PrometheusConfig
+    ):
         self.cfg = cfg
 
         self.p8s_hists = {}  # Histograms
 
-        self.p8s_hist_labels = dict_merge(DEFAULT_HISTOGRAM_LABELS,
-                                          cfg.hist_labels)
-        self.p8s_hist_docs = dict_merge(DEFAULT_HISTOGRAM_DOCS,
-                                        cfg.hist_docs)
+        self.p8s_hist_labels = dict_merge(
+            DEFAULT_HISTOGRAM_LABELS, cfg.hist_labels
+        )
+        self.p8s_hist_docs = dict_merge(DEFAULT_HISTOGRAM_DOCS, cfg.hist_docs)
 
         for hist_name, labels_cfg in self.p8s_hist_labels.items():
             buckets = Histogram.DEFAULT_BUCKETS
@@ -74,15 +75,16 @@ class PrometheusAdapter(AbcAdapter):
                         labelnames.append(label)
 
             doc = self.p8s_hist_docs.get(hist_name) or hist_name
-            self.p8s_hists[hist_name] = Histogram(hist_name, doc,
-                                                  labelnames=labelnames,
-                                                  buckets=buckets)
+            self.p8s_hists[hist_name] = Histogram(
+                hist_name, doc, labelnames=labelnames, buckets=buckets
+            )
         start_http_server(cfg.port, cfg.addr)
 
     def handle(self, span: Span):
         if self.cfg is None:
             raise AdapterConfigurationError(
-                '%s is not configured' % self.__class__.__name__)
+                '%s is not configured' % self.__class__.__name__
+            )
 
         name = span.get_name4adapter(self.name)
         tags = span.get_tags4adapter(self.name)
@@ -103,4 +105,5 @@ class PrometheusAdapter(AbcAdapter):
     async def stop(self):
         if self.cfg is None:
             raise AdapterConfigurationError(
-                '%s is not configured' % self.__class__.__name__)
+                '%s is not configured' % self.__class__.__name__
+            )
