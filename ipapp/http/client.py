@@ -35,7 +35,9 @@ class ClientHttpSpan(HttpSpan):
     # ann_resp_body: bool = True
 
     def finish(
-        self, ts: Optional[float] = None, exception: Optional[Exception] = None
+        self,
+        ts: Optional[float] = None,
+        exception: Optional[BaseException] = None,
     ) -> 'Span':
 
         method = self._tags.get(self.TAG_HTTP_METHOD)
@@ -46,7 +48,10 @@ class ClientHttpSpan(HttpSpan):
                 self._name += '::' + method.lower()
             if host:
                 self._name += ' (' + host + ')'
-        self.set_name4adapter(self.logger.ADAPTER_PROMETHEUS, self.P8S_NAME)
+        if self.logger is not None:
+            self.set_name4adapter(
+                self.logger.ADAPTER_PROMETHEUS, self.P8S_NAME
+            )
 
         return super().finish(ts, exception)
 
@@ -54,13 +59,13 @@ class ClientHttpSpan(HttpSpan):
 class Client(Component, ClientServerAnnotator):
     # TODO make pool of clients
 
-    async def prepare(self):
+    async def prepare(self) -> None:
         pass
 
-    async def start(self):
+    async def start(self) -> None:
         pass
 
-    async def stop(self):
+    async def stop(self) -> None:
         pass
 
     @wrap2span(kind=HttpSpan.KIND_SERVER, cls=ClientHttpSpan)
@@ -73,10 +78,10 @@ class Client(Component, ClientServerAnnotator):
         headers: Dict[str, str] = None,
         timeout: Optional[ClientTimeout] = None,
         ssl: Optional[SSLContext] = None,
-        session_kwargs: Optional[dict] = None,
-        request_kwargs: Optional[dict] = None,
+        session_kwargs: Optional[Dict[str, Optional[str]]] = None,
+        request_kwargs: Optional[Dict[str, Optional[str]]] = None,
     ) -> ClientResponse:
-        span = ctx_span_get()
+        span: Optional[HttpSpan] = ctx_span_get()  # type: ignore
         if span is None:  # pragma: no cover
             raise UserWarning
 
@@ -96,7 +101,9 @@ class Client(Component, ClientServerAnnotator):
             timeout = ClientTimeout()
 
         async with ClientSession(
-            loop=self.app.loop, timeout=timeout, **(session_kwargs or {})
+            loop=self.app.loop,
+            timeout=timeout,
+            **(session_kwargs or {}),  # type: ignore
         ) as session:
             ts1 = time.time()
             resp = await session.request(
@@ -119,5 +126,5 @@ class Client(Component, ClientServerAnnotator):
 
             return resp
 
-    async def health(self):
+    async def health(self) -> None:
         pass

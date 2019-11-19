@@ -1,5 +1,5 @@
 from functools import wraps
-from typing import Callable, Optional, Type
+from typing import Any, Callable, Optional, Type
 
 from ..misc import ctx_app_get, ctx_request_get, ctx_span_get
 from .adapters import (
@@ -18,9 +18,9 @@ def wrap2span(
     kind: Optional[str] = None,
     cls: Type[Span] = Span,
 ) -> Callable:
-    def create_wrapper(func):
+    def create_wrapper(func: Callable) -> Callable:
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             span = ctx_span_get()
             if span is None:
                 app = ctx_app_get()

@@ -1,8 +1,8 @@
 from typing import Optional
 
 import aiozipkin as az
-import aiozipkin.span as azs
-import aiozipkin.tracer as azt
+import aiozipkin.helpers as azh
+import aiozipkin.transport as azt
 
 import ipapp.logger  # noqa
 
@@ -24,10 +24,14 @@ class ZipkinAdapter(AbcAdapter):
     cfg: ZipkinConfig
     logger: 'ipapp.logger.Logger'
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.tracer: Optional[az.Tracer] = None
 
-    async def start(self, logger: 'ipapp.logger.Logger', cfg: ZipkinConfig):
+    async def start(
+        self, logger: 'ipapp.logger.Logger', cfg: AbcConfig
+    ) -> None:
+        if not isinstance(cfg, ZipkinConfig):
+            raise UserWarning
         self.cfg = cfg
         self.logger = logger
 
@@ -38,14 +42,14 @@ class ZipkinAdapter(AbcAdapter):
         )
         self.tracer = az.Tracer(transport, sampler, endpoint)
 
-    def handle(self, span: Span):
+    def handle(self, span: Span) -> None:
         if self.tracer is None:
             raise AdapterConfigurationError(
                 '%s is not configured' % self.__class__.__name__
             )
 
         tracer_span = self.tracer.to_span(
-            azs.TraceContext(
+            azh.TraceContext(
                 trace_id=span.trace_id,
                 parent_id=span.parent_id,
                 span_id=span.id,
@@ -72,7 +76,7 @@ class ZipkinAdapter(AbcAdapter):
         tracer_span.remote_endpoint(self.cfg.name)
         tracer_span.finish(ts=span.finish_stamp)
 
-    async def stop(self):
+    async def stop(self) -> None:
         if self.tracer is None:
             raise AdapterConfigurationError(
                 '%s is not configured' % self.__class__.__name__

@@ -1,5 +1,5 @@
 import asyncio
-from typing import Coroutine, List, Mapping, Optional, Type
+from typing import Any, Coroutine, List, Mapping, Optional, Type
 
 import ipapp.app
 
@@ -26,17 +26,17 @@ class Logger:
 
     def __init__(self, app: 'ipapp.app.Application') -> None:
         self.app = app
-        self._configs: List[Coroutine] = []
+        self._configs: List[Coroutine[Any, Any, None]] = []
         self.adapters: List[AbcAdapter] = []
         self.default_sampled = True
         self.default_debug = False
         self._started = False
 
-    async def start(self):
+    async def start(self) -> None:
         self._started = True
         await asyncio.gather(*self._configs, loop=self.app.loop)
 
-    async def stop(self):
+    async def stop(self) -> None:
         if not self._started:  # pragma: no cover
             raise UserWarning
 
@@ -53,7 +53,9 @@ class Logger:
         return cls.new(name=name, kind=kind)
 
     @staticmethod
-    def span_from_headers(headers: Mapping, cls: Type[Span] = Span):
+    def span_from_headers(
+        headers: Mapping[str, str], cls: Type[Span] = Span
+    ) -> 'Span':
         return cls.from_headers(headers)
 
     def add(
@@ -61,6 +63,7 @@ class Logger:
     ) -> AbcAdapter:
         if self._started:  # pragma: no cover
             raise UserWarning
+        adapter: AbcAdapter
         if isinstance(cfg, PrometheusConfig):
             adapter = PrometheusAdapter()
         elif isinstance(cfg, ZipkinConfig):

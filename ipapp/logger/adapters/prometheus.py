@@ -47,14 +47,17 @@ class PrometheusAdapter(AbcAdapter):
     name = 'prometheus'
     cfg: PrometheusConfig
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.p8s_hists: Dict[str, Histogram] = {}
         self.p8s_hist_labels: LabelsCfg = {}
         self.p8s_hist_docs: Dict[str, str] = {}
 
     async def start(
-        self, logger: 'ipapp.logger.Logger', cfg: PrometheusConfig
-    ):
+        self, logger: 'ipapp.logger.Logger', cfg: AbcConfig
+    ) -> None:
+        if not isinstance(cfg, PrometheusConfig):
+            raise UserWarning
+
         self.cfg = cfg
 
         self.p8s_hists = {}  # Histograms
@@ -80,7 +83,7 @@ class PrometheusAdapter(AbcAdapter):
             )
         start_http_server(cfg.port, cfg.addr)
 
-    def handle(self, span: Span):
+    def handle(self, span: Span) -> None:
         if self.cfg is None:
             raise AdapterConfigurationError(
                 '%s is not configured' % self.__class__.__name__
@@ -102,7 +105,7 @@ class PrometheusAdapter(AbcAdapter):
                 hist = hist.labels(**labels)
             hist.observe(span.duration)
 
-    async def stop(self):
+    async def stop(self) -> None:
         if self.cfg is None:
             raise AdapterConfigurationError(
                 '%s is not configured' % self.__class__.__name__

@@ -4,17 +4,19 @@ import time
 from abc import ABCMeta
 from datetime import datetime, timezone
 from ssl import SSLContext
-from typing import Awaitable, Callable, List, Optional, Type
+from typing import Awaitable, Callable, Dict, List, Optional, Type, Union
 
 from aiohttp import web
 from aiohttp.abc import AbstractAccessLogger
+from aiohttp.payload import Payload
 from aiohttp.web_log import AccessLogger
 from aiohttp.web_runner import AppRunner, BaseSite, TCPSite
 from aiohttp.web_urldispatcher import AbstractRoute
 
+import ipapp.app  # noqa
 from ipapp.app import Component
-from ipapp.logger import HttpSpan, Span, ctx_span_get, wrap2span
-from ipapp.misc import ctx_request_reset, ctx_request_set
+from ipapp.logger import HttpSpan, Span, wrap2span
+from ipapp.misc import ctx_request_reset, ctx_request_set, ctx_span_get
 
 from ._base import ClientServerAnnotator
 
@@ -27,13 +29,13 @@ class ServerHandler(object):
     server: 'Server'
 
     @property
-    def app(self):
+    def app(self) -> 'ipapp.app.Application':
         return self.server.app
 
-    def _set_server(self, srv):
+    def _set_server(self, srv: 'Server') -> None:
         setattr(self, 'server', srv)
 
-    def _setup_healthcheck(self, path):
+    def _setup_healthcheck(self, path: str) -> None:
         self.server.add_route('GET', path, self._health_handler_get)
         self.server.add_route('HEAD', path, self._health_handler_head)
 
@@ -63,18 +65,20 @@ class ServerHandler(object):
                 span.skip()
         return web.Response(text='')
 
-    async def _healthcheck(self):
-        res = await self.app.health()
+    async def _healthcheck(
+        self,
+    ) -> Dict[str, Union[str, bool, None, Dict[str, str]]]:
+        health = await self.app.health()
         is_sick = False
-        for key, val in res.items():
+        for key, val in health.items():
             if val is not None:
                 is_sick = True
                 break
-        res = {
+        res: Dict[str, Optional[Union[str, bool, None, Dict[str, str]]]] = {
             "is_sick": is_sick,
             "checks": {
                 key: str(val) if val is not None else 'ok'
-                for key, val in res.items()
+                for key, val in health.items()
             },
         }
         if self.app.version:
@@ -103,7 +107,9 @@ class ServerHttpSpan(HttpSpan):
     P8S_NAME = 'http_in'
 
     def finish(
-        self, ts: Optional[float] = None, exception: Optional[Exception] = None
+        self,
+        ts: Optional[float] = None,
+        exception: Optional[BaseException] = None,
     ) -> 'Span':
 
         method = self._tags.get(self.TAG_HTTP_METHOD)
@@ -114,7 +120,10 @@ class ServerHttpSpan(HttpSpan):
                 self._name += '::' + method.lower()
             if route:
                 self._name += ' (' + route + ')'
-        self.set_name4adapter(self.logger.ADAPTER_PROMETHEUS, self.P8S_NAME)
+        if self.logger is not None:
+            self.set_name4adapter(
+                self.logger.ADAPTER_PROMETHEUS, self.P8S_NAME
+            )
 
         return super().finish(ts, exception)
 
@@ -160,11 +169,17 @@ class Server(Component, ClientServerAnnotator):
 
     @web.middleware
     @wrap2span(kind=Span.KIND_SERVER, cls=ServerHttpSpan)
-    async def req_wrapper(self, request: web.Request, handler):
+    async def req_wrapper(
+        self,
+        request: web.Request,
+        handler: Callable[[web.Request], Awaitable[web.Response]],
+    ) -> web.Response:
         ts1 = time.time()
         request_token = ctx_request_set(request)
         try:
-            span: ServerHttpSpan = ctx_span_get()
+            span: Optional[ServerHttpSpan] = ctx_span_get()  # type: ignore
+            if span is None:
+                raise UserWarning
             span.tag(HttpSpan.TAG_HTTP_HOST, request.host)
             span.tag(HttpSpan.TAG_HTTP_PATH, request.raw_path)
             span.tag(HttpSpan.TAG_HTTP_METHOD, request.method.upper())
@@ -200,9 +215,16 @@ class Server(Component, ClientServerAnnotator):
             span.tag(HttpSpan.TAG_HTTP_STATUS_CODE, str(resp.status))
 
             self._span_annotate_resp_hdrs(span, resp.headers, ts=ts2)
-            self._span_annotate_resp_body(
-                span, resp.body, ts=ts2, encoding=resp.charset
-            )
+            if resp.body is not None:
+                if isinstance(resp.body, Payload):
+                    body = (
+                        '--- payload %s ---' '' % resp.body.__class__.__name__
+                    ).encode()
+                else:
+                    body = resp.body
+                self._span_annotate_resp_body(
+                    span, body, ts=ts2, encoding=resp.charset
+                )
 
             return resp
         finally:

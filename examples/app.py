@@ -3,7 +3,7 @@ import logging
 import random
 from typing import Optional
 
-from aiohttp import web
+from aiohttp import ClientResponse, web
 from yarl import URL
 
 from ipapp import Application
@@ -25,7 +25,7 @@ class InplatSiteClient(Client):
     def __init__(self, base_url: str):
         self.base_url = URL(base_url)
 
-    async def get_home_page(self):
+    async def get_home_page(self) -> ClientResponse:
         return await self.request(
             'GET', self.base_url.with_query({'passwd': 'some secret'})
         )
@@ -42,7 +42,7 @@ class HttpHandler(ServerHandler):
         self.server.add_route('GET', '/', self.home_handler)
 
     async def error_handler(
-            self, request: web.Request, err: Exception
+        self, request: web.Request, err: Exception
     ) -> web.Response:
         span.error(err)
         return web.Response(text='%r' % err, status=500)
@@ -65,17 +65,17 @@ class HttpHandler(ServerHandler):
         return web.Response(text='view %s' % request.match_info['id'])
 
     async def bad_handler(self, request: web.Request) -> web.Response:
-        1 / 0
+        return web.Response(text=str(1 / 0))
 
 
 class App(Application):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
         self._version = '0.0.0.1'
         self._build_stamp = 1573734614
 
-        self.add('srv', Server(HttpHandler(), host='127.0.0.1', port=8888, ))
+        self.add('srv', Server(HttpHandler(), host='127.0.0.1', port=8888,))
 
         self.add('inplat', InplatSiteClient(base_url='https://inplat.ru/123'))
 
@@ -107,14 +107,14 @@ class App(Application):
 
     @property
     def srv(self) -> Server:
-        cmp: Optional[Server] = self.get('srv')
+        cmp: Optional[Server] = self.get('srv')  # type: ignore
         if cmp is None:
             raise AttributeError
         return cmp
 
     @property
     def inplat(self) -> InplatSiteClient:
-        cmp: Optional[InplatSiteClient] = self.get('inplat')
+        cmp: Optional[InplatSiteClient] = self.get('inplat')  # type: ignore
         if cmp is None:
             raise AttributeError
         return cmp

@@ -1,15 +1,15 @@
 import asyncio
 import json
 from collections import deque
-from typing import Any, Deque, List, Optional, Tuple
+from typing import Any, Deque, Dict, List, Optional, Tuple
 
 import asyncpg
-from pydantic import BaseModel
+from pydantic.main import BaseModel
 
 import ipapp.logger  # noqa
 
 from ..span import HttpSpan, Span
-from ._abc import AbcAdapter, AbcConfig
+from ._abc import AbcAdapter, AbcConfig, AdapterConfigurationError
 
 
 class Request(BaseModel):
@@ -56,13 +56,13 @@ class RequestsAdapter(AbcAdapter):
         'tags',
     )
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger: Optional['ipapp.logger.Logger'] = None
         self.db: Optional[asyncpg.Connection] = None
         self._queue: Optional[Deque[Request]] = None
-        self._send_lock = asyncio.Lock()
-        self._send_fut = asyncio.Future()
-        self._sleep_fut: Optional[asyncio.Future] = None
+        self._send_lock: asyncio.Lock = asyncio.Lock()
+        self._send_fut: asyncio.Future[Any] = asyncio.Future()
+        self._sleep_fut: Optional[asyncio.Future[Any]] = None
         self._tags_mapping: List[Tuple[str, str]] = []
         self._anns_mapping: List[Tuple[str, str, int]] = []
         self._stopping: bool = False
@@ -70,7 +70,11 @@ class RequestsAdapter(AbcAdapter):
             'INSERT INTO {table_name}' '(%s)' 'VALUES{placeholders}'
         ) % ','.join(self._QUERY_COLS)
 
-    async def start(self, logger: 'ipapp.logger.Logger', cfg: RequestsConfig):
+    async def start(
+        self, logger: 'ipapp.logger.Logger', cfg: AbcConfig
+    ) -> None:
+        if not isinstance(cfg, RequestsConfig):
+            raise UserWarning
         self.cfg = cfg
         self.logger = logger
         self._tags_mapping = [
@@ -99,13 +103,17 @@ class RequestsAdapter(AbcAdapter):
         self._send_fut = asyncio.ensure_future(self._send_loop())
         # TODO validate table struct
 
-    def handle(self, span: Span):
+    def handle(self, span: Span) -> None:
+        if self.logger is None:
+            raise UserWarning
         if self._stopping:
             self.logger.app.log_warn('WTF??? RAHSWS')
+        if self._queue is None:
+            raise UserWarning
         if not isinstance(span, HttpSpan):
             return
 
-        kwargs = dict(
+        kwargs: Dict[str, Any] = dict(
             stamp_begin=span.start_stamp,
             stamp_end=span.finish_stamp,
             is_out=span.kind != span.KIND_SERVER,
@@ -150,12 +158,17 @@ class RequestsAdapter(AbcAdapter):
             if self._sleep_fut is not None and not self._sleep_fut.done():
                 self._sleep_fut.cancel()
 
-    async def stop(self):
+    async def stop(self) -> None:
         self._stopping = True
-        while len(self._queue) > 0:
-            await self._send()
+        if self._queue is not None:
+            while len(self._queue) > 0:
+                await self._send()
 
-    async def _send_loop(self):
+    async def _send_loop(self) -> None:
+        if self.logger is None:
+            raise AdapterConfigurationError(
+                '%s is not configured' % self.__class__.__name__
+            )
         while not self._stopping:
             try:
                 await self._send()
@@ -171,7 +184,9 @@ class RequestsAdapter(AbcAdapter):
             finally:
                 self._sleep_fut = None
 
-    async def _send(self):
+    async def _send(self) -> None:
+        if self._queue is None or self.db is None:
+            return
         if len(self._queue) == 0:
             return
         async with self._send_lock:
@@ -182,7 +197,9 @@ class RequestsAdapter(AbcAdapter):
             )
             await self.db.execute(query, *params)
 
-    def _build_query(self, count) -> Tuple[List[str], List[Any]]:
+    def _build_query(self, count: int) -> Tuple[List[str], List[Any]]:
+        if self._queue is None:
+            raise UserWarning
         _query_placeholders: List[str] = []
         _query_params: List[Any] = []
 

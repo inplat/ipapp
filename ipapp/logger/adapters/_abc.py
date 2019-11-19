@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from pydantic import BaseSettings
+from pydantic.env_settings import BaseSettings
 
 import ipapp.logger  # noqa
 
@@ -22,15 +22,17 @@ class AbcAdapter(ABC):
     cfg: Optional[AbcConfig] = None
 
     @abstractmethod
-    async def start(self, logger: 'ipapp.logger.Logger', cfg: AbcConfig):
+    async def start(
+        self, logger: 'ipapp.logger.Logger', cfg: AbcConfig
+    ) -> None:
         pass
 
     @abstractmethod
-    def handle(self, span: Span):
+    def handle(self, span: Span) -> None:
         pass
 
     @abstractmethod
-    async def stop(self):
+    async def stop(self) -> None:
         pass
 
 

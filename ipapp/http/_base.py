@@ -23,7 +23,7 @@ class ClientServerAnnotator:
         return str(url)
 
     def _span_annotate_req_hdrs(
-        self, span: HttpSpan, headers: MultiMapping, ts: float
+        self, span: HttpSpan, headers: MultiMapping[str], ts: float
     ) -> None:
         if not span.ann_req_hdrs:
             return
@@ -61,7 +61,7 @@ class ClientServerAnnotator:
             self.app.log_err(err)
 
     def _span_annotate_resp_hdrs(
-        self, span: HttpSpan, headers: MultiMapping, ts: float
+        self, span: HttpSpan, headers: MultiMapping[str], ts: float
     ) -> None:
         if not span.ann_resp_hdrs:
             return

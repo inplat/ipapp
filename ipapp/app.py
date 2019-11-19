@@ -2,7 +2,7 @@ import asyncio
 import logging
 import signal
 import time
-from typing import Callable, Dict, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from .error import GracefulExit, PrepareError
 from .logger import Logger
@@ -11,12 +11,13 @@ from .misc import ctx_app_set
 logger = logging.getLogger('ipapp')
 
 
-def _raise_graceful_exit():  # pragma: no cover
+def _raise_graceful_exit() -> None:  # pragma: no cover
     raise GracefulExit()
 
 
 class Component(object):
     app: 'Application'
+    loop: asyncio.AbstractEventLoop
 
     async def prepare(self) -> None:
         raise NotImplementedError()
@@ -36,14 +37,13 @@ class Component(object):
 
 
 class Application(object):
-    def __init__(self, on_start: Optional[Callable] = None) -> None:
+    def __init__(self) -> None:
         ctx_app_set(self)
         self.loop = asyncio.get_event_loop()
         self._components: Dict[str, Component] = {}
-        self._stop_deps: dict = {}
-        self._stopped: list = []
+        self._stop_deps: Dict[str, List[str]] = {}
+        self._stopped: List[str] = []
         self.logger: Logger = Logger(self)
-        self.on_start: Optional[Callable] = on_start
         self._version = ''
         self._build_stamp: float = 0.0
         self._start_stamp: Optional[float] = None
@@ -57,29 +57,36 @@ class Application(object):
         return self._build_stamp
 
     @property
-    def start_stamp(self) -> float:
+    def start_stamp(self) -> Optional[float]:
         return self._start_stamp
 
-    def add(self, name: str, comp: Component, stop_after: list = None):
+    def add(
+        self,
+        name: str,
+        comp: Component,
+        stop_after: Optional[List[str]] = None,
+    ) -> None:
         if not isinstance(comp, Component):
             raise UserWarning()
         if name in self._components:
             raise UserWarning()
-        if stop_after:
+        if stop_after is not None:
             for cmp in stop_after:
                 if cmp not in self._components:
                     raise UserWarning('Unknown component %s' % cmp)
         comp.loop = self.loop
         comp.app = self
         self._components[name] = comp
-        self._stop_deps[name] = stop_after
+        self._stop_deps[name] = stop_after or []
 
     def get(self, name: str) -> Optional[Component]:
         if name in self._components:
             return self._components[name]
         return None
 
-    def log_err(self, err, *args, **kwargs):
+    def log_err(
+        self, err: Union[str, BaseException], *args: Any, **kwargs: Any
+    ) -> None:
         if not err:
             return
         if isinstance(err, BaseException):
@@ -87,16 +94,16 @@ class Application(object):
         else:
             logging.error(err, *args, **kwargs)
 
-    def log_warn(self, warn, *args, **kwargs):
+    def log_warn(self, warn: str, *args: Any, **kwargs: Any) -> None:
         logging.warning(warn, *args, **kwargs)
 
-    def log_info(self, info, *args, **kwargs):
+    def log_info(self, info: str, *args: Any, **kwargs: Any) -> None:
         logging.info(info, *args, **kwargs)
 
-    def log_debug(self, debug, *args, **kwargs):
+    def log_debug(self, debug: str, *args: Any, **kwargs: Any) -> None:
         logging.debug(debug, *args, **kwargs)
 
-    async def _stop_logger(self):
+    async def _stop_logger(self) -> None:
         self.log_info("Shutting down tracer")
         await self.logger.stop()
 
@@ -133,7 +140,7 @@ class Application(object):
                 self.loop.run_until_complete(self.loop.shutdown_asyncgens())
             self.loop.close()
 
-    async def start(self):
+    async def start(self) -> None:
         ctx_app_set(self)
         self.log_info('Configuring logger')
         await self.logger.start()
@@ -154,14 +161,14 @@ class Application(object):
 
         self.log_info('Running...')
 
-    async def stop(self):
+    async def stop(self) -> None:
         self.log_info('Shutting down...')
         for comp_name in self._components:
             await self._stop_comp(comp_name)
         await self._stop_logger()
         await self.loop.shutdown_asyncgens()
 
-    async def _stop_comp(self, name):
+    async def _stop_comp(self, name: str) -> None:
         if name in self._stopped:
             return
         if name in self._stop_deps and self._stop_deps[name]:

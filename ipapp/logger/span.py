@@ -3,6 +3,7 @@ import sys
 import time
 import traceback
 from contextvars import Token
+from types import TracebackType
 from typing import Any, Dict, List, Mapping, Optional, Tuple, Type
 
 import aiozipkin.helpers as azh
@@ -35,7 +36,10 @@ class Span:
     ) -> None:
         self.logger = logger
         self.trace_id = trace_id
-        self.id = id
+        if id is None:
+            self.id = azu.generate_random_64bit_string()
+        else:
+            self.id = id
         self.parent = parent
         self.parent_id: Optional[str] = parent_id
         if parent is not None and self.parent_id is None:
@@ -54,9 +58,8 @@ class Span:
         self._tags4adapter: Dict[str, Dict[str, str]] = {}
         self._start_stamp: Optional[float] = None
         self._finish_stamp: Optional[float] = None
-        self._exception: Optional[Exception] = None
+        self._exception: Optional[BaseException] = None
         self._is_handled = False
-        self._exception: Optional[Exception] = None
         self._ctx_token: Optional[Token] = None
 
     def skip(self) -> 'Span':
@@ -70,7 +73,7 @@ class Span:
         return self
 
     def to_headers(self) -> Dict[str, str]:
-        headers = {
+        headers: Dict[str, str] = {
             azh.TRACE_ID_HEADER: self.trace_id,
             azh.SPAN_ID_HEADER: self.id,
             azh.FLAGS_HEADER: '0',
@@ -81,7 +84,7 @@ class Span:
         return headers
 
     @classmethod
-    def from_headers(cls, headers: Optional[Mapping]):
+    def from_headers(cls, headers: Optional[Mapping]) -> 'Span':
         if headers is not None:
             headers = {k.lower(): v for k, v in headers.items()}
         else:
@@ -96,6 +99,8 @@ class Span:
             if not trace_id:
                 trace_id = azu.generate_random_128bit_string()
             app = ctx_app_get()
+            if app is None:
+                raise UserWarning
             span = cls(
                 logger=app.logger,
                 trace_id=trace_id,
@@ -109,8 +114,12 @@ class Span:
         return span
 
     @classmethod
-    def new(cls, name: Optional[str] = None, kind: Optional[str] = None):
+    def new(
+        cls, name: Optional[str] = None, kind: Optional[str] = None
+    ) -> 'Span':
         app = ctx_app_get()
+        if app is None:
+            raise UserWarning
         span = cls(
             logger=app.logger,
             trace_id=azu.generate_random_128bit_string(),
@@ -150,7 +159,7 @@ class Span:
         return self._name
 
     @name.setter
-    def name(self, value: str):
+    def name(self, value: str) -> None:
         self._name = value
 
     def set_name4adapter(self, adapter: str, name: str) -> None:
@@ -169,7 +178,7 @@ class Span:
         return self._kind
 
     @kind.setter
-    def kind(self, value: str):
+    def kind(self, value: str) -> None:
         self._kind = value
 
     @property
@@ -189,7 +198,7 @@ class Span:
         self, adapter: str, merge: bool = True
     ) -> Dict[str, str]:
         if adapter not in self._tags4adapter:
-            tags = {}
+            tags: Dict[str, str] = {}
         else:
             tags = self._tags4adapter[adapter]
 
@@ -225,7 +234,7 @@ class Span:
         self, adapter: str, merge: bool = True
     ) -> Dict[str, List[Tuple[str, float]]]:
         if adapter not in self._annotations4adapter:
-            anns = {}
+            anns: Dict[str, List[Tuple[str, float]]] = {}
         else:
             anns = self._annotations4adapter[adapter]
 
@@ -234,7 +243,7 @@ class Span:
         else:
             return anns
 
-    def error(self, err: Exception) -> 'Span':
+    def error(self, err: BaseException) -> 'Span':
         self.tag(self.TAG_ERROR, 'true')
         self.tag(self.TAG_ERROR_CLASS, err.__class__.__name__)
         self.tag(self.TAG_ERROR_MESSAGE, str(err))
@@ -251,7 +260,7 @@ class Span:
             )
         return self
 
-    def get_error(self) -> Optional[Exception]:
+    def get_error(self) -> Optional[BaseException]:
         return self._exception
 
     @property
@@ -271,12 +280,14 @@ class Span:
         else:
             return self._finish_stamp - self._start_stamp
 
-    def start(self, ts: Optional[float] = None):
+    def start(self, ts: Optional[float] = None) -> 'Span':
         self._start_stamp = ts or time.time()
         return self
 
     def finish(
-        self, ts: Optional[float] = None, exception: Optional[Exception] = None
+        self,
+        ts: Optional[float] = None,
+        exception: Optional[BaseException] = None,
     ) -> 'Span':
         self._finish_stamp = ts or time.time()
         if exception is not None:
@@ -284,7 +295,7 @@ class Span:
 
         if self.parent is None or self.parent._is_handled:
             self._handle_children(self)
-            if not self._skip:
+            if not self._skip and self.logger is not None:
                 self.logger.handle_span(self)
             self._is_handled = True
 
@@ -295,7 +306,8 @@ class Span:
             if child._finish_stamp is not None:
                 if not child._skip:
                     self._handle_children(child)
-                    self.logger.handle_span(child)
+                    if self.logger is not None:
+                        self.logger.handle_span(child)
                 child._is_handled = True
 
     def __enter__(self) -> 'Span':
@@ -303,12 +315,17 @@ class Span:
         self._ctx_token = ctx_span_set(self)
         return self
 
-    def __exit__(self, exception_type, exception_value, traceback) -> None:
-        self.finish(exception=exception_value)
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> None:
+        self.finish(exception=exc_value)
         if self._ctx_token is not None:
             ctx_span_reset(self._ctx_token)
 
-    def __str__(self):
+    def __str__(self) -> str:
         dur = self.duration * 1000
         d = ' in %.02f ms' % dur if self.start_stamp is not None else ''
         return '%s[%s]%s' % (self.__class__.__name__, self._name, d)

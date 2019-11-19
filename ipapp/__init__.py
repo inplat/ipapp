@@ -2,7 +2,6 @@ __version__ = '0.0.2b8'
 
 from . import app, error
 from .app import Application, Component
-from .config import Config
 from .logger import Span
 
 try:
@@ -16,6 +15,5 @@ __all__ = [
     'Component',
     'Application',
     'Span',
-    'Config',
     'http_server',
 ]
