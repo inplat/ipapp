@@ -2,11 +2,8 @@ import pytest
 from aiohttp import ClientSession
 
 from ipapp import Application
-from ipapp.logger.adapters import (
-    AdapterConfigurationError,
-    PrometheusAdapter,
-    PrometheusConfig,
-)
+from ipapp.logger.adapters import (AdapterConfigurationError,
+                                   PrometheusAdapter, PrometheusConfig)
 
 
 async def test_success(unused_tcp_port):

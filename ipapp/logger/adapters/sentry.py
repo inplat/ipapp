@@ -1,6 +1,5 @@
 from typing import Optional
 
-import sentry_sdk
 from sentry_sdk.api import capture_exception
 from sentry_sdk.client import Client
 from sentry_sdk.hub import Hub

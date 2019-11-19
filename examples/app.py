@@ -9,12 +9,8 @@ from yarl import URL
 from ipapp import Application
 from ipapp.ctx import span
 from ipapp.http import Client, Server, ServerHandler, ServerHttpSpan
-from ipapp.logger import (
-    PrometheusConfig,
-    RequestsConfig,
-    SentryConfig,
-    ZipkinConfig,
-)
+from ipapp.logger import (PrometheusConfig, RequestsConfig, SentryConfig,
+                          ZipkinConfig)
 
 SPAN_TAG_WIDGET_ID = 'api.widget_id'
 

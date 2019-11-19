@@ -7,11 +7,8 @@ from pydantic import BaseModel
 
 from ipapp import Application
 from ipapp.logger import Span
-from ipapp.logger.adapters import (
-    AdapterConfigurationError,
-    ZipkinAdapter,
-    ZipkinConfig,
-)
+from ipapp.logger.adapters import (AdapterConfigurationError, ZipkinAdapter,
+                                   ZipkinConfig)
 
 
 class EndpointModel(BaseModel):

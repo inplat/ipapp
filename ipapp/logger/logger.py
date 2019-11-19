@@ -3,18 +3,10 @@ from typing import Any, Coroutine, List, Mapping, Optional, Type
 
 import ipapp.app
 
-from .adapters import (
-    AbcAdapter,
-    AbcConfig,
-    PrometheusAdapter,
-    PrometheusConfig,
-    RequestsAdapter,
-    RequestsConfig,
-    SentryAdapter,
-    SentryConfig,
-    ZipkinAdapter,
-    ZipkinConfig,
-)
+from .adapters import (AbcAdapter, AbcConfig, PrometheusAdapter,
+                       PrometheusConfig, RequestsAdapter, RequestsConfig,
+                       SentryAdapter, SentryConfig, ZipkinAdapter,
+                       ZipkinConfig)
 from .span import Span
 
 
