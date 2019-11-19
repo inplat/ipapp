@@ -1,8 +1,8 @@
-from ._abc import AdapterConfigurationError, AbcAdapter, AbcConfig
-from .prometheus import PrometheusConfig, PrometheusAdapter
-from .zipkin import ZipkinConfig, ZipkinAdapter
-from .sentry import SentryConfig, SentryAdapter
-from .requests import RequestsConfig, RequestsAdapter
+from ._abc import AbcAdapter, AbcConfig, AdapterConfigurationError
+from .prometheus import PrometheusAdapter, PrometheusConfig
+from .requests import RequestsAdapter, RequestsConfig
+from .sentry import SentryAdapter, SentryConfig
+from .zipkin import ZipkinAdapter, ZipkinConfig
 
 __all__ = [
     "AdapterConfigurationError",

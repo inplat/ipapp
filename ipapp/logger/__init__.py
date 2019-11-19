@@ -1,12 +1,11 @@
 from functools import wraps
-from typing import Optional, Callable, Type
+from typing import Callable, Optional, Type
 
-from .adapters import (ZipkinConfig, PrometheusConfig, SentryConfig,
-                       RequestsConfig)
+from ..misc import ctx_app_get, ctx_request_get, ctx_span_get
+from .adapters import (PrometheusConfig, RequestsConfig, SentryConfig,
+                       ZipkinConfig)
 from .logger import Logger
-from .span import Span, HttpSpan
-from ..misc import (ctx_span_get, ctx_app_get,
-                    ctx_request_get, )
+from .span import HttpSpan, Span
 
 
 def wrap2span(*, name: Optional[str] = None, kind: Optional[str] = None,

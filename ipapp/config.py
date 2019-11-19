@@ -1,8 +1,8 @@
 import copy
 import os
 from collections import OrderedDict
-from typing import Optional, Union, Dict, Any, Type
 from os import _Environ
+from typing import Any, Dict, Optional, Type, Union
 
 Env = Union[_Environ, dict]
 

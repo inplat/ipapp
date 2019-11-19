@@ -2,18 +2,17 @@ import logging
 import re
 import time
 from ssl import SSLContext
-from typing import Optional, Dict
+from typing import Dict, Optional
 
-from aiohttp import ClientResponse
-from aiohttp import ClientSession
-from aiohttp import ClientTimeout
+from aiohttp import ClientResponse, ClientSession, ClientTimeout
 from aiohttp.typedefs import StrOrURL
 from yarl import URL
 
 from ipapp.app import Component
-from ipapp.logger import (Span, HttpSpan, wrap2span)
-from ._base import ClientServerAnnotator
+from ipapp.logger import HttpSpan, Span, wrap2span
+
 from ..misc import ctx_span_get
+from ._base import ClientServerAnnotator
 
 __version__ = '0.0.1b6'
 

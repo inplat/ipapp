@@ -50,6 +50,15 @@ safety:
   tags:
     - build
 
+isort:
+  stage: lint
+  script:
+    - make isort
+  dependencies:
+    - venv
+  tags:
+    - build
+
 build:
   stage: test
   artifacts:

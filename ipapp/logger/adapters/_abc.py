@@ -4,8 +4,9 @@ from typing import Optional
 from pydantic import BaseSettings
 
 import ipapp.logger  # noqa
-from ..span import Span
+
 from ...error import ConfigurationError
+from ..span import Span
 
 
 class AdapterConfigurationError(ConfigurationError):

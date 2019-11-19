@@ -1,14 +1,15 @@
 import asyncio
 import json
 from collections import deque
-from typing import Optional, List, Tuple, Deque, Any
+from typing import Any, Deque, List, Optional, Tuple
 
 import asyncpg
 from pydantic import BaseModel
 
 import ipapp.logger  # noqa
-from ._abc import AbcConfig, AbcAdapter
-from ..span import Span, HttpSpan
+
+from ..span import HttpSpan, Span
+from ._abc import AbcAdapter, AbcConfig
 
 
 class Request(BaseModel):

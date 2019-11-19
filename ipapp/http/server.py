@@ -4,7 +4,7 @@ import time
 from abc import ABCMeta
 from datetime import datetime, timezone
 from ssl import SSLContext
-from typing import Type, Optional, List, Callable, Awaitable
+from typing import Awaitable, Callable, List, Optional, Type
 
 from aiohttp import web
 from aiohttp.abc import AbstractAccessLogger
@@ -13,8 +13,9 @@ from aiohttp.web_runner import AppRunner, BaseSite, TCPSite
 from aiohttp.web_urldispatcher import AbstractRoute
 
 from ipapp.app import Component
-from ipapp.logger import Span, HttpSpan, wrap2span, ctx_span_get
-from ipapp.misc import ctx_request_set, ctx_request_reset
+from ipapp.logger import HttpSpan, Span, ctx_span_get, wrap2span
+from ipapp.misc import ctx_request_reset, ctx_request_set
+
 from ._base import ClientServerAnnotator
 
 access_logger = logging.getLogger('aiohttp.access')

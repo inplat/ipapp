@@ -4,9 +4,10 @@ from typing import Dict
 from prometheus_client import Histogram, start_http_server
 
 import ipapp.logger  # noqa
-from ._abc import AbcConfig, AbcAdapter, AdapterConfigurationError
-from ..span import Span
+
 from ...misc import dict_merge
+from ..span import Span
+from ._abc import AbcAdapter, AbcConfig, AdapterConfigurationError
 
 LabelsCfg = Dict[str, Dict[str, str]]
 

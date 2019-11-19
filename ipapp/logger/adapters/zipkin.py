@@ -5,8 +5,9 @@ import aiozipkin.span as azs
 import aiozipkin.tracer as azt
 
 import ipapp.logger  # noqa
-from ._abc import AbcConfig, AbcAdapter, AdapterConfigurationError
+
 from ..span import Span
+from ._abc import AbcAdapter, AbcConfig, AdapterConfigurationError
 
 
 class ZipkinConfig(AbcConfig):

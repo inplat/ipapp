@@ -7,10 +7,10 @@ from aiohttp import web
 from yarl import URL
 
 from ipapp import Application
-from ipapp.http import (ServerHandler, Server, ServerHttpSpan, Client)
-from ipapp.logger import (PrometheusConfig, ZipkinConfig, SentryConfig,
-                          RequestsConfig)
 from ipapp.ctx import span
+from ipapp.http import Client, Server, ServerHandler, ServerHttpSpan
+from ipapp.logger import (PrometheusConfig, RequestsConfig, SentryConfig,
+                          ZipkinConfig)
 
 SPAN_TAG_WIDGET_ID = 'api.widget_id'
 

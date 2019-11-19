@@ -11,8 +11,7 @@ from functools import partial
 from getpass import getuser
 from random import SystemRandom
 from typing import Optional
-from urllib.parse import urlparse, unquote
-from urllib.parse import urlunsplit, urlsplit
+from urllib.parse import unquote, urlparse, urlsplit, urlunsplit
 
 from aiohttp import web
 from deepmerge import Merger
@@ -21,7 +20,7 @@ from yarl import URL
 import ipapp.app  # noqa
 import ipapp.logger  # noqa
 
-from .ctx import app, span, request
+from .ctx import app, request, span
 
 
 def ctx_app_get() -> Optional['ipapp.app.Application']:

@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import List, Optional
 
 import pytest
 from aiohttp import web
@@ -6,7 +6,7 @@ from aiohttp.test_utils import TestServer
 
 from ipapp import Application
 from ipapp.logger import Span
-from ipapp.logger.adapters import SentryConfig, SentryAdapter
+from ipapp.logger.adapters import SentryAdapter, SentryConfig
 
 
 class SentryServer:

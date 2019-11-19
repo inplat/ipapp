@@ -1,20 +1,12 @@
 import asyncio
-from typing import Optional, List, Type, Mapping, Coroutine
+from typing import Coroutine, List, Mapping, Optional, Type
 
 import ipapp.app
-from .adapters import (
-    AbcAdapter,
-    AbcConfig,
-    PrometheusAdapter,
-    PrometheusConfig,
-    ZipkinAdapter,
-    ZipkinConfig,
-    SentryAdapter,
-    SentryConfig,
-    RequestsAdapter,
-    RequestsConfig,
 
-)
+from .adapters import (AbcAdapter, AbcConfig, PrometheusAdapter,
+                       PrometheusConfig, RequestsAdapter, RequestsConfig,
+                       SentryAdapter, SentryConfig, ZipkinAdapter,
+                       ZipkinConfig)
 from .span import Span
 
 

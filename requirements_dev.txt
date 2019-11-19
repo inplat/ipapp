@@ -5,6 +5,7 @@ idna
 flake8
 mypy
 bandit
+isort
 aiohttp
 pylint
 pytest-aiohttp

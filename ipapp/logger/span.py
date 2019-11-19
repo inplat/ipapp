@@ -3,13 +3,14 @@ import sys
 import time
 import traceback
 from contextvars import Token
-from typing import Optional, List, Dict, Type, Mapping, Any, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Type
 
 import aiozipkin.helpers as azh
 import aiozipkin.utils as azu
 
 import ipapp.logger  # noqa
-from ..misc import ctx_app_get, ctx_span_set, ctx_span_reset, dict_merge
+
+from ..misc import ctx_app_get, ctx_span_reset, ctx_span_set, dict_merge
 
 RE_P8S_METRIC_NAME = re.compile(r'[^a-zA-Z0-9_]')
 

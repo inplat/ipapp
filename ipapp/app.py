@@ -2,9 +2,9 @@ import asyncio
 import logging
 import signal
 import time
-from typing import Dict, Optional, Callable
+from typing import Callable, Dict, Optional
 
-from .error import PrepareError, GracefulExit
+from .error import GracefulExit, PrepareError
 from .logger import Logger
 from .misc import ctx_app_set
 

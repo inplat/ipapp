@@ -1,6 +1,6 @@
-from asyncio import sleep, Future
+from asyncio import Future, sleep
 from copy import copy, deepcopy
-from math import floor, trunc, ceil
+from math import ceil, floor, trunc
 
 from pytest import raises
 

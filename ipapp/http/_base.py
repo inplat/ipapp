@@ -6,7 +6,7 @@ from multidict import MultiMapping
 from yarl import URL
 
 import ipapp.app  # noqa
-from ipapp.logger import (Span, HttpSpan)
+from ipapp.logger import HttpSpan, Span
 
 RE_SECRET_WORDS = re.compile("(pas+wo?r?d|pass(phrase)?|pwd|token|secrete?)",
                              re.IGNORECASE)

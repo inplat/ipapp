@@ -1,5 +1,4 @@
-from typing import List
-from typing import Optional, Dict
+from typing import Dict, List, Optional
 
 import pytest
 from aiohttp import web
@@ -8,11 +7,8 @@ from pydantic import BaseModel
 
 from ipapp import Application
 from ipapp.logger import Span
-from ipapp.logger.adapters import (
-    ZipkinConfig,
-    ZipkinAdapter,
-    AdapterConfigurationError,
-)
+from ipapp.logger.adapters import (AdapterConfigurationError, ZipkinAdapter,
+                                   ZipkinConfig)
 
 
 class EndpointModel(BaseModel):

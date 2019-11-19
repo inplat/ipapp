@@ -4,8 +4,9 @@ import sentry_sdk
 from sentry_sdk import capture_exception
 
 import ipapp.logger  # noqa
-from ._abc import AbcConfig, AbcAdapter
+
 from ..span import Span
+from ._abc import AbcAdapter, AbcConfig
 
 
 class SentryConfig(AbcConfig):
