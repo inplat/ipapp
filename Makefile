@@ -83,7 +83,7 @@ safety: venv  # checks your installed dependencies for known security vulnerabil
 
 .PHONY: isort
 isort: venv  # checks imports order
-	$(VENV_BIN)/isort -rc --check ipapp examples tests
+	$(VENV_BIN)/isort -rc --check-only ipapp examples tests
 
 .PHONY: lint
 lint: safety bandit mypy flake8 isort  ## Run flake8, bandit, mypy
