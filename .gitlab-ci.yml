@@ -50,15 +50,6 @@ safety:
   tags:
     - build
 
-isort:
-  stage: lint
-  script:
-    - make isort
-  dependencies:
-    - venv
-  tags:
-    - build
-
 black:
   stage: lint
   script:

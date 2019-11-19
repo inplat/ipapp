@@ -81,16 +81,12 @@ mypy: venv  ## Static type check
 safety: venv  # checks your installed dependencies for known security vulnerabilities
 	$(VENV_BIN)/safety check -r requirements.txt
 
-.PHONY: isort
-isort: venv  # checks imports order
-	$(VENV_BIN)/isort -rc --check-only ipapp examples tests setup.py
-
 .PHONY: black
 black: venv  # checks imports order
 	$(VENV_BIN)/black -S -l 79 --target-version  py37 examples ipapp tests setup.py --check
 
 .PHONY: lint
-lint: safety bandit mypy flake8 isort  ## Run flake8, bandit, mypy
+lint: safety bandit mypy flake8 black  ## Run flake8, bandit, mypy
 
 .PHONY: format
 format: venv  ## Autoformat code

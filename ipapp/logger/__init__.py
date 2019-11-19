@@ -2,8 +2,12 @@ from functools import wraps
 from typing import Any, Callable, Optional, Type
 
 from ..misc import ctx_app_get, ctx_request_get, ctx_span_get
-from .adapters import (PrometheusConfig, RequestsConfig, SentryConfig,
-                       ZipkinConfig)
+from .adapters import (
+    PrometheusConfig,
+    RequestsConfig,
+    SentryConfig,
+    ZipkinConfig,
+)
 from .logger import Logger
 from .span import HttpSpan, Span
 
