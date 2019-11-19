@@ -97,7 +97,7 @@ class ClientServerAnnotator:
         if encoding is not None:
             try:
                 return b.decode(encoding)
-            except Exception:
+            except Exception:  # nosec
                 pass
         try:
             return b.decode()

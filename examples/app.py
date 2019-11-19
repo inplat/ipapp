@@ -18,6 +18,8 @@ from ipapp.logger import (
 
 SPAN_TAG_WIDGET_ID = 'api.widget_id'
 
+rnd = random.SystemRandom()
+
 
 class InplatSiteClient(Client):
     def __init__(self, base_url: str):
@@ -40,7 +42,7 @@ class HttpHandler(ServerHandler):
         self.server.add_route('GET', '/', self.home_handler)
 
     async def error_handler(
-        self, request: web.Request, err: Exception
+            self, request: web.Request, err: Exception
     ) -> web.Response:
         span.error(err)
         return web.Response(text='%r' % err, status=500)
@@ -55,7 +57,7 @@ class HttpHandler(ServerHandler):
         span.name = 'call something'
 
         with span.new_child('sleep', span.KIND_CLIENT):
-            await asyncio.sleep(random.random())
+            await asyncio.sleep(rnd.random())
 
         return web.Response(text='OK')
 
@@ -73,7 +75,7 @@ class App(Application):
         self._version = '0.0.0.1'
         self._build_stamp = 1573734614
 
-        self.add('srv', Server(HttpHandler(), host='127.0.0.1', port=8888,))
+        self.add('srv', Server(HttpHandler(), host='127.0.0.1', port=8888, ))
 
         self.add('inplat', InplatSiteClient(base_url='https://inplat.ru/123'))
 
