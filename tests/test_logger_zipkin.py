@@ -7,11 +7,8 @@ from pydantic import BaseModel
 
 from ipapp import Application
 from ipapp.logger import Span
-from ipapp.logger.adapters import (
-    AdapterConfigurationError,
-    ZipkinAdapter,
-    ZipkinConfig,
-)
+from ipapp.logger.adapters import AdapterConfigurationError
+from ipapp.logger.adapters.zipkin import ZipkinAdapter, ZipkinConfig
 
 
 class EndpointModel(BaseModel):
@@ -70,13 +67,10 @@ class ZipkinServer:
 async def test_success():
     async with ZipkinServer() as zs:
         cfg = ZipkinConfig(name='123', addr=zs.addr)
+        adapter = ZipkinAdapter(cfg)
         app = Application()
+        app.logger.add(adapter)
         lgr = app.logger
-        lgr.add(cfg)
-
-        adapter = lgr.adapters[0]
-        assert isinstance(adapter, ZipkinAdapter)
-
         await lgr.start()
 
         with lgr.span_new(name='t1', kind=Span.KIND_SERVER) as sp:
@@ -116,7 +110,9 @@ async def test_success():
 async def test_errors():
     app = Application()
     lgr = app.logger
-    adapter = ZipkinAdapter()
+    cfg = ZipkinConfig(name='123')
+    adapter = ZipkinAdapter(cfg)
+
     with pytest.raises(AdapterConfigurationError):
         adapter.handle(lgr.span_new())
 

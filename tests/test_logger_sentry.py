@@ -6,7 +6,7 @@ from aiohttp.test_utils import TestServer
 
 from ipapp import Application
 from ipapp.logger import Span
-from ipapp.logger.adapters import SentryAdapter, SentryConfig
+from ipapp.logger.adapters.sentry import SentryAdapter, SentryConfig
 
 
 class SentryServer:
@@ -42,13 +42,10 @@ class SentryServer:
 async def test_success():
     async with SentryServer() as ss:
         cfg = SentryConfig(dsn=ss.addr)
+        adapter = SentryAdapter(cfg)
         app = Application()
+        app.logger.add(adapter)
         lgr = app.logger
-        lgr.add(cfg)
-
-        adapter = lgr.adapters[0]
-        assert isinstance(adapter, SentryAdapter)
-
         await lgr.start()
 
         with lgr.span_new(name='t1', kind=Span.KIND_SERVER) as span:

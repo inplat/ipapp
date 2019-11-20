@@ -1,9 +1,7 @@
-import pytest
 from aiohttp import ClientSession
 
 from ipapp import Application
-from ipapp.logger.adapters import (
-    AdapterConfigurationError,
+from ipapp.logger.adapters.prometheus import (
     PrometheusAdapter,
     PrometheusConfig,
 )
@@ -11,18 +9,20 @@ from ipapp.logger.adapters import (
 
 async def test_success(unused_tcp_port):
     port = unused_tcp_port
-    app = Application()
-    app.logger.add(
-        PrometheusConfig(
-            port=port,
-            hist_labels={
-                'test_span': {
-                    'le': '1.1,Inf',  # le mapping to quantiles
-                    'tag1': 'some_tag1',
-                }
-            },
-        )
+
+    cfg = PrometheusConfig(
+        port=port,
+        hist_labels={
+            'test_span': {
+                'le': '1.1,Inf',  # le mapping to quantiles
+                'tag1': 'some_tag1',
+            }
+        },
     )
+    adapter = PrometheusAdapter(cfg)
+    app = Application()
+    app.logger.add(adapter)
+
     await app.start()
 
     with app.logger.span_new(name='test_span') as span:
@@ -50,14 +50,3 @@ async def test_success(unused_tcp_port):
     ) in txt
 
     await app.stop()
-
-
-async def test_errors():
-    app = Application()
-    lgr = app.logger
-    adapter = PrometheusAdapter()
-    with pytest.raises(AdapterConfigurationError):
-        adapter.handle(lgr.span_new())
-
-    with pytest.raises(AdapterConfigurationError):
-        await adapter.stop()

@@ -14,8 +14,9 @@ from aiohttp.web_runner import AppRunner, BaseSite, TCPSite
 from aiohttp.web_urldispatcher import AbstractRoute
 
 import ipapp.app  # noqa
-from ipapp.app import Component
-from ipapp.logger import HttpSpan, Span, wrap2span
+from ipapp.component import Component
+from ipapp.http._base import HttpSpan
+from ipapp.logger import Span, wrap2span
 from ipapp.misc import ctx_request_reset, ctx_request_set, ctx_span_get
 
 from ._base import ClientServerAnnotator

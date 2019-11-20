@@ -6,7 +6,7 @@ from multidict import MultiMapping
 from yarl import URL
 
 import ipapp.app  # noqa
-from ipapp.logger import HttpSpan, Span
+from ipapp.logger.span import Span
 
 RE_SECRET_WORDS = re.compile(
     "(pas+wo?r?d|pass(phrase)?|pwd|token|secrete?)", re.IGNORECASE
@@ -23,7 +23,7 @@ class ClientServerAnnotator:
         return str(url)
 
     def _span_annotate_req_hdrs(
-        self, span: HttpSpan, headers: MultiMapping[str], ts: float
+        self, span: 'HttpSpan', headers: MultiMapping[str], ts: float
     ) -> None:
         if not span.ann_req_hdrs:
             return
@@ -39,7 +39,7 @@ class ClientServerAnnotator:
 
     def _span_annotate_req_body(
         self,
-        span: HttpSpan,
+        span: 'HttpSpan',
         body: Optional[bytes],
         ts: float,
         encoding: Optional[str] = None,
@@ -61,7 +61,7 @@ class ClientServerAnnotator:
             self.app.log_err(err)
 
     def _span_annotate_resp_hdrs(
-        self, span: HttpSpan, headers: MultiMapping[str], ts: float
+        self, span: 'HttpSpan', headers: MultiMapping[str], ts: float
     ) -> None:
         if not span.ann_resp_hdrs:
             return
@@ -76,7 +76,7 @@ class ClientServerAnnotator:
 
     def _span_annotate_resp_body(
         self,
-        span: HttpSpan,
+        span: 'HttpSpan',
         body: bytes,
         ts: float,
         encoding: Optional[str] = None,
@@ -120,3 +120,24 @@ class ClientServerAnnotator:
         span.annotate4adapter(
             self.app.logger.ADAPTER_REQUESTS, kind, content, ts=ts
         )
+
+
+class HttpSpan(Span):
+    TAG_HTTP_HOST = 'http.host'
+    TAG_HTTP_METHOD = 'http.method'
+    TAG_HTTP_ROUTE = 'http.route'
+    TAG_HTTP_PATH = 'http.path'
+    TAG_HTTP_REQUEST_SIZE = 'http.request.size'
+    TAG_HTTP_RESPONSE_SIZE = 'http.response.size'
+    TAG_HTTP_STATUS_CODE = 'http.status_code'
+    TAG_HTTP_URL = 'http.url'
+
+    ANN_REQUEST_HDRS = 'request_hdrs'
+    ANN_REQUEST_BODY = 'request_body'
+    ANN_RESPONSE_HDRS = 'response_hdrs'
+    ANN_RESPONSE_BODY = 'response_body'
+
+    ann_req_hdrs: bool = True
+    ann_req_body: bool = True
+    ann_resp_hdrs: bool = True
+    ann_resp_body: bool = True

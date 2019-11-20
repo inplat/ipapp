@@ -8,11 +8,11 @@ from aiohttp import ClientResponse, ClientSession, ClientTimeout
 from aiohttp.typedefs import StrOrURL
 from yarl import URL
 
-from ipapp.app import Component
-from ipapp.logger import HttpSpan, Span, wrap2span
+from ipapp.component import Component
+from ipapp.logger import Span, wrap2span
 
 from ..misc import ctx_span_get
-from ._base import ClientServerAnnotator
+from ._base import ClientServerAnnotator, HttpSpan
 
 __version__ = '0.0.1b6'
 

@@ -4,30 +4,25 @@ import pytest
 
 from ipapp import Application, Span
 from ipapp.logger import Logger
-from ipapp.logger.adapters import AbcAdapter, AbcConfig
+from ipapp.logger.adapters import AbcAdapter
 from ipapp.misc import ctx_span_get
 
 
 async def test_logger_invalid_adapter():
-    class TestCfg(AbcConfig):
-        pass
 
     app = Application()
     lgr = app.logger
     with pytest.raises(UserWarning):
-        lgr.add(TestCfg())
+        lgr.add(object())
 
 
 async def test_logger_adapter():
-    class TestCfg(AbcConfig):
-        pass
-
     class TestAdapter(AbcAdapter):
         started = False
         stopped = False
         handled: List[Span] = []
 
-        async def start(self, logger: 'Logger', cfg: AbcConfig):
+        async def start(self, logger: 'Logger'):
             self.started = True
 
         def handle(self, span: Span):
@@ -38,7 +33,7 @@ async def test_logger_adapter():
 
     app = Application()
     lgr = app.logger
-    lgr.add(TestCfg(), adapter_cls=TestAdapter)
+    lgr.add(TestAdapter())
 
     adapter = lgr.adapters[0]
     assert isinstance(adapter, TestAdapter)
@@ -188,15 +183,12 @@ async def test_span_from_hdrs_2():
 
 
 async def test_span_skip():
-    class TestCfg(AbcConfig):
-        pass
-
     class TestAdapter(AbcAdapter):
         started = False
         stopped = False
         handled: List[Span] = []
 
-        async def start(self, logger: 'Logger', cfg: AbcConfig):
+        async def start(self, logger: 'Logger'):
             self.started = True
 
         def handle(self, span: Span):
@@ -207,7 +199,7 @@ async def test_span_skip():
 
     app = Application()
     lgr = app.logger
-    lgr.add(TestCfg(), adapter_cls=TestAdapter)
+    lgr.add(TestAdapter())
 
     adapter = lgr.adapters[0]
     assert isinstance(adapter, TestAdapter)
@@ -231,16 +223,13 @@ async def test_span_skip():
 
 
 async def test_span():
-    class TestCfg(AbcConfig):
-        pass
-
     class TestAdapter(AbcAdapter):
         name = 'test_adapter'
         started = False
         stopped = False
         handled: List[Span] = []
 
-        async def start(self, logger: 'Logger', cfg: AbcConfig):
+        async def start(self, logger: 'Logger'):
             self.started = True
 
         def handle(self, span: Span):
@@ -251,7 +240,7 @@ async def test_span():
 
     app = Application()
     lgr = app.logger
-    lgr.add(TestCfg(), adapter_cls=TestAdapter)
+    lgr.add(TestAdapter())
 
     adapter = lgr.adapters[0]
     assert isinstance(adapter, TestAdapter)

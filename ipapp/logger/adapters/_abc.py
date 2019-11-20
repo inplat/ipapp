@@ -22,9 +22,7 @@ class AbcAdapter(ABC):
     cfg: Optional[AbcConfig] = None
 
     @abstractmethod
-    async def start(
-        self, logger: 'ipapp.logger.Logger', cfg: AbcConfig
-    ) -> None:
+    async def start(self, logger: 'ipapp.logger.Logger') -> None:
         pass
 
     @abstractmethod

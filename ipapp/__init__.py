@@ -1,7 +1,8 @@
 __version__ = '0.0.2b8'
 
 from . import app, error
-from .app import Application, Component
+from .app import Application
+from .component import Component
 from .logger import Span
 
 try:

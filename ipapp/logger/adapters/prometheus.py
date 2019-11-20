@@ -29,6 +29,34 @@ DEFAULT_HISTOGRAM_LABELS: LabelsCfg = {  # {name: {label: tag}, }
         'status_code': 'http.status_code',
         'error': 'error.class',
     },
+    'db_connection': {
+        'le': '0.01,0.1,1,10,Inf',  # le mapping to quantiles
+        'error': 'error.class',
+        'free': 'db.pool.free',
+    },
+    'db_xact_commited': {
+        'le': '0.01,0.1,1,10,Inf',  # le mapping to quantiles
+        'error': 'error.class',
+    },
+    'db_xact_reverted': {
+        'le': '0.01,0.1,1,10,Inf',  # le mapping to quantiles
+        'error': 'error.class',
+    },
+    'db_execute': {
+        'le': '0.01,0.1,1,10,Inf',  # le mapping to quantiles
+        'error': 'error.class',
+        'query': 'db.query',
+    },
+    'db_prepare': {
+        'le': '0.01,0.1,1,10,Inf',  # le mapping to quantiles
+        'error': 'error.class',
+        'query': 'db.query',
+    },
+    'db_execute_prepared': {
+        'le': '0.01,0.1,1,10,Inf',  # le mapping to quantiles
+        'error': 'error.class',
+        'query': 'db.query',
+    },
 }
 DEFAULT_HISTOGRAM_DOCS = {
     'http_in': 'Incoming HTTP request',
@@ -47,25 +75,21 @@ class PrometheusAdapter(AbcAdapter):
     name = 'prometheus'
     cfg: PrometheusConfig
 
-    def __init__(self) -> None:
+    def __init__(self, cfg: PrometheusConfig) -> None:
+        self.cfg = cfg
         self.p8s_hists: Dict[str, Histogram] = {}
         self.p8s_hist_labels: LabelsCfg = {}
         self.p8s_hist_docs: Dict[str, str] = {}
 
-    async def start(
-        self, logger: 'ipapp.logger.Logger', cfg: AbcConfig
-    ) -> None:
-        if not isinstance(cfg, PrometheusConfig):
-            raise UserWarning
-
-        self.cfg = cfg
-
+    async def start(self, logger: 'ipapp.logger.Logger') -> None:
         self.p8s_hists = {}  # Histograms
 
         self.p8s_hist_labels = dict_merge(
-            DEFAULT_HISTOGRAM_LABELS, cfg.hist_labels
+            DEFAULT_HISTOGRAM_LABELS, self.cfg.hist_labels
         )
-        self.p8s_hist_docs = dict_merge(DEFAULT_HISTOGRAM_DOCS, cfg.hist_docs)
+        self.p8s_hist_docs = dict_merge(
+            DEFAULT_HISTOGRAM_DOCS, self.cfg.hist_docs
+        )
 
         for hist_name, labels_cfg in self.p8s_hist_labels.items():
             buckets = Histogram.DEFAULT_BUCKETS
@@ -81,7 +105,7 @@ class PrometheusAdapter(AbcAdapter):
             self.p8s_hists[hist_name] = Histogram(
                 hist_name, doc, labelnames=labelnames, buckets=buckets
             )
-        start_http_server(cfg.port, cfg.addr)
+        start_http_server(self.cfg.port, self.cfg.addr)
 
     def handle(self, span: Span) -> None:
         if self.cfg is None:

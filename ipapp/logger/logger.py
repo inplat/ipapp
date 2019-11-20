@@ -4,25 +4,20 @@ from typing import Any, Coroutine, List, Mapping, Optional, Type
 import ipapp.app
 
 from .adapters import (
+    ADAPTER_PROMETHEUS,
+    ADAPTER_REQUESTS,
+    ADAPTER_SENTRY,
+    ADAPTER_ZIPKIN,
     AbcAdapter,
-    AbcConfig,
-    PrometheusAdapter,
-    PrometheusConfig,
-    RequestsAdapter,
-    RequestsConfig,
-    SentryAdapter,
-    SentryConfig,
-    ZipkinAdapter,
-    ZipkinConfig,
 )
-from .span import Span
+from .span import Span, SpanTrap
 
 
 class Logger:
-    ADAPTER_ZIPKIN = ZipkinAdapter.name
-    ADAPTER_PROMETHEUS = PrometheusAdapter.name
-    ADAPTER_SENTRY = SentryAdapter.name
-    ADAPTER_REQUESTS = RequestsAdapter.name
+    ADAPTER_ZIPKIN = ADAPTER_ZIPKIN
+    ADAPTER_PROMETHEUS = ADAPTER_PROMETHEUS
+    ADAPTER_SENTRY = ADAPTER_SENTRY
+    ADAPTER_REQUESTS = ADAPTER_REQUESTS
 
     def __init__(self, app: 'ipapp.app.Application') -> None:
         self.app = app
@@ -58,26 +53,26 @@ class Logger:
     ) -> 'Span':
         return cls.from_headers(headers)
 
-    def add(
-        self, cfg: AbcConfig, *, adapter_cls: Optional[Type[AbcAdapter]] = None
-    ) -> AbcAdapter:
+    def add(self, adapter: AbcAdapter) -> AbcAdapter:
         if self._started:  # pragma: no cover
             raise UserWarning
-        adapter: AbcAdapter
-        if isinstance(cfg, PrometheusConfig):
-            adapter = PrometheusAdapter()
-        elif isinstance(cfg, ZipkinConfig):
-            adapter = ZipkinAdapter()
-        elif isinstance(cfg, SentryConfig):
-            adapter = SentryAdapter()
-        elif isinstance(cfg, RequestsConfig):
-            adapter = RequestsAdapter()
-        else:
-            if adapter_cls is not None:
-                adapter = adapter_cls()
-            else:
-                raise UserWarning('Invalid configuration class')
-        self._configs.append(adapter.start(self, cfg))
+        if not isinstance(adapter, AbcAdapter):
+            raise UserWarning('Invalid adapter')
+        # adapter: AbcAdapter
+        # if isinstance(cfg, PrometheusConfig):
+        #     adapter = PrometheusAdapter()
+        # elif isinstance(cfg, ZipkinConfig):
+        #     adapter = ZipkinAdapter()
+        # elif isinstance(cfg, SentryConfig):
+        #     adapter = SentryAdapter()
+        # elif isinstance(cfg, RequestsConfig):
+        #     adapter = RequestsAdapter()
+        # else:
+        #     if adapter_cls is not None:
+        #         adapter = adapter_cls()
+        #     else:
+        #         raise UserWarning('Invalid configuration class')
+        self._configs.append(adapter.start(self))
         self.adapters.append(adapter)
         return adapter
 
@@ -87,3 +82,7 @@ class Logger:
                 adapter.handle(span)
             except Exception as err:  # pragma: no cover
                 self.app.log_err(err)
+
+    @staticmethod
+    def capture_span(cls: Type[Span]) -> SpanTrap:
+        return SpanTrap(cls)

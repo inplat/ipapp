@@ -10,8 +10,7 @@ import aiozipkin.helpers as azh
 import aiozipkin.utils as azu
 
 import ipapp.logger  # noqa
-
-from ..misc import ctx_app_get, ctx_span_reset, ctx_span_set, dict_merge
+import ipapp.misc as misc
 
 RE_P8S_METRIC_NAME = re.compile(r'[^a-zA-Z0-9_]')
 
@@ -98,7 +97,7 @@ class Span:
             trace_id = headers.get(azh.TRACE_ID_HEADER.lower())
             if not trace_id:
                 trace_id = azu.generate_random_128bit_string()
-            app = ctx_app_get()
+            app = misc.ctx_app_get()
             if app is None:
                 raise UserWarning
             span = cls(
@@ -117,7 +116,7 @@ class Span:
     def new(
         cls, name: Optional[str] = None, kind: Optional[str] = None
     ) -> 'Span':
-        app = ctx_app_get()
+        app = misc.ctx_app_get()
         if app is None:
             raise UserWarning
         span = cls(
@@ -203,7 +202,7 @@ class Span:
             tags = self._tags4adapter[adapter]
 
         if merge:
-            return dict_merge(self._tags, tags)
+            return misc.dict_merge(self._tags, tags)
         else:
             return tags
 
@@ -239,7 +238,7 @@ class Span:
             anns = self._annotations4adapter[adapter]
 
         if merge:
-            return dict_merge(self._annotations, anns)
+            return misc.dict_merge(self._annotations, anns)
         else:
             return anns
 
@@ -312,7 +311,12 @@ class Span:
 
     def __enter__(self) -> 'Span':
         self.start()
-        self._ctx_token = ctx_span_set(self)
+        wrap = misc.ctx_span_trap_get()
+        if wrap is not None:
+            for item in wrap:
+                item._set_span(self)
+
+        self._ctx_token = misc.ctx_span_set(self)
         return self
 
     def __exit__(
@@ -323,7 +327,7 @@ class Span:
     ) -> None:
         self.finish(exception=exc_value)
         if self._ctx_token is not None:
-            ctx_span_reset(self._ctx_token)
+            misc.ctx_span_reset(self._ctx_token)
 
     def __str__(self) -> str:
         dur = self.duration * 1000
@@ -331,22 +335,40 @@ class Span:
         return '%s[%s]%s' % (self.__class__.__name__, self._name, d)
 
 
-class HttpSpan(Span):
-    TAG_HTTP_HOST = 'http.host'
-    TAG_HTTP_METHOD = 'http.method'
-    TAG_HTTP_ROUTE = 'http.route'
-    TAG_HTTP_PATH = 'http.path'
-    TAG_HTTP_REQUEST_SIZE = 'http.request.size'
-    TAG_HTTP_RESPONSE_SIZE = 'http.response.size'
-    TAG_HTTP_STATUS_CODE = 'http.status_code'
-    TAG_HTTP_URL = 'http.url'
+class SpanTrap:
+    def __init__(self, cls: Type[Span]) -> None:
+        self._cls = cls
+        self._token: Optional[Token] = None
+        self._span: Optional[Span] = None
 
-    ANN_REQUEST_HDRS = 'request_hdrs'
-    ANN_REQUEST_BODY = 'request_body'
-    ANN_RESPONSE_HDRS = 'response_hdrs'
-    ANN_RESPONSE_BODY = 'response_body'
+    def __enter__(self) -> 'SpanTrap':
+        traps = misc.ctx_span_trap_get()
+        if traps is None:
+            traps = []
+            self._token = misc.ctx_span_trap_set(traps)
+        traps.append(self)
+        return self
 
-    ann_req_hdrs: bool = True
-    ann_req_body: bool = True
-    ann_resp_hdrs: bool = True
-    ann_resp_body: bool = True
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> None:
+        traps = misc.ctx_span_trap_get()
+        if traps is not None:
+            traps.remove(self)
+
+        if self._token is not None:
+            misc.ctx_span_trap_reset(self._token)
+            self._token = None
+
+    @property
+    def span(self) -> 'Span':
+        if self._span is None:
+            raise UserWarning('Span not captured yet')
+        return self._span
+
+    def _set_span(self, span: 'Span') -> None:
+        if self._cls is None or isinstance(span, self._cls):
+            self._span = span

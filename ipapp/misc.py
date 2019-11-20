@@ -6,7 +6,7 @@ from contextvars import Token
 from copy import deepcopy
 from getpass import getuser
 from random import SystemRandom
-from typing import Any, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 from urllib.parse import unquote, urlparse, urlsplit, urlunsplit
 
 from aiohttp import web
@@ -14,9 +14,9 @@ from deepmerge import Merger
 from yarl import URL
 
 import ipapp.app  # noqa
-import ipapp.logger  # noqa
+import ipapp.logger.span  # noqa
 
-from .ctx import app, request, span
+from .ctx import app, request, span, span_trap
 
 
 def ctx_app_get() -> Optional['ipapp.app.Application']:
@@ -35,24 +35,36 @@ def ctx_request_get() -> Optional[web.Request]:
     return request.__ctx__.get()  # type: ignore
 
 
-def ctx_request_set(request: web.Request) -> Token:
-    return request.__ctx__.set(request)  # type: ignore
+def ctx_request_set(ctx: web.Request) -> Token:
+    return request.__ctx__.set(ctx)  # type: ignore
 
 
 def ctx_request_reset(token: Token) -> None:
     request.__ctx__.reset(token)  # type: ignore
 
 
-def ctx_span_get() -> Optional['ipapp.logger.Span']:
+def ctx_span_get() -> Optional['ipapp.logger.span.Span']:
     return span.__ctx__.get()  # type: ignore
 
 
-def ctx_span_set(ctx: 'ipapp.logger.Span') -> Token:
+def ctx_span_set(ctx: 'ipapp.logger.span.Span') -> Token:
     return span.__ctx__.set(ctx)  # type: ignore
 
 
 def ctx_span_reset(token: Token) -> None:
     span.__ctx__.reset(token)  # type: ignore
+
+
+def ctx_span_trap_get() -> Optional[List['ipapp.logger.span.SpanTrap']]:
+    return span_trap.__ctx__.get()  # type: ignore
+
+
+def ctx_span_trap_set(ctx: List['ipapp.logger.span.SpanTrap']) -> Token:
+    return span_trap.__ctx__.set(ctx)  # type: ignore
+
+
+def ctx_span_trap_reset(token: Token) -> None:
+    span_trap.__ctx__.reset(token)  # type: ignore
 
 
 def mask_url_pwd(route: Optional[str]) -> Optional[str]:

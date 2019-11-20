@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import random
 from typing import Optional
@@ -8,13 +7,16 @@ from yarl import URL
 
 from ipapp import Application
 from ipapp.ctx import span
-from ipapp.http import Client, Server, ServerHandler, ServerHttpSpan
-from ipapp.logger import (
+from ipapp.db.pg import PgSpan, Postgres, PostgresConfig
+from ipapp.http.client import Client
+from ipapp.http.server import Server, ServerHandler, ServerHttpSpan
+from ipapp.logger.adapters.prometheus import (
+    PrometheusAdapter,
     PrometheusConfig,
-    RequestsConfig,
-    SentryConfig,
-    ZipkinConfig,
 )
+from ipapp.logger.adapters.requests import RequestsAdapter, RequestsConfig
+from ipapp.logger.adapters.sentry import SentryAdapter, SentryConfig
+from ipapp.logger.adapters.zipkin import ZipkinAdapter, ZipkinConfig
 
 SPAN_TAG_WIDGET_ID = 'api.widget_id'
 
@@ -45,6 +47,7 @@ class HttpHandler(ServerHandler):
         self, request: web.Request, err: Exception
     ) -> web.Response:
         span.error(err)
+        self.app.log_err(err)
         return web.Response(text='%r' % err, status=500)
 
     async def inplat_handler(self, request: web.Request) -> web.Response:
@@ -56,8 +59,27 @@ class HttpHandler(ServerHandler):
         span.tag(SPAN_TAG_WIDGET_ID, request.query.get('widget_id'))
         span.name = 'call something'
 
-        with span.new_child('sleep', span.KIND_CLIENT):
-            await asyncio.sleep(rnd.random())
+        async with self.app.db.connection() as conn:
+            async with conn.xact():
+                st = await conn.prepare(
+                    'SELECT $1::int as i', query_name='test prepare'
+                )
+
+                print(await st.query_all(1))
+
+                with self.app.logger.capture_span(cls=PgSpan) as trap2:
+                    with self.app.logger.capture_span(cls=PgSpan) as trap1:
+                        print(await st.query_all(2))
+                        if trap1.span:
+                            trap1.span.tag('mytag', 'tag1')
+                    trap2.span.tag('mytag2', 'tag2')
+                    trap2.span.name = 'db::custom'
+
+                res = await conn.query_all('SELECT $1::int as i', 12)
+                print(res)
+
+        # with span.new_child('sleep', span.KIND_CLIENT):
+        #     await asyncio.sleep(rnd.random())
 
         return web.Response(text='OK')
 
@@ -79,29 +101,51 @@ class App(Application):
 
         self.add('inplat', InplatSiteClient(base_url='https://inplat.ru/123'))
 
+        self.add(
+            'db',
+            Postgres(
+                PostgresConfig(
+                    url='postgres://ipapp:secretpwd@localhost:9001'
+                    '/ipapp?application_name=ipapp',
+                    pool_min_size=1,
+                )
+            ),
+        )
+
         self.logger.add(
-            PrometheusConfig(
-                hist_labels={
-                    ServerHttpSpan.P8S_NAME: {'widget_id': SPAN_TAG_WIDGET_ID}
-                }
+            PrometheusAdapter(
+                PrometheusConfig(
+                    hist_labels={
+                        ServerHttpSpan.P8S_NAME: {
+                            'widget_id': SPAN_TAG_WIDGET_ID
+                        }
+                    }
+                )
             )
         )
 
         self.logger.add(
-            ZipkinConfig(
-                name='testapp', addr='http://127.0.0.1:9002/api/v2/spans'
+            ZipkinAdapter(
+                ZipkinConfig(
+                    name='testapp', addr='http://127.0.0.1:9002/api/v2/spans'
+                )
             )
         )
 
         self.logger.add(
-            SentryConfig(
-                dsn="http://0e1fcbe44a5541c2bd20ed5ead2ca033@localhost:9000/2"
+            SentryAdapter(
+                SentryConfig(
+                    dsn="http://0e1fcbe44a5541c2bd20ed5ead2ca033"
+                    "@localhost:9000/2"
+                )
             )
         )
 
         self.logger.add(
-            RequestsConfig(
-                dsn='postgres://ipapp:secretpwd@localhost:9001/ipapp'
+            RequestsAdapter(
+                RequestsConfig(
+                    dsn='postgres://ipapp:secretpwd@localhost:9001/ipapp'
+                )
             )
         )
 
@@ -115,6 +159,13 @@ class App(Application):
     @property
     def inplat(self) -> InplatSiteClient:
         cmp: Optional[InplatSiteClient] = self.get('inplat')  # type: ignore
+        if cmp is None:
+            raise AttributeError
+        return cmp
+
+    @property
+    def db(self) -> Postgres:
+        cmp: Optional[Postgres] = self.get('db')  # type: ignore
         if cmp is None:
             raise AttributeError
         return cmp

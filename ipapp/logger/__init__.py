@@ -1,15 +1,10 @@
 from functools import wraps
 from typing import Any, Callable, Optional, Type
 
-from ..misc import ctx_app_get, ctx_request_get, ctx_span_get
-from .adapters import (
-    PrometheusConfig,
-    RequestsConfig,
-    SentryConfig,
-    ZipkinConfig,
-)
+import ipapp.misc
+
 from .logger import Logger
-from .span import HttpSpan, Span
+from .span import Span
 
 
 def wrap2span(
@@ -21,13 +16,13 @@ def wrap2span(
     def create_wrapper(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            span = ctx_span_get()
+            span = ipapp.misc.ctx_span_get()
             if span is None:
-                app = ctx_app_get()
+                app = ipapp.misc.ctx_app_get()
                 if app is None:  # pragma: no cover
                     raise UserWarning
 
-                web_request = ctx_request_get()
+                web_request = ipapp.misc.ctx_request_get()
                 if web_request is None:
                     new_span = app.logger.span_new(cls=cls)
                     new_span.kind = kind
@@ -52,11 +47,6 @@ def wrap2span(
 
 __all__ = [
     "Span",
-    "HttpSpan",
     "wrap2span",
-    "ZipkinConfig",
-    "PrometheusConfig",
-    "SentryConfig",
-    "RequestsConfig",
     "Logger",
 ]

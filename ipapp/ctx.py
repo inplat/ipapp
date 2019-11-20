@@ -6,7 +6,7 @@ from typing import Any, Dict, Iterable, List
 from aiohttp.web import Request
 
 import ipapp.app  # noqa
-import ipapp.logger  # noqa
+import ipapp.logger.span as sp  # noqa
 
 
 class Proxy:
@@ -232,8 +232,9 @@ class Proxy:
 
 
 app: 'ipapp.app.Application' = Proxy('app', None)  # type: ignore
-span: 'ipapp.logger.Span' = Proxy('span', None)  # type: ignore
+span: 'sp.Span' = Proxy('span', None)  # type: ignore
 request: Request = Proxy('request', None)  # type: ignore
+span_trap: 'sp.SpanTrap' = Proxy('span_trap', None)  # type: ignore
 
-ctx: 'ipapp.logger.Span' = span
+ctx: 'sp.Span' = span
 req: Request = request

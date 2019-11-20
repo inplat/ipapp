@@ -24,21 +24,18 @@ class ZipkinAdapter(AbcAdapter):
     cfg: ZipkinConfig
     logger: 'ipapp.logger.Logger'
 
-    def __init__(self) -> None:
+    def __init__(self, cfg: ZipkinConfig) -> None:
+        self.cfg = cfg
         self.tracer: Optional[az.Tracer] = None
 
-    async def start(
-        self, logger: 'ipapp.logger.Logger', cfg: AbcConfig
-    ) -> None:
-        if not isinstance(cfg, ZipkinConfig):
-            raise UserWarning
-        self.cfg = cfg
-        self.logger = logger
+    async def start(self, logger: 'ipapp.logger.Logger') -> None:
 
-        endpoint = az.create_endpoint(cfg.name)
-        sampler = az.Sampler(sample_rate=cfg.sample_rate)
+        endpoint = az.create_endpoint(self.cfg.name)
+        sampler = az.Sampler(sample_rate=self.cfg.sample_rate)
         transport = azt.Transport(
-            cfg.addr, send_interval=cfg.send_interval, loop=logger.app.loop
+            self.cfg.addr,
+            send_interval=self.cfg.send_interval,
+            loop=logger.app.loop,
         )
         self.tracer = az.Tracer(transport, sampler, endpoint)
 

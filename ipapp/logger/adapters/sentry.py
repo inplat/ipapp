@@ -19,15 +19,12 @@ class SentryAdapter(AbcAdapter):
     cfg: SentryConfig
     logger: 'ipapp.logger.Logger'
 
-    def __init__(self) -> None:
+    def __init__(self, cfg: SentryConfig) -> None:
+        self.cfg = cfg
         self.client: Optional[Client] = None
 
-    async def start(
-        self, logger: 'ipapp.logger.Logger', cfg: AbcConfig
-    ) -> None:
-        if not isinstance(cfg, SentryConfig):
-            raise UserWarning
-        self.cfg = cfg
+    async def start(self, logger: 'ipapp.logger.Logger') -> None:
+
         self.logger = logger
 
         self.client = Client(dsn=self.cfg.dsn)

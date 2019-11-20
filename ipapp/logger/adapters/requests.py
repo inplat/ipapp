@@ -6,9 +6,10 @@ from typing import Any, Deque, Dict, List, Optional, Tuple
 import asyncpg
 from pydantic.main import BaseModel
 
+import ipapp.http as ht
 import ipapp.logger  # noqa
 
-from ..span import HttpSpan, Span
+from ..span import Span
 from ._abc import AbcAdapter, AbcConfig, AdapterConfigurationError
 
 
@@ -56,7 +57,8 @@ class RequestsAdapter(AbcAdapter):
         'tags',
     )
 
-    def __init__(self) -> None:
+    def __init__(self, cfg: RequestsConfig) -> None:
+        self.cfg = cfg
         self.logger: Optional['ipapp.logger.Logger'] = None
         self.db: Optional[asyncpg.Connection] = None
         self._queue: Optional[Deque[Request]] = None
@@ -70,36 +72,39 @@ class RequestsAdapter(AbcAdapter):
             'INSERT INTO {table_name}' '(%s)' 'VALUES{placeholders}'
         ) % ','.join(self._QUERY_COLS)
 
-    async def start(
-        self, logger: 'ipapp.logger.Logger', cfg: AbcConfig
-    ) -> None:
-        if not isinstance(cfg, RequestsConfig):
-            raise UserWarning
-        self.cfg = cfg
+    async def start(self, logger: 'ipapp.logger.Logger') -> None:
         self.logger = logger
         self._tags_mapping = [
-            ('url', HttpSpan.TAG_HTTP_URL),
-            ('method', HttpSpan.TAG_HTTP_METHOD),
-            ('status_code', HttpSpan.TAG_HTTP_STATUS_CODE),
-            ('error', HttpSpan.TAG_ERROR_MESSAGE),
+            ('url', ht.HttpSpan.TAG_HTTP_URL),
+            ('method', ht.HttpSpan.TAG_HTTP_METHOD),
+            ('status_code', ht.HttpSpan.TAG_HTTP_STATUS_CODE),
+            ('error', ht.HttpSpan.TAG_ERROR_MESSAGE),
         ]
         self._anns_mapping = [
-            ('req_hdrs', HttpSpan.ANN_REQUEST_HDRS, self.cfg.max_hdrs_length),
-            ('req_body', HttpSpan.ANN_REQUEST_BODY, self.cfg.max_body_length),
+            (
+                'req_hdrs',
+                ht.HttpSpan.ANN_REQUEST_HDRS,
+                self.cfg.max_hdrs_length,
+            ),
+            (
+                'req_body',
+                ht.HttpSpan.ANN_REQUEST_BODY,
+                self.cfg.max_body_length,
+            ),
             (
                 'resp_hdrs',
-                HttpSpan.ANN_RESPONSE_HDRS,
+                ht.HttpSpan.ANN_RESPONSE_HDRS,
                 self.cfg.max_hdrs_length,
             ),
             (
                 'resp_body',
-                HttpSpan.ANN_RESPONSE_BODY,
+                ht.HttpSpan.ANN_RESPONSE_BODY,
                 self.cfg.max_body_length,
             ),
         ]
 
-        self._queue = deque(maxlen=cfg.max_queue_size)
-        self.db = await asyncpg.connect(cfg.dsn)
+        self._queue = deque(maxlen=self.cfg.max_queue_size)
+        self.db = await asyncpg.connect(self.cfg.dsn)
         self._send_fut = asyncio.ensure_future(self._send_loop())
         # TODO validate table struct
 
@@ -110,7 +115,7 @@ class RequestsAdapter(AbcAdapter):
             self.logger.app.log_warn('WTF??? RAHSWS')
         if self._queue is None:
             raise UserWarning
-        if not isinstance(span, HttpSpan):
+        if not isinstance(span, ht.HttpSpan):
             return
 
         kwargs: Dict[str, Any] = dict(
@@ -137,16 +142,24 @@ class RequestsAdapter(AbcAdapter):
                 kwargs[key] = None
 
         # удаляем лишние теги
-        HttpSpan.TAG_ERROR in tags and tags.pop(HttpSpan.TAG_ERROR)
-        HttpSpan.TAG_ERROR_CLASS in tags and tags.pop(HttpSpan.TAG_ERROR_CLASS)
-        HttpSpan.TAG_HTTP_HOST in tags and tags.pop(HttpSpan.TAG_HTTP_HOST)
-        HttpSpan.TAG_HTTP_PATH in tags and tags.pop(HttpSpan.TAG_HTTP_PATH)
-        HttpSpan.TAG_HTTP_ROUTE in tags and tags.pop(HttpSpan.TAG_HTTP_ROUTE)
-        HttpSpan.TAG_HTTP_REQUEST_SIZE in tags and tags.pop(
-            HttpSpan.TAG_HTTP_REQUEST_SIZE
+        ht.HttpSpan.TAG_ERROR in tags and tags.pop(ht.HttpSpan.TAG_ERROR)
+        ht.HttpSpan.TAG_ERROR_CLASS in tags and tags.pop(
+            ht.HttpSpan.TAG_ERROR_CLASS
         )
-        HttpSpan.TAG_HTTP_RESPONSE_SIZE in tags and tags.pop(
-            HttpSpan.TAG_HTTP_RESPONSE_SIZE
+        ht.HttpSpan.TAG_HTTP_HOST in tags and tags.pop(
+            ht.HttpSpan.TAG_HTTP_HOST
+        )
+        ht.HttpSpan.TAG_HTTP_PATH in tags and tags.pop(
+            ht.HttpSpan.TAG_HTTP_PATH
+        )
+        ht.HttpSpan.TAG_HTTP_ROUTE in tags and tags.pop(
+            ht.HttpSpan.TAG_HTTP_ROUTE
+        )
+        ht.HttpSpan.TAG_HTTP_REQUEST_SIZE in tags and tags.pop(
+            ht.HttpSpan.TAG_HTTP_REQUEST_SIZE
+        )
+        ht.HttpSpan.TAG_HTTP_RESPONSE_SIZE in tags and tags.pop(
+            ht.HttpSpan.TAG_HTTP_RESPONSE_SIZE
         )
 
         if len(tags) > 0:
