@@ -80,7 +80,7 @@ class Postgres(Component):
         if self.app is None:
             raise UserWarning('Unattached component')
 
-        self.app.log_info("Connecting to %s" % self._masked_url)
+        self.app.log_info("Connecting to %s", self._masked_url)
         self._pool = await asyncpg.create_pool(
             dsn=self.cfg.url,
             max_size=self.cfg.pool_max_size,
@@ -92,7 +92,7 @@ class Postgres(Component):
             init=Postgres._conn_init,
             loop=self.app.loop,
         )
-        self.app.log_info("Connected to %s" % self._masked_url)
+        self.app.log_info("Connected to %s", self._masked_url)
 
     @staticmethod
     async def _conn_init(conn: asyncpg.pool.PoolConnectionProxy) -> None:

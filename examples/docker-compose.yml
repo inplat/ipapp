@@ -55,6 +55,12 @@ services:
       - pg-data:/var/lib/postgresql/data
     ports:
       - '9001:5432'
+  rabbit:
+    container_name: ipapp-rabbit
+    image: rabbitmq:3-management
+    ports:
+      - '9004:5672'
+      - '9005:15672'
 volumes:
   redis-data:
   pg-data:

@@ -17,6 +17,7 @@ from ipapp.logger.adapters.prometheus import (
 from ipapp.logger.adapters.requests import RequestsAdapter, RequestsConfig
 from ipapp.logger.adapters.sentry import SentryAdapter, SentryConfig
 from ipapp.logger.adapters.zipkin import ZipkinAdapter, ZipkinConfig
+from ipapp.mq.pika import Deliver, Pika, PikaChannel, PikaConfig, Properties
 
 SPAN_TAG_WIDGET_ID = 'api.widget_id'
 
@@ -78,8 +79,9 @@ class HttpHandler(ServerHandler):
                 res = await conn.query_all('SELECT $1::int as i', 12)
                 print(res)
 
-        # with span.new_child('sleep', span.KIND_CLIENT):
-        #     await asyncio.sleep(rnd.random())
+                await self.app.rmq_pub.publish(
+                    'myexchange', '', b'hello world', mandatory=True
+                )
 
         return web.Response(text='OK')
 
@@ -90,6 +92,55 @@ class HttpHandler(ServerHandler):
         return web.Response(text=str(1 / 0))
 
 
+class PubCh(PikaChannel):
+    name = 'pub'
+
+
+class ConsCh(PikaChannel):
+    name = 'cons'
+
+    async def prepare(self) -> None:
+        await self.exchange_declare('myexchange', durable=False)
+        await self.queue_declare('myqueue', durable=False)
+        await self.queue_bind('myqueue', 'myexchange', '')
+        await self.qos(prefetch_count=1)
+
+    async def start(self) -> None:
+        print('START', self.name)
+        await self.consume('myqueue', self.message)
+        print('START 2', self.name)
+
+    async def message(
+        self, body: bytes, deliver: Deliver, proprties: Properties
+    ) -> None:
+        print('message')
+        print('-', body)
+        print('-', deliver)
+        print('-', proprties)
+        await self.ack(delivery_tag=deliver.delivery_tag)
+        await self.cancel()
+
+    async def stop(self) -> None:
+        print('STOP', self.name)
+
+    # async def start(self):
+    #     await super().start()
+    #     await self.consume(self._cb, 'test')
+    #
+    # async def _cb(
+    #     self,
+    #     body: bytes,
+    #     method: pika.spec.Basic.Deliver,
+    #     properties: pika.spec.BasicProperties,
+    # ):
+    #     print('*** MSG ***')
+    #     print(self.channel)
+    #     print(method)
+    #     print(properties)
+    #     print(body)
+    #     self.ack(method.delivery_tag)
+
+
 class App(Application):
     def __init__(self) -> None:
         super().__init__()
@@ -98,6 +149,14 @@ class App(Application):
         self._build_stamp = 1573734614
 
         self.add('srv', Server(HttpHandler(), host='127.0.0.1', port=8888,))
+
+        self.add(
+            'rmq',
+            Pika(
+                PikaConfig(url='amqp://guest:guest@localhost:9004/'),
+                [PubCh, ConsCh, ConsCh],
+            ),
+        )
 
         self.add('inplat', InplatSiteClient(base_url='https://inplat.ru/123'))
 
@@ -110,6 +169,7 @@ class App(Application):
                     pool_min_size=1,
                 )
             ),
+            stop_after=['srv'],
         )
 
         self.logger.add(
@@ -170,8 +230,22 @@ class App(Application):
             raise AttributeError
         return cmp
 
+    @property
+    def rmq(self) -> Pika:
+        cmp: Optional[Pika] = self.get('rmq')  # type: ignore
+        if cmp is None:
+            raise AttributeError
+        return cmp
+
+    @property
+    def rmq_pub(self) -> 'PubCh':
+        ch: Optional['PubCh'] = self.rmq.channel('pub')  # type: ignore
+        if ch is None:
+            raise AttributeError
+        return ch
+
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     app = App()
     app.run()

@@ -8,3 +8,4 @@ prometheus-client
 sentry-sdk
 
 deepmerge
+async-timeout
