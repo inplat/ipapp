@@ -12,25 +12,17 @@ def wrap2span(
     name: Optional[str] = None,
     kind: Optional[str] = None,
     cls: Type[Span] = Span,
+    ignore_ctx: bool = False,
 ) -> Callable:
     def create_wrapper(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             span = ipapp.misc.ctx_span_get()
-            if span is None:
+            if span is None or ignore_ctx:
                 app = ipapp.misc.ctx_app_get()
                 if app is None:  # pragma: no cover
                     raise UserWarning
-
-                web_request = ipapp.misc.ctx_request_get()
-                if web_request is None:
-                    new_span = app.logger.span_new(cls=cls)
-                    new_span.kind = kind
-                else:
-                    new_span = app.logger.span_from_headers(
-                        web_request.headers
-                    )
-                    new_span.kind = Span.KIND_SERVER
+                new_span = app.logger.span_new(name, kind, cls=cls)
             else:
                 new_span = span.new_child(name, kind, cls=cls)
             with new_span:

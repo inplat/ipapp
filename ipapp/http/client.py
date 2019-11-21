@@ -68,7 +68,7 @@ class Client(Component, ClientServerAnnotator):
     async def stop(self) -> None:
         pass
 
-    @wrap2span(kind=HttpSpan.KIND_SERVER, cls=ClientHttpSpan)
+    @wrap2span(kind=HttpSpan.KIND_CLIENT, cls=ClientHttpSpan)
     async def request(
         self,
         method: str,
@@ -80,6 +80,7 @@ class Client(Component, ClientServerAnnotator):
         ssl: Optional[SSLContext] = None,
         session_kwargs: Optional[Dict[str, Optional[str]]] = None,
         request_kwargs: Optional[Dict[str, Optional[str]]] = None,
+        propagate_trace: bool = True,
     ) -> ClientResponse:
         span: Optional[HttpSpan] = ctx_span_get()  # type: ignore
         if span is None:  # pragma: no cover
@@ -99,6 +100,11 @@ class Client(Component, ClientServerAnnotator):
 
         if timeout is None:
             timeout = ClientTimeout()
+
+        if propagate_trace:
+            if headers is None:
+                headers = {}
+            headers.update(span.to_headers())
 
         async with ClientSession(
             loop=self.app.loop,

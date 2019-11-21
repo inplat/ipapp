@@ -15,18 +15,44 @@ from pika.adapters.asyncio_connection import AsyncioConnection
 from pydantic.env_settings import BaseSettings
 
 from ipapp.component import Component
+from ipapp.ctx import span
 from ipapp.error import PrepareError
-from ipapp.misc import mask_url_pwd
+from ipapp.logger import wrap2span
+from ipapp.logger.span import Span
+from ipapp.misc import ctx_span_reset, ctx_span_set, dict_merge, mask_url_pwd
 
-pika.connection.LOGGER.level = logging.CRITICAL
-pika.channel.LOGGER.level = logging.CRITICAL
-pika.adapters.utils.connection_workflow._LOG.level = logging.CRITICAL
-pika.adapters.utils.io_services_utils._LOGGER.level = logging.CRITICAL
-pika.adapters.asyncio_connection.LOGGER.level = logging.CRITICAL
+pika.connection.LOGGER.level = logging.ERROR
+pika.channel.LOGGER.level = logging.ERROR
+pika.adapters.utils.connection_workflow._LOG.level = logging.ERROR
+pika.adapters.utils.io_services_utils._LOGGER.level = logging.ERROR
+pika.adapters.asyncio_connection.LOGGER.level = logging.ERROR
 
 
 Deliver = pika.spec.Basic.Deliver
 Properties = pika.spec.BasicProperties
+
+
+class AmqpSpan(Span):
+    NAME_PREPARE = 'amqp::prepare'
+    NAME_CONNECT = 'amqp::connect'
+    NAME_CHANNEL = 'amqp::channel'
+    NAME_PUBLISH = 'amqp::publish'
+    NAME_CONSUME = 'amqp::consume'
+    NAME_ACK = 'amqp::ack'
+    NAME_NACK = 'amqp::nack'
+    NAME_DECLARE_EXCHANGE = 'amqp::declare_exchange'
+    NAME_DECLARE_QUEUE = 'amqp::declare_queue'
+    NAME_BIND = 'amqp::bind'
+    NAME_QOS = 'amqp::qos'
+    NAME_CANCEL = 'amqp::cancel'
+    NAME_MESSAGE = 'amqp::message'
+
+    ANN_MESSAGE_HEADERS = 'amqp_headers'
+    ANN_MESSAGE_PROPS = 'amqp_props'
+    ANN_MESSAGE_BODY = 'amqp_body'
+
+    TAG_CHANNEL_NAME = 'amqp.channel_name'
+    TAG_CHANNEL_NUMBER = 'amqp.channel_number'
 
 
 class PikaConfig(BaseSettings):
@@ -39,7 +65,6 @@ class PikaConfig(BaseSettings):
     publish_timeout: float = 60.0
     connect_max_attempts: int = 10
     connect_retry_delay: float = 1.0
-    reconnect_interval: float = 0.5
 
 
 class PikaConnection:
@@ -71,6 +96,9 @@ class PikaConnection:
     def state(self) -> int:
         return self._state
 
+    @wrap2span(
+        name=AmqpSpan.NAME_CONNECT, kind=AmqpSpan.KIND_CLIENT, cls=AmqpSpan
+    )
     async def connect(
         self,
         on_close: Callable[['PikaConnection', Exception], Awaitable[None]],
@@ -142,12 +170,18 @@ class PikaConnection:
                 self._on_close(self, reason), loop=self._loop
             )
 
+    @wrap2span(
+        name=AmqpSpan.NAME_CHANNEL, kind=AmqpSpan.KIND_CLIENT, cls=AmqpSpan
+    )
     async def channel(
         self,
         on_close: Optional[
             Callable[[pika.channel.Channel, Exception], Awaitable[None]]
         ],
+        name: Optional[str],
     ) -> pika.channel.Channel:
+        if name is not None:
+            span.tag(AmqpSpan.TAG_CHANNEL_NAME, name)
         async with self._lock:
             if self._conn is None:
                 raise pika.exceptions.AMQPConnectionError()
@@ -163,6 +197,8 @@ class PikaConnection:
                     raise RuntimeError()
             finally:
                 self._fut = None
+
+            span.tag(AmqpSpan.TAG_CHANNEL_NUMBER, str(channel.channel_number))
 
             return channel
 
@@ -213,6 +249,11 @@ class PikaChannel(ABC):
     async def stop(self) -> None:
         pass
 
+    @wrap2span(
+        name=AmqpSpan.NAME_DECLARE_EXCHANGE,
+        kind=AmqpSpan.KIND_CLIENT,
+        cls=AmqpSpan,
+    )
     async def exchange_declare(
         self,
         exchange: str,
@@ -226,6 +267,7 @@ class PikaChannel(ABC):
         if self.amqp is None:
             raise UserWarning
         async with self._lock:
+            span.tag(AmqpSpan.TAG_CHANNEL_NUMBER, str(self._ch.channel_number))
             fut: asyncio.Future = asyncio.Future(loop=self.amqp.loop)
             cb = partial(self._on_exchange_declareok, fut)
             self._ch.exchange_declare(
@@ -251,6 +293,11 @@ class PikaChannel(ABC):
     ) -> None:
         fut.set_result(_unused_frame)
 
+    @wrap2span(
+        name=AmqpSpan.NAME_DECLARE_QUEUE,
+        kind=AmqpSpan.KIND_CLIENT,
+        cls=AmqpSpan,
+    )
     async def queue_declare(
         self,
         queue: str,
@@ -262,6 +309,7 @@ class PikaChannel(ABC):
     ) -> pika.frame.Method:
 
         async with self._lock:
+            span.tag(AmqpSpan.TAG_CHANNEL_NUMBER, str(self._ch.channel_number))
             fut: asyncio.Future = asyncio.Future(loop=self.amqp.loop)
             cb = partial(self._on_queue_declareok, fut)
 
@@ -287,6 +335,9 @@ class PikaChannel(ABC):
     ) -> None:
         fut.set_result(_unused_frame)
 
+    @wrap2span(
+        name=AmqpSpan.NAME_BIND, kind=AmqpSpan.KIND_CLIENT, cls=AmqpSpan
+    )
     async def queue_bind(
         self,
         queue: str,
@@ -295,6 +346,7 @@ class PikaChannel(ABC):
         arguments: Optional[dict] = None,
     ) -> pika.frame.Method:
         async with self._lock:
+            span.tag(AmqpSpan.TAG_CHANNEL_NUMBER, str(self._ch.channel_number))
             fut: asyncio.Future = asyncio.Future(loop=self.amqp.loop)
             cb = partial(self._on_bindok, fut)
             self._ch.queue_bind(
@@ -314,6 +366,7 @@ class PikaChannel(ABC):
     ) -> None:
         fut.set_result(_unused_frame)
 
+    @wrap2span(name=AmqpSpan.NAME_QOS, kind=AmqpSpan.KIND_CLIENT, cls=AmqpSpan)
     async def qos(
         self,
         prefetch_size: int = 0,
@@ -321,6 +374,7 @@ class PikaChannel(ABC):
         global_qos: bool = False,
     ) -> pika.frame.Method:
         async with self._lock:
+            span.tag(AmqpSpan.TAG_CHANNEL_NUMBER, str(self._ch.channel_number))
             fut: asyncio.Future = asyncio.Future(loop=self.amqp.loop)
             cb = partial(self._on_basic_qos_ok, fut)
             self._ch.basic_qos(
@@ -339,6 +393,9 @@ class PikaChannel(ABC):
     ) -> None:
         fut.set_result(_unused_frame)
 
+    @wrap2span(
+        name=AmqpSpan.NAME_PUBLISH, kind=AmqpSpan.KIND_CLIENT, cls=AmqpSpan
+    )
     async def publish(
         self,
         exchange: str,
@@ -346,13 +403,23 @@ class PikaChannel(ABC):
         body: bytes,
         properties: Optional[pika.spec.BasicProperties] = None,
         mandatory: bool = False,
+        propagate_trace: bool = True,
     ) -> None:
-        for i in range(5, 0, -1):
-            print('before publish', i)
-            await asyncio.sleep(1)
-
+        span.tag(AmqpSpan.TAG_CHANNEL_NUMBER, str(self._ch.channel_number))
         with timeout(self.amqp.cfg.publish_timeout):
             if not self._ch.is_closed or self.name is None:
+
+                if propagate_trace:
+                    hdrs = span.to_headers()
+                    if properties is None:
+                        properties = pika.spec.BasicProperties(headers=hdrs)
+                    elif properties.headers is None:
+                        properties.headers = hdrs
+                    else:
+                        properties.headers = dict_merge(
+                            properties.headers, hdrs
+                        )
+
                 self._ch.basic_publish(
                     exchange, routing_key, body, properties, mandatory
                 )
@@ -364,9 +431,17 @@ class PikaChannel(ABC):
                         continue
 
                     return await ch.publish(
-                        exchange, routing_key, body, properties, mandatory
+                        exchange,
+                        routing_key,
+                        body,
+                        properties,
+                        mandatory,
+                        propagate_trace,
                     )
 
+    @wrap2span(
+        name=AmqpSpan.NAME_CONSUME, kind=AmqpSpan.KIND_CLIENT, cls=AmqpSpan
+    )
     async def consume(
         self,
         queue: str,
@@ -380,6 +455,7 @@ class PikaChannel(ABC):
         arguments: Optional[dict] = None,
     ) -> pika.frame.Method:
         async with self._lock:
+            span.tag(AmqpSpan.TAG_CHANNEL_NUMBER, str(self._ch.channel_number))
             fut: asyncio.Future = asyncio.Future(loop=self.amqp.loop)
             cb = partial(self._on_basic_consume_ok, fut)
             self._consumer_tag = self._ch.basic_consume(
@@ -434,25 +510,48 @@ class PikaChannel(ABC):
         properties: pika.spec.BasicProperties,
         body: bytes,
     ) -> None:
-        try:
-            await cb(body, basic_deliver, properties)
-        except BaseException as err:
-            self.amqp.app.log_err(err)
+        headers = dict(properties.headers or {})
+        with self.amqp.app.logger.span_from_headers(
+            headers, cls=AmqpSpan
+        ) as span:
+            span.name = AmqpSpan.NAME_MESSAGE
+            span.kind = AmqpSpan.KIND_SERVER
+            span.tag(
+                AmqpSpan.TAG_CHANNEL_NUMBER,
+                str(_unused_channel.channel_number),
+            )
+            token = ctx_span_set(span)
+            try:
+                await cb(body, basic_deliver, properties)
+            except BaseException as err:
+                self.amqp.app.log_err(err)
+            finally:
+                ctx_span_reset(token)
 
+    @wrap2span(name=AmqpSpan.NAME_ACK, kind=AmqpSpan.KIND_CLIENT, cls=AmqpSpan)
     async def ack(self, delivery_tag: int, multiple: bool = False) -> None:
+        span.tag(AmqpSpan.TAG_CHANNEL_NUMBER, str(self._ch.channel_number))
         self._ch.basic_ack(delivery_tag=delivery_tag, multiple=multiple)
 
+    @wrap2span(
+        name=AmqpSpan.NAME_NACK, kind=AmqpSpan.KIND_CLIENT, cls=AmqpSpan
+    )
     async def nack(
         self, delivery_tag: int, multiple: bool = False, requeue: bool = True
     ) -> None:
+        span.tag(AmqpSpan.TAG_CHANNEL_NUMBER, str(self._ch.channel_number))
         self._ch.basic_nack(
             delivery_tag=delivery_tag, multiple=multiple, requeue=requeue
         )
 
+    @wrap2span(
+        name=AmqpSpan.NAME_CANCEL, kind=AmqpSpan.KIND_CLIENT, cls=AmqpSpan
+    )
     async def cancel(
         self, consumer_tag: Optional[str] = None
     ) -> pika.frame.Method:
         async with self._lock:
+            span.tag(AmqpSpan.TAG_CHANNEL_NUMBER, str(self._ch.channel_number))
             if consumer_tag is None:
                 consumer_tag = self._consumer_tag
             if consumer_tag is None:
@@ -489,35 +588,22 @@ class Pika(Component):
         if self.app is None:
             raise UserWarning('Unattached component')
 
-        for i in range(self.cfg.connect_max_attempts):
-            try:
-                self._conn = PikaConnection(self.cfg)
-                self.app.log_info("Connecting to %s", self._masked_url)
-                await self._conn.connect(self._on_disconnect)
-                self.app.log_info("Connected to %s", self._masked_url)
-                break
-            except Exception as e:
-                self.app.log_err(str(e))
-                await asyncio.sleep(self.cfg.connect_retry_delay)
-        else:
-            raise PrepareError("Could not connect to %s" % self._masked_url)
-
-        self._channels = []
-
-        corors = []
-        for cls in self.channel_cls:
-            pch = await self._conn.channel(None)
-            ch = cls(self, self._conn, pch)
-            self._channels.append(ch)
-            corors.append(ch.prepare())
-        await asyncio.gather(*corors, loop=self.loop)
+        await self._connect(max_attempts=self.cfg.connect_max_attempts)
 
     async def _on_disconnect(
         self, conn: PikaConnection, err: Exception
     ) -> None:
         self._channels = []
         self.app.log_err(err)
-        while True:
+        await self._connect()
+
+    @wrap2span(
+        name=AmqpSpan.NAME_PREPARE, kind=AmqpSpan.KIND_CLIENT, cls=AmqpSpan
+    )
+    async def _connect(self, max_attempts: Optional[int] = None) -> None:
+        attempt: int = 0
+        while max_attempts is None or attempt < max_attempts:
+            attempt += 1
             try:
                 self._conn = PikaConnection(self.cfg)
                 self.app.log_info("Connecting to %s", self._masked_url)
@@ -532,21 +618,30 @@ class Pika(Component):
                     except Exception:  # nosec
                         pass
                 await asyncio.sleep(
-                    self.cfg.reconnect_interval, loop=self.loop
+                    self.cfg.connect_retry_delay, loop=self.loop
                 )
 
-        corors = []
-        for cls in self.channel_cls:
-            pch = await self._conn.channel(None)
-            ch = cls(self, self._conn, pch)
-            self._channels.append(ch)
-            corors.append(ch.prepare())
-        await asyncio.gather(*corors, loop=self.loop)
+        if max_attempts is not None and attempt >= max_attempts:
+            raise PrepareError("Could not connect to %s" % self._masked_url)
+
+        await self._open_channels()
 
         if self._started:
             await asyncio.gather(
                 *[ch.start() for ch in self._channels], loop=self.loop
             )
+
+    async def _open_channels(self) -> None:
+        if self._conn is None:
+            raise UserWarning
+        self._channels = []
+        corors = []
+        for cls in self.channel_cls:
+            pch = await self._conn.channel(None, cls.name)
+            ch = cls(self, self._conn, pch)
+            self._channels.append(ch)
+            corors.append(ch.prepare())
+        await asyncio.gather(*corors, loop=self.loop)
 
     async def start(self) -> None:
         self._started = True

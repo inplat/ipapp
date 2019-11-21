@@ -32,6 +32,8 @@ class PostgresConfig(BaseSettings):
 
 
 class PgSpan(Span):
+    NAME_CONNECT = 'db::connect'
+    NAME_DISCONNECT = 'db::disconnect'
     NAME_ACQUIRE = 'db::connection'
     NAME_XACT_COMMITED = 'db::xact (commited)'
     NAME_XACT_REVERTED = 'db::xact (reverted)'
@@ -76,6 +78,7 @@ class Postgres(Component):
             return mask_url_pwd(self.cfg.url)
         return None
 
+    @wrap2span(name=PgSpan.NAME_CONNECT, kind=PgSpan.KIND_CLIENT)
     async def _connect(self) -> None:
         if self.app is None:
             raise UserWarning('Unattached component')

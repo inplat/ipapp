@@ -67,9 +67,12 @@ class ZipkinAdapter(AbcAdapter):
         if span.kind:
             tracer_span.kind(span.kind)
 
-        name = span.get_name4adapter(self.name)
+        name = span.get_name4adapter(self.name, merge=True)
         if name:
             tracer_span.name(name)
+
+        print(name, span.name, type(span))
+
         tracer_span.remote_endpoint(self.cfg.name)
         tracer_span.finish(ts=span.finish_stamp)
 

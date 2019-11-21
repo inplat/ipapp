@@ -33,6 +33,9 @@ class InplatSiteClient(Client):
             'GET', self.base_url.with_query({'passwd': 'some secret'})
         )
 
+    async def req(self, url: URL, method: str, body: bytes) -> ClientResponse:
+        return await self.request(method, url, body=body)
+
 
 class HttpHandler(ServerHandler):
     app: 'App'
@@ -40,6 +43,7 @@ class HttpHandler(ServerHandler):
     async def prepare(self) -> None:
         self._setup_healthcheck('/health')
         self.server.add_route('GET', '/inplat', self.inplat_handler)
+        self.server.add_route('GET', '/proxy', self.proxy_handler)
         self.server.add_route('GET', '/err', self.bad_handler)
         self.server.add_route('GET', '/view/{id}', self.view_handler)
         self.server.add_route('GET', '/', self.home_handler)
@@ -55,6 +59,12 @@ class HttpHandler(ServerHandler):
         resp = await self.app.inplat.get_home_page()
         html = await resp.text()
         return web.Response(text=html)
+
+    async def proxy_handler(self, request: web.Request) -> web.Response:
+        await self.app.inplat.req(
+            URL('http://127.0.0.1:%d/' % self.app.srv.port), 'GET', b''
+        )
+        return web.HTTPOk()
 
     async def home_handler(self, request: web.Request) -> web.Response:
         span.tag(SPAN_TAG_WIDGET_ID, request.query.get('widget_id'))
@@ -118,10 +128,9 @@ class ConsCh(PikaChannel):
         print('-', deliver)
         print('-', proprties)
         await self.ack(delivery_tag=deliver.delivery_tag)
-        await self.cancel()
 
     async def stop(self) -> None:
-        print('STOP', self.name)
+        await self.cancel()
 
     # async def start(self):
     #     await super().start()

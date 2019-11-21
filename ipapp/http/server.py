@@ -2,6 +2,7 @@ import json
 import logging
 import time
 from abc import ABCMeta
+from contextvars import Token
 from datetime import datetime, timezone
 from ssl import SSLContext
 from typing import Awaitable, Callable, Dict, List, Optional, Type, Union
@@ -16,8 +17,14 @@ from aiohttp.web_urldispatcher import AbstractRoute
 import ipapp.app  # noqa
 from ipapp.component import Component
 from ipapp.http._base import HttpSpan
-from ipapp.logger import Span, wrap2span
-from ipapp.misc import ctx_request_reset, ctx_request_set, ctx_span_get
+from ipapp.logger import Span
+from ipapp.misc import (
+    ctx_request_reset,
+    ctx_request_set,
+    ctx_span_get,
+    ctx_span_reset,
+    ctx_span_set,
+)
 
 from ._base import ClientServerAnnotator
 
@@ -169,67 +176,78 @@ class Server(Component, ClientServerAnnotator):
         self.web_app.middlewares.append(self.req_wrapper)
 
     @web.middleware
-    @wrap2span(kind=Span.KIND_SERVER, cls=ServerHttpSpan)
     async def req_wrapper(
         self,
         request: web.Request,
-        handler: Callable[[web.Request], Awaitable[web.Response]],
+        handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
     ) -> web.Response:
-        ts1 = time.time()
-        request_token = ctx_request_set(request)
+        span_token: Optional[Token] = None
+        request_token: Optional[Token] = None
         try:
-            span: Optional[ServerHttpSpan] = ctx_span_get()  # type: ignore
-            if span is None:
-                raise UserWarning
-            span.tag(HttpSpan.TAG_HTTP_HOST, request.host)
-            span.tag(HttpSpan.TAG_HTTP_PATH, request.raw_path)
-            span.tag(HttpSpan.TAG_HTTP_METHOD, request.method.upper())
-            span.tag(HttpSpan.TAG_HTTP_URL, self._mask_url(request.url))
-
-            self._span_annotate_req_hdrs(span, request.headers, ts=ts1)
-            self._span_annotate_req_body(
-                span, await request.read(), ts=ts1, encoding=request.charset
+            span: HttpSpan = self.app.logger.span_from_headers(  # type: ignore
+                request.headers, cls=ServerHttpSpan
             )
+            span_token = ctx_span_set(span)
+            request_token = ctx_request_set(request)
+            with span:
+                ts1 = time.time()
 
-            resource = request.match_info.route.resource
-            # available only in aiohttp >= 3.3.1
-            if getattr(resource, 'canonical', None) is not None:
-                route = request.match_info.route.resource.canonical
-                span.tag(HttpSpan.TAG_HTTP_ROUTE, route)
+                span.kind = HttpSpan.KIND_SERVER
 
-            ts2: float
-            try:
-                resp = await handler(request)
-                ts2 = time.time()
-            except Exception as err:
-                try:
-                    resp = await self.handler.error_handler(request, err)
-                    ts2 = time.time()
-                except Exception as err2:
-                    span.error(err2)
-                    if isinstance(err2, web.Response):
-                        resp = err2
-                    else:
-                        resp = web.HTTPInternalServerError()
-                    ts2 = time.time()
-
-            span.tag(HttpSpan.TAG_HTTP_STATUS_CODE, str(resp.status))
-
-            self._span_annotate_resp_hdrs(span, resp.headers, ts=ts2)
-            if resp.body is not None:
-                if isinstance(resp.body, Payload):
-                    body = (
-                        '--- payload %s ---' '' % resp.body.__class__.__name__
-                    ).encode()
-                else:
-                    body = resp.body
-                self._span_annotate_resp_body(
-                    span, body, ts=ts2, encoding=resp.charset
+                span.tag(HttpSpan.TAG_HTTP_HOST, request.host)
+                span.tag(HttpSpan.TAG_HTTP_PATH, request.raw_path)
+                span.tag(HttpSpan.TAG_HTTP_METHOD, request.method.upper())
+                span.tag(HttpSpan.TAG_HTTP_URL, self._mask_url(request.url))
+                self._span_annotate_req_hdrs(span, request.headers, ts=ts1)
+                self._span_annotate_req_body(
+                    span,
+                    await request.read(),
+                    ts=ts1,
+                    encoding=request.charset,
                 )
 
-            return resp
+                resource = request.match_info.route.resource
+                # available only in aiohttp >= 3.3.1
+                if getattr(resource, 'canonical', None) is not None:
+                    route = request.match_info.route.resource.canonical
+                    span.tag(HttpSpan.TAG_HTTP_ROUTE, route)
+
+                ts2: float
+                try:
+                    resp = await handler(request)
+                    ts2 = time.time()
+                except Exception as err:
+                    try:
+                        resp = await self.handler.error_handler(request, err)
+                        ts2 = time.time()
+                    except Exception as err2:
+                        span.error(err2)
+                        if isinstance(err2, web.Response):
+                            resp = err2
+                        ts2 = time.time()
+                if not isinstance(resp, web.Response):
+                    raise UserWarning('Invalid response: %s' % resp)
+
+                span.tag(HttpSpan.TAG_HTTP_STATUS_CODE, str(resp.status))
+
+                self._span_annotate_resp_hdrs(span, resp.headers, ts=ts2)
+                if resp.body is not None:
+                    if isinstance(resp.body, Payload):
+                        body = (
+                            '--- payload %s ---' % resp.body.__class__.__name__
+                        ).encode()
+                    else:
+                        body = resp.body
+                    self._span_annotate_resp_body(
+                        span, body, ts=ts2, encoding=resp.charset
+                    )
+
+                return resp
         finally:
-            ctx_request_reset(request_token)
+            if request_token:
+                ctx_request_reset(request_token)
+            if span_token:
+                ctx_span_reset(span_token)
 
     def add_route(
         self,

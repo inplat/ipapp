@@ -233,8 +233,8 @@ class Proxy:
 
 app: 'ipapp.app.Application' = Proxy('app', None)  # type: ignore
 span: 'sp.Span' = Proxy('span', None)  # type: ignore
-request: Request = Proxy('request', None)  # type: ignore
 span_trap: 'sp.SpanTrap' = Proxy('span_trap', None)  # type: ignore
+request: Request = Proxy('request', None)  # type: ignore
 
 ctx: 'sp.Span' = span
 req: Request = request
