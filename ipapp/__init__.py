@@ -1,14 +1,10 @@
-__version__ = '0.0.2b8'
+__version__ = '0.0.1'
 
 from . import app, error
 from .app import Application
 from .component import Component
 from .logger import Span
 
-try:
-    http_server = __import__("ipapp.http_server")
-except ImportError:
-    pass
 
 __all__ = [
     'app',
@@ -16,5 +12,21 @@ __all__ = [
     'Component',
     'Application',
     'Span',
-    'http_server',
 ]
+
+for mod in (
+    "ipapp.logger",
+    "ipapp.logger.adapters.prometheus",
+    "ipapp.logger.adapters.requests",
+    "ipapp.logger.adapters.sentry",
+    "ipapp.logger.adapters.zipkin",
+    "ipapp.http",
+    "ipapp.http.client",
+    "ipapp.http.server",
+    "ipapp.mq.pika",
+):
+    try:
+        __import__(mod)
+    except ImportError:
+        print('')
+        pass

@@ -109,5 +109,3 @@ async def test_success(postgres_url: str):
     assert row['status_code'] is None
     assert row['error'] is None
     assert row['tags'] is None
-
-    print(rows)

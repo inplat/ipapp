@@ -1,0 +1,20 @@
+include AUTHORS.rst
+include CONTRIBUTING.rst
+include HISTORY.rst
+include LICENSE
+include README.rst
+include requirements.txt
+include requirements*.txt
+exclude requirements_dev.txt
+
+recursive-include tests *
+recursive-include examples *
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+recursive-exclude .venv *
+recursive-exclude .tox *
+recursive-exclude .coverage *
+recursive-exclude .mypy_cache *
+recursive-exclude htmlcov *
+
+recursive-include docs *.rst conf.py Makefile make.bat *.jpg *.png *.gif
