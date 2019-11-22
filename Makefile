@@ -55,7 +55,7 @@ clean-venv:  ## Remove virtual environment
 	-rm -rf $(VENV_PATH)
 
 $(VENV_PATH):  ## Create a virtual environment
-	virtualenv -p python3.6 $@
+	virtualenv -p python3.7 $@
 
 $(VENV_PATH)/pip-status: requirements.txt requirements_dev.txt | $(VENV_PATH) ## Install (upgrade) all development requirements
 	$(VENV_BIN)/pip install --upgrade -r requirements_dev.txt
