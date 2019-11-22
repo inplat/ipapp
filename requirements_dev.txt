@@ -1,6 +1,7 @@
 -r requirements.txt
 -r requirements_postgres.txt
 -r requirements_rabbitmq.txt
+-r requirements_iprpc.txt
 
 idna==2.8
 black==19.10b0

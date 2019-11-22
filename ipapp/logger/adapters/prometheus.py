@@ -57,6 +57,18 @@ DEFAULT_HISTOGRAM_LABELS: LabelsCfg = {  # {name: {label: tag}, }
         'error': 'error.class',
         'query': 'db.query',
     },
+    'rpc_in': {
+        'le': '0.01,0.1,1,10,Inf',  # le mapping to quantiles
+        'error': 'error.class',
+        'method': 'rpc.method',
+        'code': 'rpc.code',
+    },
+    'rpc_out': {
+        'le': '0.01,0.1,1,10,Inf',  # le mapping to quantiles
+        'error': 'error.class',
+        'method': 'rpc.method',
+        'code': 'rpc.code',
+    },
 }
 DEFAULT_HISTOGRAM_DOCS = {
     'http_in': 'Incoming HTTP request',

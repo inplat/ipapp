@@ -144,9 +144,11 @@ class ServerHttpSpan(HttpSpan):
             if route:
                 self._name += ' (' + route + ')'
         if self.logger is not None:
-            self.set_name4adapter(
-                self.logger.ADAPTER_PROMETHEUS, self.P8S_NAME
-            )
+            name = self.get_name4adapter(self.logger.ADAPTER_PROMETHEUS)
+            if not name:
+                self.set_name4adapter(
+                    self.logger.ADAPTER_PROMETHEUS, self.P8S_NAME
+                )
 
         return super().finish(ts, exception)
 

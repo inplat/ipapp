@@ -3,10 +3,11 @@ import random
 from typing import Optional
 
 from aiohttp import ClientResponse, web
+from iprpc.executor import method
 from yarl import URL
 
 from ipapp import Application
-from ipapp.ctx import span
+from ipapp.ctx import app, span
 from ipapp.db.pg import PgSpan, Postgres, PostgresConfig
 from ipapp.http.client import Client
 from ipapp.http.server import (
@@ -23,6 +24,8 @@ from ipapp.logger.adapters.requests import RequestsAdapter, RequestsConfig
 from ipapp.logger.adapters.sentry import SentryAdapter, SentryConfig
 from ipapp.logger.adapters.zipkin import ZipkinAdapter, ZipkinConfig
 from ipapp.mq.pika import Deliver, Pika, PikaChannel, PikaConfig, Properties
+from ipapp.rpc.http.client import RpcClient, RpcClientConfig
+from ipapp.rpc.http.server import RpcHandler, RpcHandlerConfig
 
 SPAN_TAG_WIDGET_ID = 'api.widget_id'
 
@@ -40,6 +43,15 @@ class InplatSiteClient(Client):
 
     async def req(self, url: URL, method: str, body: bytes) -> ClientResponse:
         return await self.request(method, url, body=body)
+
+
+class Api:
+    @method()
+    async def test(self, val1: str, val2: bool, val3: int = 1) -> str:
+        app: 'App'
+        async with app.db.connection():
+            pass
+        return 'val1=%r val2=%r val3=%r' % (val1, val2, val3)
 
 
 class HttpHandler(ServerHandler):
@@ -77,22 +89,17 @@ class HttpHandler(ServerHandler):
 
         async with self.app.db.connection() as conn:
             async with conn.xact():
-                st = await conn.prepare(
+                await conn.prepare(
                     'SELECT $1::int as i', query_name='test prepare'
                 )
 
-                print(await st.query_all(1))
-
                 with self.app.logger.capture_span(cls=PgSpan) as trap2:
                     with self.app.logger.capture_span(cls=PgSpan) as trap1:
-                        print(await st.query_all(2))
+                        await conn.query_all('SELECT $1::int as i', 12)
                         if trap1.span:
                             trap1.span.tag('mytag', 'tag1')
                     trap2.span.tag('mytag2', 'tag2')
                     trap2.span.name = 'db::custom'
-
-                res = await conn.query_all('SELECT $1::int as i', 12)
-                print(res)
 
                 await self.app.rmq_pub.publish(
                     'myexchange', '', b'hello world', mandatory=True
@@ -121,38 +128,18 @@ class ConsCh(PikaChannel):
         await self.qos(prefetch_count=1)
 
     async def start(self) -> None:
-        print('START', self.name)
         await self.consume('myqueue', self.message)
-        print('START 2', self.name)
 
     async def message(
         self, body: bytes, deliver: Deliver, proprties: Properties
     ) -> None:
-        print('message')
-        print('-', body)
-        print('-', deliver)
-        print('-', proprties)
         await self.ack(delivery_tag=deliver.delivery_tag)
+
+        app: App = self.amqp.app  # type: ignore
+        await app.rpc_client.call('test', {'val1': '1', 'val2': False})
 
     async def stop(self) -> None:
         await self.cancel()
-
-    # async def start(self):
-    #     await super().start()
-    #     await self.consume(self._cb, 'test')
-    #
-    # async def _cb(
-    #     self,
-    #     body: bytes,
-    #     method: pika.spec.Basic.Deliver,
-    #     properties: pika.spec.BasicProperties,
-    # ):
-    #     print('*** MSG ***')
-    #     print(self.channel)
-    #     print(method)
-    #     print(properties)
-    #     print(body)
-    #     self.ack(method.delivery_tag)
 
 
 class App(Application):
@@ -165,6 +152,19 @@ class App(Application):
         self.add(
             'srv',
             Server(ServerConfig(host='127.0.0.1', port=8888), HttpHandler()),
+        )
+
+        self.add(
+            'rpc',
+            Server(
+                ServerConfig(host='127.0.0.1', port=8889),
+                RpcHandler(Api(), RpcHandlerConfig(debug=True)),
+            ),
+        )
+
+        self.add(
+            'rpc_client',
+            RpcClient(RpcClientConfig(url='http://127.0.0.1:8889/')),
         )
 
         self.add(
@@ -248,6 +248,13 @@ class App(Application):
         return cmp
 
     @property
+    def rpc_client(self) -> RpcClient:
+        cmp: Optional[RpcClient] = self.get('rpc_client')  # type: ignore
+        if cmp is None:
+            raise AttributeError
+        return cmp
+
+    @property
     def rmq(self) -> Pika:
         cmp: Optional[Pika] = self.get('rmq')  # type: ignore
         if cmp is None:
@@ -264,5 +271,4 @@ class App(Application):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    app = App()
-    app.run()
+    App().run()

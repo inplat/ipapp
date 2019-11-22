@@ -15,6 +15,8 @@ with open('requirements_postgres.txt') as requirements_file:
     requirements_postgres = requirements_file.read()
 with open('requirements_rabbitmq.txt') as requirements_file:
     requirements_rabbit = requirements_file.read()
+with open('requirements_iprpc.txt') as requirements_file:
+    requirements_iprpc = requirements_file.read()
 
 
 setup(
@@ -43,5 +45,6 @@ setup(
     extras_require={
         'postgres': requirements_postgres.split('\n'),
         'rabbitmq': requirements_rabbit.split('\n'),
+        'iprpc': requirements_iprpc.split('\n'),
     },
 )

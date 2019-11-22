@@ -58,7 +58,7 @@ $(VENV_PATH):  ## Create a virtual environment
 	virtualenv -p python3.7 $@
 
 $(VENV_PATH)/pip-status: requirements.txt requirements_dev.txt | $(VENV_PATH) ## Install (upgrade) all development requirements
-	$(VENV_BIN)/pip install --upgrade -r requirements_dev.txt
+	$(VENV_BIN)/pip install --upgrade  --index-url http://pip.sys.ipl --trusted-host pip.sys.ipl -r requirements_dev.txt
 	# keep a real file to be able to compare its mtime with mtimes of sources:
 	touch $@
 

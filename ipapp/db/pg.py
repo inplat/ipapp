@@ -363,8 +363,6 @@ class TransactionContextManager:
     async def __aexit__(
         self, exc_type: type, exc: BaseException, tb: type
     ) -> bool:
-        print('EXIT', exc_type)
-
         if self._span is not None:
             if exc_type is not None:
                 self._span.name = PgSpan.NAME_XACT_REVERTED

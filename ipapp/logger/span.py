@@ -364,6 +364,10 @@ class SpanTrap:
             self._token = None
 
     @property
+    def is_captured(self) -> bool:
+        return self._span is not None
+
+    @property
     def span(self) -> 'Span':
         if self._span is None:
             raise UserWarning('Span not captured yet')

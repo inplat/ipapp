@@ -27,5 +27,4 @@ for mod in (
     try:
         __import__(mod)
     except ImportError:
-        print('')
         pass
