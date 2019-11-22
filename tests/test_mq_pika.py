@@ -4,7 +4,14 @@ from typing import Any, Callable, List, Tuple
 from async_timeout import timeout as async_timeout
 
 from ipapp import Application
-from ipapp.mq.pika import Deliver, Pika, PikaChannel, PikaConfig, Properties
+from ipapp.mq.pika import (
+    Deliver,
+    Pika,
+    PikaChannel,
+    PikaChannelConfig,
+    PikaConfig,
+    Properties,
+)
 
 
 async def wait_for(fn: Callable, timeout=60) -> Any:
@@ -58,7 +65,16 @@ async def test_pika(rabbitmq_url):
             messages.append((body,))
 
     app = Application()
-    app.add('mq', Pika(PikaConfig(url=rabbitmq_url), [TestPubChg, TestCnsChg]))
+    app.add(
+        'mq',
+        Pika(
+            PikaConfig(url=rabbitmq_url),
+            [
+                (TestPubChg, PikaChannelConfig()),
+                (TestCnsChg, PikaChannelConfig()),
+            ],
+        ),
+    )
     await app.start()
     mq: Pika = app.get('mq')  # type: ignore
 

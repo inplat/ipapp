@@ -7,8 +7,7 @@ from pydantic.main import BaseModel
 from ipapp.ctx import span
 from ipapp.http.server import ServerHandler
 
-SPAN_TAG_RPC_METHOD = 'rpc.method'
-SPAN_TAG_RPC_CODE = 'rpc.code'
+from ..const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
 
 
 class RpcHandlerConfig(BaseModel):

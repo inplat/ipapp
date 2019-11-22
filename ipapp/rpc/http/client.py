@@ -7,8 +7,7 @@ from pydantic.main import BaseModel
 from ipapp.ctx import app
 from ipapp.http.client import Client, ClientHttpSpan
 
-SPAN_TAG_RPC_METHOD = 'rpc.method'
-SPAN_TAG_RPC_CODE = 'rpc.code'
+from ..const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
 
 
 class RpcClientConfig(BaseModel):
@@ -17,7 +16,7 @@ class RpcClientConfig(BaseModel):
 
 
 class RpcError(Exception):
-    def __init__(self, code: int, message: str, detail: str) -> None:
+    def __init__(self, code: int, message: Optional[str], detail: Optional[str]) -> None:
         self.code = code
         self.message = message
         self.detail = detail
@@ -63,4 +62,4 @@ class RpcClient(Client):
                 if code == 0:
                     return js['result']
 
-                raise RpcError(code['code'], code['message'], code['detail'])
+                raise RpcError(js['code'], js['message'], js.get('detail'))

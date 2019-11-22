@@ -2,17 +2,18 @@ import asyncio
 import logging
 from abc import ABC
 from functools import partial
-from typing import Awaitable, Callable, List, Optional, Type
+from typing import Awaitable, Callable, List, Optional, Tuple, Type
 
 import pika
 import pika.adapters.asyncio_connection
 import pika.adapters.utils.connection_workflow
 import pika.adapters.utils.io_services_utils
+import pika.channel
 import pika.exceptions
 import pika.frame
 from async_timeout import timeout
 from pika.adapters.asyncio_connection import AsyncioConnection
-from pydantic.env_settings import BaseSettings
+from pydantic.main import BaseModel
 
 from ipapp.component import Component
 from ipapp.ctx import span
@@ -55,7 +56,7 @@ class AmqpSpan(Span):
     TAG_CHANNEL_NUMBER = 'amqp.channel_number'
 
 
-class PikaConfig(BaseSettings):
+class PikaConfig(BaseModel):
     url: str = 'amqp://guest:guest@localhost:5672/'
     connect_timeout: float = 60.0
     channel_open_timeout: float = 60.0
@@ -65,6 +66,10 @@ class PikaConfig(BaseSettings):
     publish_timeout: float = 60.0
     connect_max_attempts: int = 10
     connect_retry_delay: float = 1.0
+
+
+class PikaChannelConfig(BaseModel):
+    pass
 
 
 class _Connection:
@@ -231,9 +236,14 @@ class PikaChannel(ABC):
     name: Optional[str] = None
 
     def __init__(
-        self, amqp: 'Pika', _conn: _Connection, pch: pika.channel.Channel
+        self,
+        amqp: 'Pika',
+        _conn: _Connection,
+        pch: pika.channel.Channel,
+        cfg: PikaChannelConfig,
     ) -> None:
         self.amqp = amqp
+        self.cfg = cfg
         self._conn = _conn
         self._ch: pika.channel.Channel = pch
         self._lock = asyncio.Lock(loop=amqp.loop)
@@ -570,9 +580,13 @@ class PikaChannel(ABC):
 
 
 class Pika(Component):
-    def __init__(self, cfg: PikaConfig, channel_cls: List[Type[PikaChannel]]):
+    def __init__(
+        self,
+        cfg: PikaConfig,
+        channel_cls: List[Tuple[Type[PikaChannel], PikaChannelConfig]],
+    ):
         self.cfg = cfg
-        self.channel_cls = channel_cls
+        self._channel_cls = channel_cls
         self._channels: List[PikaChannel] = []
         self._conn: Optional[_Connection] = None
         self._started = False
@@ -633,9 +647,9 @@ class Pika(Component):
             raise UserWarning
         self._channels = []
         corors = []
-        for cls in self.channel_cls:
+        for cls, cfg in self._channel_cls:
             pch = await self._conn.channel(None, cls.name)
-            ch = cls(self, self._conn, pch)
+            ch = cls(self, self._conn, pch, cfg)
             self._channels.append(ch)
             corors.append(ch.prepare())
         await asyncio.gather(*corors, loop=self.loop)
