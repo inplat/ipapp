@@ -26,23 +26,24 @@ from ipapp.misc import (
     ctx_span_reset,
     ctx_span_set,
 )
+
 from ._base import ClientServerAnnotator
 
 access_logger = logging.getLogger('aiohttp.access')
 
 
 class ServerConfig(BaseSettings):
-        host: str = '127.0.0.1'
-        port: int = 8080
-        access_log_class: Type[AbstractAccessLogger] = AccessLogger
-        access_log_format: str = AccessLogger.LOG_FORMAT
-        access_log: Optional[logging.Logger] = access_logger
-        handle_signals: bool = True
-        shutdown_timeout: float = 60.0
-        ssl_context: Optional[SSLContext] = None
-        backlog: int = 128
-        reuse_address: Optional[bool] = None
-        reuse_port: Optional[bool] = None
+    host: str = '127.0.0.1'
+    port: int = 8080
+    access_log_class: Type[AbstractAccessLogger] = AccessLogger
+    access_log_format: str = AccessLogger.LOG_FORMAT
+    access_log: Optional[logging.Logger] = access_logger
+    handle_signals: bool = True
+    shutdown_timeout: float = 60.0
+    ssl_context: Optional[SSLContext] = None
+    backlog: int = 128
+    reuse_address: Optional[bool] = None
+    reuse_port: Optional[bool] = None
 
 
 class ServerHandler(object):
@@ -151,11 +152,7 @@ class ServerHttpSpan(HttpSpan):
 
 
 class Server(Component, ClientServerAnnotator):
-    def __init__(
-            self,
-            cfg: ServerConfig,
-            handler: ServerHandler
-    ) -> None:
+    def __init__(self, cfg: ServerConfig, handler: ServerHandler) -> None:
         handler._set_server(self)
         self.cfg = cfg
         self.handler = handler

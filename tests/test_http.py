@@ -1,13 +1,12 @@
-from aiohttp import web, ClientResponse
+from aiohttp import ClientResponse, web
 
 from ipapp import Application
 from ipapp.http.client import Client
-from ipapp.http.server import Server, ServerHandler, ServerConfig
+from ipapp.http.server import Server, ServerConfig, ServerHandler
 
 
 async def test_http(unused_tcp_port):
     class TestClient(Client):
-
         async def send(self, url: str) -> ClientResponse:
             return await self.request('GET', url)
 

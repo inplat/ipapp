@@ -4,22 +4,22 @@ from abc import ABC
 from functools import partial
 from typing import Awaitable, Callable, List, Optional, Type
 
+from async_timeout import timeout
+from pydantic.env_settings import BaseSettings
+
 import pika
 import pika.adapters.asyncio_connection
 import pika.adapters.utils.connection_workflow
 import pika.adapters.utils.io_services_utils
 import pika.exceptions
 import pika.frame
-from async_timeout import timeout
-from pika.adapters.asyncio_connection import AsyncioConnection
-from pydantic.env_settings import BaseSettings
-
 from ipapp.component import Component
 from ipapp.ctx import span
 from ipapp.error import PrepareError
 from ipapp.logger import wrap2span
 from ipapp.logger.span import Span
 from ipapp.misc import ctx_span_reset, ctx_span_set, dict_merge, mask_url_pwd
+from pika.adapters.asyncio_connection import AsyncioConnection
 
 pika.connection.LOGGER.level = logging.ERROR
 pika.channel.LOGGER.level = logging.ERROR

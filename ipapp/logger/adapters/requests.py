@@ -12,7 +12,6 @@ import ipapp.logger  # noqa
 from ..span import Span
 from ._abc import AbcAdapter, AbcConfig, AdapterConfigurationError
 
-
 CREATE_TABLE_QUERY = """\
 CREATE TABLE IF NOT EXISTS {table_name}
 (
@@ -143,8 +142,8 @@ class RequestsAdapter(AbcAdapter):
 
         kwargs: Dict[str, Any] = dict(
             trace_id=span.trace_id,
-            stamp_begin=round(span.start_stamp, 6),
-            stamp_end=round(span.finish_stamp, 6),
+            stamp_begin=round(span.start_stamp or 0, 6),
+            stamp_end=round(span.finish_stamp or 0, 6),
             is_out=span.kind != span.KIND_SERVER,
         )
         tags = span.get_tags4adapter(self.name).copy()
@@ -203,7 +202,6 @@ class RequestsAdapter(AbcAdapter):
 
         if self._send_fut is not None:
             self._send_fut.cancel()
-            self._send_fut = None
 
     async def _send_loop(self) -> None:
         if self.logger is None:

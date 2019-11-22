@@ -9,7 +9,12 @@ from ipapp import Application
 from ipapp.ctx import span
 from ipapp.db.pg import PgSpan, Postgres, PostgresConfig
 from ipapp.http.client import Client
-from ipapp.http.server import Server, ServerHandler, ServerHttpSpan
+from ipapp.http.server import (
+    Server,
+    ServerConfig,
+    ServerHandler,
+    ServerHttpSpan,
+)
 from ipapp.logger.adapters.prometheus import (
     PrometheusAdapter,
     PrometheusConfig,
@@ -157,7 +162,10 @@ class App(Application):
         self._version = '0.0.0.1'
         self._build_stamp = 1573734614
 
-        self.add('srv', Server(HttpHandler(), host='127.0.0.1', port=8888,))
+        self.add(
+            'srv',
+            Server(ServerConfig(host='127.0.0.1', port=8888), HttpHandler()),
+        )
 
         self.add(
             'rmq',
