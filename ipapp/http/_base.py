@@ -16,7 +16,10 @@ RE_SECRET_WORDS = re.compile(
 class ClientServerAnnotator:
     app: 'ipapp.app.Application'
 
-    def _mask_url(self, url: URL) -> str:
+    @staticmethod
+    def _mask_url(url: URL) -> str:
+        if url.password:
+            url = url.with_password('***')
         for key, val in url.query.items():
             if RE_SECRET_WORDS.match(key):
                 url = url.update_query({key: '***'})
