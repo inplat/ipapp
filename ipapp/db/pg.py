@@ -68,7 +68,7 @@ class Postgres(Component):
 
     @property
     def pool(self) -> asyncpg.pool.Pool:
-        if self._pool is None:
+        if self._pool is None:  # pragma: no cover
             raise UserWarning
         return self._pool
 
@@ -80,7 +80,7 @@ class Postgres(Component):
 
     @wrap2span(name=PgSpan.NAME_CONNECT, kind=PgSpan.KIND_CLIENT)
     async def _connect(self) -> None:
-        if self.app is None:
+        if self.app is None:  # pragma: no cover
             raise UserWarning('Unattached component')
 
         self.app.log_info("Connecting to %s", self._masked_url)
@@ -128,7 +128,7 @@ class Postgres(Component):
         )
 
     async def prepare(self) -> None:
-        if self.app is None:
+        if self.app is None:  # pragma: no cover
             raise UserWarning('Unattached component')
 
         for i in range(self.cfg.connect_max_attempts):
@@ -144,7 +144,7 @@ class Postgres(Component):
         pass
 
     async def stop(self) -> None:
-        if self.app is None:
+        if self.app is None:  # pragma: no cover
             raise UserWarning('Unattached component')
 
         stop_timeout = 60
@@ -242,11 +242,15 @@ class ConnectionContextManager:
         if self._db is None or self._db._pool is None:  # noqa
             raise UserWarning
         pspan = ctx_span_get()
+
         if pspan is None:
-            raise UserWarning
-        span: PgSpan = pspan.new_child(  # type: ignore
-            PgSpan.NAME_ACQUIRE, cls=PgSpan,
-        )
+            span: PgSpan = self._db.app.logger.span_new(  # type: ignore
+                PgSpan.NAME_ACQUIRE, cls=PgSpan,
+            )
+        else:
+            span = pspan.new_child(  # type: ignore
+                PgSpan.NAME_ACQUIRE, cls=PgSpan,
+            )
         self._span = span
         span.set_name4adapter(
             self._db.app.logger.ADAPTER_PROMETHEUS, PgSpan.P8S_NAME_ACQUIRE
@@ -324,7 +328,7 @@ class TransactionContextManager:
             raise UserWarning('Transaction already started')
 
         pspan = ctx_span_get()
-        if pspan is None:
+        if pspan is None:  # pragma: no cover
             raise UserWarning
         span: PgSpan = pspan.new_child(cls=PgSpan)  # type: ignore
         self._span = span
@@ -359,6 +363,8 @@ class TransactionContextManager:
     async def __aexit__(
         self, exc_type: type, exc: BaseException, tb: type
     ) -> bool:
+        print('EXIT', exc_type)
+
         if self._span is not None:
             if exc_type is not None:
                 self._span.name = PgSpan.NAME_XACT_REVERTED
@@ -379,7 +385,7 @@ class TransactionContextManager:
                     PgSpan.ANN_XACT_END,
                     'ROLLBACK' if exc_type is not None else 'COMMIT',
                 )
-            if self._tr is None:
+            if self._tr is None:  # pragma: no cover
                 raise UserWarning
             await self._tr.__aexit__(exc_type, exc, tb)
             self._tr = None
@@ -387,7 +393,7 @@ class TransactionContextManager:
             if self._xact_lock is not None:
                 self._xact_lock.release()
 
-        if self._conn is None:
+        if self._conn is None:  # pragma: no cover
             raise UserWarning
         if self._ctx_token is not None:
             ctx_span_reset(self._ctx_token)
@@ -497,12 +503,18 @@ class Connection:
 
     @wrap2span(name=PgSpan.NAME_EXECUTE, kind=PgSpan.KIND_CLIENT, cls=PgSpan)
     async def execute(
-        self, query: str, *args: Any, timeout: float = None
+        self,
+        query: str,
+        *args: Any,
+        timeout: float = None,
+        query_name: Optional[str] = None,
     ) -> str:
         span: PgSpan = ctx_span_get()  # type: ignore
         span.set_name4adapter(
             self._db.app.logger.ADAPTER_PROMETHEUS, PgSpan.P8S_NAME_EXECUTE
         )
+        if query_name is not None:
+            span.tag(PgSpan.TAG_QUERY_NAME, query_name)
         with await self._lock:
             span.annotate(PgSpan.ANN_PID, self.pid)
             span.annotate4adapter(

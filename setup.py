@@ -3,8 +3,7 @@ from setuptools import setup
 
 
 with open('ipapp/__init__.py') as ver_file:
-    ver = re.compile(r".*__version__ = '(.*?)'",
-                     re.S).match(ver_file.read())
+    ver = re.compile(r".*__version__ = '(.*?)'", re.S).match(ver_file.read())
     if ver is not None:
         version = ver.group(1)
     else:

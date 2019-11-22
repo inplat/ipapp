@@ -4,22 +4,22 @@ from abc import ABC
 from functools import partial
 from typing import Awaitable, Callable, List, Optional, Type
 
-from async_timeout import timeout
-from pydantic.env_settings import BaseSettings
-
 import pika
 import pika.adapters.asyncio_connection
 import pika.adapters.utils.connection_workflow
 import pika.adapters.utils.io_services_utils
 import pika.exceptions
 import pika.frame
+from async_timeout import timeout
+from pika.adapters.asyncio_connection import AsyncioConnection
+from pydantic.env_settings import BaseSettings
+
 from ipapp.component import Component
 from ipapp.ctx import span
 from ipapp.error import PrepareError
 from ipapp.logger import wrap2span
 from ipapp.logger.span import Span
 from ipapp.misc import ctx_span_reset, ctx_span_set, dict_merge, mask_url_pwd
-from pika.adapters.asyncio_connection import AsyncioConnection
 
 pika.connection.LOGGER.level = logging.ERROR
 pika.channel.LOGGER.level = logging.ERROR
@@ -67,7 +67,7 @@ class PikaConfig(BaseSettings):
     connect_retry_delay: float = 1.0
 
 
-class PikaConnection:
+class _Connection:
     STATE_NONE = 0
     STATE_CONNECTING = 1
     STATE_CONNECTED = 2
@@ -88,7 +88,7 @@ class PikaConnection:
         self._fut: Optional[asyncio.Future] = None
         self._lock = asyncio.Lock(loop=self._loop)
         self._on_close: Optional[
-            Callable[['PikaConnection', Exception], Awaitable[None]]
+            Callable[['_Connection', Exception], Awaitable[None]]
         ] = None
         self._state = self.STATE_NONE
 
@@ -100,8 +100,7 @@ class PikaConnection:
         name=AmqpSpan.NAME_CONNECT, kind=AmqpSpan.KIND_CLIENT, cls=AmqpSpan
     )
     async def connect(
-        self,
-        on_close: Callable[['PikaConnection', Exception], Awaitable[None]],
+        self, on_close: Callable[['_Connection', Exception], Awaitable[None]],
     ) -> None:
         async with self._lock:
             self._state = self.STATE_CONNECTING
@@ -232,7 +231,7 @@ class PikaChannel(ABC):
     name: Optional[str] = None
 
     def __init__(
-        self, amqp: 'Pika', _conn: PikaConnection, pch: pika.channel.Channel
+        self, amqp: 'Pika', _conn: _Connection, pch: pika.channel.Channel
     ) -> None:
         self.amqp = amqp
         self._conn = _conn
@@ -575,7 +574,7 @@ class Pika(Component):
         self.cfg = cfg
         self.channel_cls = channel_cls
         self._channels: List[PikaChannel] = []
-        self._conn: Optional[PikaConnection] = None
+        self._conn: Optional[_Connection] = None
         self._started = False
 
     @property
@@ -590,9 +589,7 @@ class Pika(Component):
 
         await self._connect(max_attempts=self.cfg.connect_max_attempts)
 
-    async def _on_disconnect(
-        self, conn: PikaConnection, err: Exception
-    ) -> None:
+    async def _on_disconnect(self, conn: _Connection, err: Exception) -> None:
         self._channels = []
         self.app.log_err(err)
         await self._connect()
@@ -605,7 +602,7 @@ class Pika(Component):
         while max_attempts is None or attempt < max_attempts:
             attempt += 1
             try:
-                self._conn = PikaConnection(self.cfg)
+                self._conn = _Connection(self.cfg)
                 self.app.log_info("Connecting to %s", self._masked_url)
                 await self._conn.connect(self._on_disconnect)
                 self.app.log_info("Connected to %s", self._masked_url)

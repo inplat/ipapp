@@ -2,12 +2,13 @@ import asyncio
 from typing import Any, Awaitable, Callable, Optional
 
 import asyncpg
+import pika
 import pytest
 from async_timeout import timeout as async_timeout
 
 TIMEOUT = 1
 COMPOSE_POSTGRES_URL = 'postgres://ipapp:secretpwd@127.0.0.1:58971/ipapp'
-COMPOSE_RABBIT_URL = 'amqp://guest:guest@127.0.0.1/'
+COMPOSE_RABBITMQ_URL = 'amqp://guest:guest@127.0.0.1:58972/'
 
 
 def pytest_addoption(parser):
@@ -40,6 +41,10 @@ async def wait_service(
                     break
                 except Exception as err:
                     last_err = err
+                    print(type(err))
+                    import traceback
+
+                    print(traceback.format_exc())
                     await asyncio.sleep(0.1)
     except asyncio.TimeoutError:
         raise TimeoutError(err_template.format(url=url, err=last_err))
@@ -60,14 +65,16 @@ async def postgres_url(request) -> str:
 
 
 @pytest.fixture
-async def rabbit_url(request) -> str:
+async def rabbitmq_url(request) -> str:
+    async def check(url):
+        await asyncio.get_event_loop().run_in_executor(
+            None, pika.BlockingConnection, pika.URLParameters(url)
+        )
+
     url = request.config.getoption('rabbit_url')
     if not url:
-        url = COMPOSE_RABBIT_URL
+        url = COMPOSE_RABBITMQ_URL
     await wait_service(
-        url,
-        TIMEOUT,
-        asyncpg.connect,
-        'Failed to connect to {url}. Last error: {err}',
+        url, TIMEOUT, check, 'Failed to connect to {url}. Last error: {err}',
     )
     yield url

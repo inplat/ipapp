@@ -5,7 +5,6 @@ from .app import Application
 from .component import Component
 from .logger import Span
 
-
 __all__ = [
     'app',
     'error',

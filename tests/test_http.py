@@ -26,3 +26,9 @@ async def test_http(unused_tcp_port):
 
     assert resp.status == 200
     assert await resp.text() == 'OK'
+
+    await app.stop()
+
+
+# todo test healthcheck
+# todo test error handler
