@@ -95,7 +95,9 @@ format: venv  ## Autoformat code
 
 .PHONY: test
 test: venv  ## Run tests
+	$(VENV_BIN)/docker-compose -f tests/docker-compose.yml up -d
 	$(VENV_BIN)/pytest -v -s tests
+	$(VENV_BIN)/docker-compose -f tests/docker-compose.yml kill
 
 .PHONY: docs
 docs-quiet: venv  ## Make documentation

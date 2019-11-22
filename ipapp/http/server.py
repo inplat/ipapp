@@ -13,6 +13,7 @@ from aiohttp.payload import Payload
 from aiohttp.web_log import AccessLogger
 from aiohttp.web_runner import AppRunner, BaseSite, TCPSite
 from aiohttp.web_urldispatcher import AbstractRoute
+from pydantic.env_settings import BaseSettings
 
 import ipapp.app  # noqa
 from ipapp.component import Component
@@ -25,10 +26,23 @@ from ipapp.misc import (
     ctx_span_reset,
     ctx_span_set,
 )
-
 from ._base import ClientServerAnnotator
 
 access_logger = logging.getLogger('aiohttp.access')
+
+
+class ServerConfig(BaseSettings):
+        host: str = '127.0.0.1'
+        port: int = 8080
+        access_log_class: Type[AbstractAccessLogger] = AccessLogger
+        access_log_format: str = AccessLogger.LOG_FORMAT
+        access_log: Optional[logging.Logger] = access_logger
+        handle_signals: bool = True
+        shutdown_timeout: float = 60.0
+        ssl_context: Optional[SSLContext] = None
+        backlog: int = 128
+        reuse_address: Optional[bool] = None
+        reuse_port: Optional[bool] = None
 
 
 class ServerHandler(object):
@@ -138,40 +152,30 @@ class ServerHttpSpan(HttpSpan):
 
 class Server(Component, ClientServerAnnotator):
     def __init__(
-        self,
-        handler: ServerHandler,
-        *,
-        host: str = '127.0.0.1',
-        port: int = 8080,
-        access_log_class: Type[AbstractAccessLogger] = AccessLogger,
-        access_log_format: str = AccessLogger.LOG_FORMAT,
-        access_log: Optional[logging.Logger] = access_logger,
-        handle_signals: bool = True,
-        shutdown_timeout: float = 60.0,
-        ssl_context: Optional[SSLContext] = None,
-        backlog: int = 128,
-        reuse_address: Optional[bool] = None,
-        reuse_port: Optional[bool] = None,
+            self,
+            cfg: ServerConfig,
+            handler: ServerHandler
     ) -> None:
         handler._set_server(self)
+        self.cfg = cfg
         self.handler = handler
-        self.host = host
-        self.port = port
-        self.shutdown_timeout = shutdown_timeout
-        self.ssl_context = ssl_context
-        self.backlog = backlog
-        self.reuse_address = reuse_address
-        self.reuse_port = reuse_port
+        self.host = cfg.host
+        self.port = cfg.port
+        self.shutdown_timeout = cfg.shutdown_timeout
+        self.ssl_context = cfg.ssl_context
+        self.backlog = cfg.backlog
+        self.reuse_address = cfg.reuse_address
+        self.reuse_port = cfg.reuse_port
 
         self.sites: List[BaseSite] = []
 
         self.web_app = web.Application()
         self.runner = AppRunner(
             self.web_app,
-            handle_signals=handle_signals,
-            access_log_class=access_log_class,
-            access_log_format=access_log_format,
-            access_log=access_log,
+            handle_signals=cfg.handle_signals,
+            access_log_class=cfg.access_log_class,
+            access_log_format=cfg.access_log_format,
+            access_log=cfg.access_log,
         )
         self.web_app.middlewares.append(self.req_wrapper)
 

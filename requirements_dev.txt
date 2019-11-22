@@ -22,3 +22,4 @@ wheel
 tox
 async-generator
 async_timeout
+docker-compose

@@ -1,0 +1,16 @@
+version: '3'
+services:
+  db:
+    container_name: ipapp-test-postgres
+    image: postgres
+    environment:
+      POSTGRES_USER: ipapp
+      POSTGRES_PASSWORD: secretpwd
+    ports:
+      - '58971:5432'
+  rabbit:
+    container_name: ipapp-test-rabbit
+    image: rabbitmq:3-management
+    ports:
+      - '58972:5672'
+      - '58973:15672'

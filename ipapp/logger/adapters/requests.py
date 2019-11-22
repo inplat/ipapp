@@ -13,7 +13,29 @@ from ..span import Span
 from ._abc import AbcAdapter, AbcConfig, AdapterConfigurationError
 
 
+CREATE_TABLE_QUERY = """\
+CREATE TABLE IF NOT EXISTS {table_name}
+(
+    id bigserial PRIMARY KEY,
+    stamp_begin timestamptz NOT NULL,
+    stamp_end timestamptz NOT NULL,
+    is_out boolean NOT NULL,
+    trace_id character varying(32) NOT NULL,
+    url text,
+    method text,
+    req_hdrs text,
+    req_body text,
+    resp_hdrs text,
+    resp_body text,
+    status_code int,
+    error text,
+    tags jsonb
+);
+"""
+
+
 class Request(BaseModel):
+    trace_id: str
     stamp_begin: float
     stamp_end: float
     is_out: bool
@@ -43,6 +65,7 @@ class RequestsAdapter(AbcAdapter):
     cfg: RequestsConfig
 
     _QUERY_COLS = (
+        'trace_id',
         'stamp_begin',
         'stamp_end',
         'is_out',
@@ -109,18 +132,19 @@ class RequestsAdapter(AbcAdapter):
         # TODO validate table struct
 
     def handle(self, span: Span) -> None:
-        if self.logger is None:
+        if self.logger is None:  # pragma: no cover
             raise UserWarning
-        if self._stopping:
+        if self._stopping:  # pragma: no cover
             self.logger.app.log_warn('WTF??? RAHSWS')
-        if self._queue is None:
+        if self._queue is None:  # pragma: no cover
             raise UserWarning
         if not isinstance(span, ht.HttpSpan):
             return
 
         kwargs: Dict[str, Any] = dict(
-            stamp_begin=span.start_stamp,
-            stamp_end=span.finish_stamp,
+            trace_id=span.trace_id,
+            stamp_begin=round(span.start_stamp, 6),
+            stamp_end=round(span.finish_stamp, 6),
             is_out=span.kind != span.KIND_SERVER,
         )
         tags = span.get_tags4adapter(self.name).copy()
@@ -177,6 +201,10 @@ class RequestsAdapter(AbcAdapter):
             while len(self._queue) > 0:
                 await self._send()
 
+        if self._send_fut is not None:
+            self._send_fut.cancel()
+            self._send_fut = None
+
     async def _send_loop(self) -> None:
         if self.logger is None:
             raise AdapterConfigurationError(
@@ -211,7 +239,7 @@ class RequestsAdapter(AbcAdapter):
             await self.db.execute(query, *params)
 
     def _build_query(self, count: int) -> Tuple[List[str], List[Any]]:
-        if self._queue is None:
+        if self._queue is None:  # pragma: no cover
             raise UserWarning
         _query_placeholders: List[str] = []
         _query_params: List[Any] = []
