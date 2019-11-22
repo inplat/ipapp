@@ -284,10 +284,13 @@ async def test_span():
 
         span.set_name4adapter(TestAdapter.name, 'tt1')
         span.annotate('k1', '1', ts=1)
+        span.annotate('k1', '2', ts=2)
         span.annotate4adapter(TestAdapter.name, 'k2', '2', ts=2)
+        span.annotate4adapter(TestAdapter.name, 'k2', '3', ts=3)
 
         span.tag('tag1', '11')
         span.set_tag4adapter(TestAdapter.name, 'tag2', '22')
+        span.set_tag4adapter(TestAdapter.name, 'tag3', '33')
 
     assert len(adapter.handled) == 3
 
@@ -312,23 +315,27 @@ async def test_span():
     assert span.get_tags4adapter(TestAdapter.name) == {
         'tag1': '11',
         'tag2': '22',
+        'tag3': '33',
     }
     assert span.get_tags4adapter(TestAdapter.name, merge=False) == {
-        'tag2': '22'
+        'tag2': '22',
+        'tag3': '33',
     }
     assert span.get_tags4adapter('unknown') == {'tag1': '11'}
     assert span.get_tags4adapter('unknown', merge=False) == {}
 
     # annotations
-    assert span.annotations == {'k1': [('1', 1)]}
+    assert span.annotations == {'k1': [('1', 1), ('2', 2)]}
     assert span.get_annotations4adapter(TestAdapter.name) == {
-        'k1': [('1', 1)],
-        'k2': [('2', 2)],
+        'k1': [('1', 1), ('2', 2)],
+        'k2': [('2', 2), ('3', 3)],
     }
     assert span.get_annotations4adapter(TestAdapter.name, merge=False) == {
-        'k2': [('2', 2)]
+        'k2': [('2', 2), ('3', 3)]
     }
-    assert span.get_annotations4adapter('unknown...') == {'k1': [('1', 1)]}
+    assert span.get_annotations4adapter('unknown...') == {
+        'k1': [('1', 1), ('2', 2)]
+    }
     assert span.get_annotations4adapter('unknown...', merge=False) == {}
 
     # log error
@@ -372,3 +379,22 @@ async def test_span_ctx():
             assert ctx_span_get() is span2
         assert ctx_span_get() is span1
     assert ctx_span_get() is None
+
+
+async def test_trap():
+    app = Application()
+    lgr = app.logger
+
+    class ExSpan(Span):
+        pass
+
+    assert ctx_span_get() is None
+
+    with app.logger.capture_span(ExSpan) as trap:
+        with pytest.raises(UserWarning):
+            assert trap.span is None
+        with lgr.span_new(name='t1') as span1:
+            with span1.new_child(name='t2', cls=ExSpan):
+                pass
+    assert trap.span is not None
+    assert trap.span.name == 't2'

@@ -98,7 +98,7 @@ class Span:
             if not trace_id:
                 trace_id = azu.generate_random_128bit_string()
             app = misc.ctx_app_get()
-            if app is None:
+            if app is None:  # pragma: no cover
                 raise UserWarning
             span = cls(
                 logger=app.logger,
@@ -117,7 +117,7 @@ class Span:
         cls, name: Optional[str] = None, kind: Optional[str] = None
     ) -> 'Span':
         app = misc.ctx_app_get()
-        if app is None:
+        if app is None:  # pragma: no cover
             raise UserWarning
         span = cls(
             logger=app.logger,
