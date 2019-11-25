@@ -12,7 +12,7 @@ from aiohttp.abc import AbstractAccessLogger
 from aiohttp.payload import Payload
 from aiohttp.web_log import AccessLogger
 from aiohttp.web_runner import AppRunner, BaseSite, TCPSite
-from aiohttp.web_urldispatcher import AbstractRoute
+from aiohttp.web_urldispatcher import AbstractRoute, AbstractResource
 from pydantic.main import BaseModel
 
 import ipapp.app  # noqa
@@ -264,6 +264,27 @@ class Server(Component, ClientServerAnnotator):
         if self.web_app is None:  # pragma: no cover
             raise UserWarning('You must add routes in ServerHandler.prepare')
         return self.web_app.router.add_route(method, path, handler)
+
+    def add_static(
+        self,
+        prefix: str,
+        path: str,
+        *,
+        chunk_size: int = 256 * 1024,
+        show_index: bool = False,
+        follow_symlinks: bool = False,
+        append_version: bool = False,
+    ) -> 'AbstractResource':
+        if self.web_app is None:  # pragma: no cover
+            raise UserWarning('You must add routes in ServerHandler.prepare')
+        return self.web_app.router.add_static(
+            prefix,
+            path,
+            chunk_size=chunk_size,
+            show_index=show_index,
+            follow_symlinks=follow_symlinks,
+            append_version=append_version,
+        )
 
     async def prepare(self) -> None:
         await self.handler.prepare()
