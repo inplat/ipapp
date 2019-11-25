@@ -12,7 +12,7 @@ from aiohttp.abc import AbstractAccessLogger
 from aiohttp.payload import Payload
 from aiohttp.web_log import AccessLogger
 from aiohttp.web_runner import AppRunner, BaseSite, TCPSite
-from aiohttp.web_urldispatcher import AbstractRoute, AbstractResource
+from aiohttp.web_urldispatcher import AbstractResource, AbstractRoute
 from pydantic.main import BaseModel
 
 import ipapp.app  # noqa
@@ -30,6 +30,8 @@ from ipapp.misc import (
 from ._base import ClientServerAnnotator
 
 access_logger = logging.getLogger('aiohttp.access')
+
+SERVER = 'ipapp-http/%s' % ipapp.__version__
 
 
 class ServerConfig(BaseModel):
@@ -233,6 +235,9 @@ class Server(Component, ClientServerAnnotator):
                         ts2 = time.time()
                 if not isinstance(resp, web.Response):
                     raise UserWarning('Invalid response: %s' % resp)
+
+                if 'Server' not in resp.headers:
+                    resp.headers['Server'] = SERVER
 
                 span.tag(HttpSpan.TAG_HTTP_STATUS_CODE, str(resp.status))
 

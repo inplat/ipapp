@@ -8,6 +8,7 @@ from aiohttp import ClientResponse, ClientSession, ClientTimeout
 from aiohttp.typedefs import StrOrURL
 from yarl import URL
 
+import ipapp
 from ipapp.component import Component
 from ipapp.logger import Span, wrap2span
 
@@ -16,9 +17,7 @@ from ._base import ClientServerAnnotator, HttpSpan
 
 __version__ = '0.0.1b6'
 
-SPAN_TYPE_HTTP = 'http'
-SPAN_KIND_HTTP_IN = 'in'
-SPAN_KIND_HTTP_OUT = 'out'
+USER_AGENT = 'ipapp-http/%s' % ipapp.__version__
 
 access_logger = logging.getLogger('aiohttp.access')
 RE_SECRET_WORDS = re.compile(
@@ -101,10 +100,12 @@ class Client(Component, ClientServerAnnotator):
         if timeout is None:
             timeout = ClientTimeout()
 
+        if headers is None:
+            headers = {}
         if propagate_trace:
-            if headers is None:
-                headers = {}
             headers.update(span.to_headers())
+        if 'User-Agent' not in headers:
+            headers['User-Agent'] = USER_AGENT
 
         async with ClientSession(
             loop=self.app.loop,
