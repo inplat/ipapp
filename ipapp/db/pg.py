@@ -9,7 +9,7 @@ import asyncpg.pool
 import asyncpg.prepared_stmt
 import asyncpg.protocol
 import asyncpg.transaction
-from pydantic.env_settings import BaseSettings
+from pydantic.main import BaseModel
 
 from ipapp.component import Component
 from ipapp.error import PrepareError
@@ -21,7 +21,7 @@ from ..misc import ctx_span_get, ctx_span_reset, ctx_span_set
 JsonType = Union[None, int, float, str, bool, List[Any], Dict[str, Any]]
 
 
-class PostgresConfig(BaseSettings):
+class PostgresConfig(BaseModel):
     url: Optional[str]
     pool_min_size: int = 4
     pool_max_size: int = 12

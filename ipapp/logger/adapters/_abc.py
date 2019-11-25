@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from pydantic.env_settings import BaseSettings
+from pydantic.main import BaseModel
 
 import ipapp.logger  # noqa
 
@@ -13,7 +13,7 @@ class AdapterConfigurationError(ConfigurationError):
     pass
 
 
-class AbcConfig(BaseSettings):
+class AbcConfig(BaseModel):
     pass
 
 

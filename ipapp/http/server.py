@@ -13,7 +13,7 @@ from aiohttp.payload import Payload
 from aiohttp.web_log import AccessLogger
 from aiohttp.web_runner import AppRunner, BaseSite, TCPSite
 from aiohttp.web_urldispatcher import AbstractRoute
-from pydantic.env_settings import BaseSettings
+from pydantic.main import BaseModel
 
 import ipapp.app  # noqa
 from ipapp.component import Component
@@ -32,7 +32,7 @@ from ._base import ClientServerAnnotator
 access_logger = logging.getLogger('aiohttp.access')
 
 
-class ServerConfig(BaseSettings):
+class ServerConfig(BaseModel):
     host: str = '127.0.0.1'
     port: int = 8080
     access_log_class: Type[AbstractAccessLogger] = AccessLogger
@@ -44,6 +44,9 @@ class ServerConfig(BaseSettings):
     backlog: int = 128
     reuse_address: Optional[bool] = None
     reuse_port: Optional[bool] = None
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class ServerHandler(object):
