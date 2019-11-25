@@ -16,7 +16,9 @@ class RpcClientConfig(BaseModel):
 
 
 class RpcError(Exception):
-    def __init__(self, code: int, message: Optional[str], detail: Optional[str]) -> None:
+    def __init__(
+        self, code: int, message: Optional[str], detail: Optional[str]
+    ) -> None:
         self.code = code
         self.message = message
         self.detail = detail

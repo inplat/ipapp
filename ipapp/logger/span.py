@@ -300,6 +300,21 @@ class Span:
 
         return self
 
+    def move(self, parent: 'Span') -> None:
+        if self._is_handled:
+            raise UserWarning('Moving error. Span is handled')
+
+        if self.parent is not None:
+            self.parent._children.remove(self)
+        parent._children.append(self)
+        self.parent_id = parent.id
+        self.parent = parent
+        if parent._is_handled:
+            self._handle_children(self)
+            if not self._skip and self.logger is not None:
+                self.logger.handle_span(self)
+            self._is_handled = True
+
     def _handle_children(self, span: 'Span') -> None:
         for child in span._children:
             if child._finish_stamp is not None:

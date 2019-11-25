@@ -1,18 +1,28 @@
 import asyncio
 import json
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from iprpc.executor import MethodExecutor
 
 from ipapp.ctx import span
-from ipapp.mq.pika import Deliver, PikaChannel, PikaChannelConfig, Properties, AmqpSpan
+from ipapp.logger.span import Span
+from ipapp.misc import ctx_span_get
+from ipapp.mq.pika import (
+    AmqpSpan,
+    Deliver,
+    PikaChannel,
+    PikaChannelConfig,
+    Properties,
+)
 
 from ..const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
 
 
 class RpcError(Exception):
-    def __init__(self, code: int, message: Optional[str], detail: Optional[str]) -> None:
+    def __init__(
+        self, code: int, message: Optional[str], detail: Optional[str]
+    ) -> None:
         self.code = code
         self.message = message
         self.detail = detail
@@ -120,7 +130,7 @@ class RpcClientChannel(PikaChannel):
     cfg: RpcClientChannelConfig
     _lock: asyncio.Lock
     _queue: str
-    _futs: Dict[str, asyncio.Future] = {}
+    _futs: Dict[str, Tuple[asyncio.Future, Span]] = {}
 
     async def prepare(self) -> None:
         res = await self.queue_declare('', exclusive=True)
@@ -144,12 +154,17 @@ class RpcClientChannel(PikaChannel):
 
         js = json.loads(body, encoding=self.cfg.encoding)
 
-
         if proprties.correlation_id in self._futs:
+            fut, parent_span = self._futs[proprties.correlation_id]
+
+            span.move(parent_span)
+
             if js['code'] == 0:
-                self._futs[proprties.correlation_id].set_result(js['result'])
+                fut.set_result(js['result'])
             else:
-                self._futs[proprties.correlation_id].exception(RpcError(js['code'], js['message'], js.get('detail')))
+                fut.set_exception(
+                    RpcError(js['code'], js['message'], js.get('detail'))
+                )
 
     async def call(
         self,
@@ -161,21 +176,26 @@ class RpcClientChannel(PikaChannel):
             self.cfg.encoding
         )
         correlation_id = str(uuid.uuid4())
-        self._futs[correlation_id] = asyncio.Future(loop=self.amqp.app.loop)
+        fut: asyncio.Future = asyncio.Future(loop=self.amqp.app.loop)
+        parent_span = ctx_span_get()
+        if parent_span is None:
+            raise UserWarning
+        self._futs[correlation_id] = (fut, parent_span)
         try:
             with self.amqp.app.logger.capture_span(AmqpSpan) as trap:
                 await self.publish(
                     '',
                     self.cfg.queue,
                     msg,
-                    Properties(correlation_id=correlation_id,
-                               reply_to=self._queue),
+                    Properties(
+                        correlation_id=correlation_id, reply_to=self._queue
+                    ),
                     propagate_trace=self.cfg.propagate_trace,
                 )
                 trap.span.tag(SPAN_TAG_RPC_METHOD, method)
                 trap.span.name = 'rpc::out::%s' % method
             return await asyncio.wait_for(
-                self._futs[correlation_id], timeout=timeout or self.cfg.timeout
+                fut, timeout=timeout or self.cfg.timeout
             )
         finally:
             del self._futs[correlation_id]

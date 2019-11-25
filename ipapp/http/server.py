@@ -58,7 +58,7 @@ class ServerHandler(object):
     def _set_server(self, srv: 'Server') -> None:
         setattr(self, 'server', srv)
 
-    def _setup_healthcheck(self, path: str) -> None:
+    def _setup_healthcheck(self, path: str = '/health') -> None:
         self.server.add_route('GET', path, self._health_handler_get)
         self.server.add_route('HEAD', path, self._health_handler_head)
 

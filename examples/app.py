@@ -7,8 +7,8 @@ from iprpc.executor import method
 from yarl import URL
 
 from ipapp import Application
-from ipapp.ctx import app, span
-from ipapp.misc import ctx_app_get
+from ipapp.ctx import app  # noqa
+from ipapp.ctx import span
 from ipapp.db.pg import PgSpan, Postgres, PostgresConfig
 from ipapp.http.client import Client
 from ipapp.http.server import (
@@ -66,9 +66,7 @@ class InplatSiteClient(Client):
 class Api:
     @method()
     async def test(self, val1: str, val2: bool, val3: int = 1) -> str:
-        app: Optional['App'] = ctx_app_get()
-        if app is None:
-            raise UserWarning('WTF&&&')
+        app: App
         async with app.db.connection():
             pass
         return 'val1=%r val2=%r val3=%r' % (val1, val2, val3)
@@ -129,8 +127,7 @@ class HttpHandler(ServerHandler):
 
     async def rpc_amqp_handler(self, request: web.Request) -> web.Response:
         res = await self.app.rmq_rpc_client.call(
-            'test', {'val1': '1', 'val2': False},
-            timeout=3.
+            'test', {'val1': '1', 'val2': False}, timeout=3.0
         )
 
         return web.Response(text='%r' % res)
@@ -204,11 +201,11 @@ class App(Application):
                     (PubCh, ConsumerChannelConfig()),
                     (ConsCh, ConsumerChannelConfig()),
                     (ConsCh, ConsumerChannelConfig()),
-                    [
+                    (
                         RpcServerChannel,
                         RpcServerChannelConfig(api=Api(), queue='rpc'),
-                    ],
-                    [RpcClientChannel, RpcClientChannelConfig(queue='rpc')],
+                    ),
+                    (RpcClientChannel, RpcClientChannelConfig(queue='rpc')),
                 ],
             ),
         )
@@ -308,7 +305,9 @@ class App(Application):
 
     @property
     def rmq_rpc_client(self) -> 'RpcClientChannel':
-        ch: Optional['RpcClientChannel'] = self.rmq.channel('rpc_client')  # type: ignore
+        ch: Optional['RpcClientChannel'] = self.rmq.channel(  # type: ignore
+            'rpc_client'
+        )
         if ch is None:
             raise AttributeError
         return ch
