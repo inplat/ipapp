@@ -100,6 +100,11 @@ test: venv  ## Run tests
 	$(VENV_BIN)/pytest -v -s tests
 	$(VENV_BIN)/docker-compose -f tests/docker-compose.yml kill
 
+.PHONY: build
+build: venv  ## Run tests
+	$(VENV_BIN)/python setup.py sdist
+	$(VENV_BIN)/python setup.py bdist_wheel
+
 .PHONY: docs
 docs-quiet: venv  ## Make documentation
 	rm -f docs/source/ipapp.rst

@@ -1,5 +1,5 @@
 import re
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 with open('ipapp/__init__.py') as ver_file:
@@ -39,7 +39,7 @@ setup(
     ],
     author='InPlat',
     url='https://gitlab.app.ipl/inplat/ipapp',
-    packages=['ipapp'],
+    packages=find_packages('.', exclude=['tests', 'examples']),
     python_requires='>=3.7',
     install_requires=requirements.split('\n'),
     extras_require={

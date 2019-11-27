@@ -11,6 +11,7 @@ stages:
   - venv
   - lint
   - test
+  - build
 
 venv:
   stage: venv
@@ -68,7 +69,7 @@ black:
   tags:
     - kube-test
 
-build:
+test:
   stage: test
   artifacts:
     paths:
@@ -80,3 +81,23 @@ build:
     - venv
   tags:
     - kube-test
+
+build:
+  stage: build
+  script:
+    - sed -i -E 's/^(__version__\s*=\s*)['"'"'"].*?+['"'"'"](.*)$/\1'"'"${CI_COMMIT_TAG:-$CI_COMMIT_REF_SLUG}"'"'\2/' ipapp/__init__.py
+    - sed -i -E 's/^(__build_stamp__\s*=\s*)[0-9]+$/\1'`date +%s`'/' ipapp/__init__.py
+    - make build
+    - mkdir -p /pip/ipapp/
+    - cp dist/* /pip/ipapp/
+  dependencies:
+    - venv
+  artifacts:
+    paths:
+      - .venv/
+    expire_in: 1 day
+  tags:
+    - build
+  only:
+    - tags
+    - master
