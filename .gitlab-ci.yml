@@ -1,3 +1,12 @@
+image: registry.app.ipl/docker/images/dind:python37
+
+variables:
+  DOCKER_HOST: tcp://127.0.0.1:2375
+
+services:
+- alias: ololo
+  name: docker:18.09.7-dind
+
 stages:
   - venv
   - lint
@@ -12,7 +21,7 @@ venv:
     paths:
     - .venv/
   tags:
-    - build
+    - kube-test
 
 flake8:
   stage: lint
@@ -21,7 +30,7 @@ flake8:
   dependencies:
     - venv
   tags:
-    - build
+    - kube-test
 
 bandit:
   stage: lint
@@ -30,7 +39,7 @@ bandit:
   dependencies:
     - venv
   tags:
-    - build
+    - kube-test
 
 mypy:
   stage: lint
@@ -39,7 +48,7 @@ mypy:
   dependencies:
     - venv
   tags:
-    - build
+    - kube-test
 
 safety:
   stage: lint
@@ -48,7 +57,7 @@ safety:
   dependencies:
     - venv
   tags:
-    - build
+    - kube-test
 
 black:
   stage: lint
@@ -57,7 +66,7 @@ black:
   dependencies:
     - venv
   tags:
-    - build
+    - kube-test
 
 build:
   stage: test
@@ -70,4 +79,4 @@ build:
   dependencies:
     - venv
   tags:
-    - build
+    - kube-test
