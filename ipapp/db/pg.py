@@ -174,9 +174,9 @@ class Postgres(Component):
                 timeout=max(stop_timeout - stop_start + stop_start, 0.001),
             )
 
-        if self.pool:
+        if self._pool:
             self.app.log_info("Disconnecting from %s" % self._masked_url)
-            await self.pool.close()
+            await self._pool.close()
 
     def connection(
         self, acquire_timeout: Optional[float] = None
