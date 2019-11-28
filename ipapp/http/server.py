@@ -270,6 +270,69 @@ class Server(Component, ClientServerAnnotator):
             raise UserWarning('You must add routes in ServerHandler.prepare')
         return self.web_app.router.add_route(method, path, handler)
 
+    def add_head(
+        self,
+        path: str,
+        handler: Callable[[web.Request], Awaitable[web.Response]],
+    ) -> 'AbstractRoute':
+        if self.web_app is None:  # pragma: no cover
+            raise UserWarning('You must add routes in ServerHandler.prepare')
+        return self.web_app.router.add_head(path, handler)
+
+    def add_options(
+        self,
+        path: str,
+        handler: Callable[[web.Request], Awaitable[web.Response]],
+    ) -> 'AbstractRoute':
+        if self.web_app is None:  # pragma: no cover
+            raise UserWarning('You must add routes in ServerHandler.prepare')
+        return self.web_app.router.add_options(path, handler)
+
+    def add_get(
+        self,
+        path: str,
+        handler: Callable[[web.Request], Awaitable[web.Response]],
+    ) -> 'AbstractRoute':
+        if self.web_app is None:  # pragma: no cover
+            raise UserWarning('You must add routes in ServerHandler.prepare')
+        return self.web_app.router.add_get(path, handler)
+
+    def add_post(
+        self,
+        path: str,
+        handler: Callable[[web.Request], Awaitable[web.Response]],
+    ) -> 'AbstractRoute':
+        if self.web_app is None:  # pragma: no cover
+            raise UserWarning('You must add routes in ServerHandler.prepare')
+        return self.web_app.router.add_post(path, handler)
+
+    def add_put(
+        self,
+        path: str,
+        handler: Callable[[web.Request], Awaitable[web.Response]],
+    ) -> 'AbstractRoute':
+        if self.web_app is None:  # pragma: no cover
+            raise UserWarning('You must add routes in ServerHandler.prepare')
+        return self.web_app.router.add_put(path, handler)
+
+    def add_patch(
+        self,
+        path: str,
+        handler: Callable[[web.Request], Awaitable[web.Response]],
+    ) -> 'AbstractRoute':
+        if self.web_app is None:  # pragma: no cover
+            raise UserWarning('You must add routes in ServerHandler.prepare')
+        return self.web_app.router.add_patch(path, handler)
+
+    def add_delete(
+        self,
+        path: str,
+        handler: Callable[[web.Request], Awaitable[web.Response]],
+    ) -> 'AbstractRoute':
+        if self.web_app is None:  # pragma: no cover
+            raise UserWarning('You must add routes in ServerHandler.prepare')
+        return self.web_app.router.add_delete(path, handler)
+
     def add_static(
         self,
         prefix: str,
