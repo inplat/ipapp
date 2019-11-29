@@ -1,0 +1,9 @@
+zipkin:
+  level: INFO
+  url: http://jaeger:9411
+prometheus:
+  url: http://prometheus:9213
+db1:
+  url: postgres://user:pass@localhost:8001/db
+db2:
+  url: postgres://user:pass@localhost:9002/db
