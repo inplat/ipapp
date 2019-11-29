@@ -198,14 +198,15 @@ class App(Application):
             Pika(
                 PikaConfig(url='amqp://guest:guest@localhost:9004/'),
                 [
-                    (PubCh, ConsumerChannelConfig()),
-                    (ConsCh, ConsumerChannelConfig()),
-                    (ConsCh, ConsumerChannelConfig()),
-                    (
-                        RpcServerChannel,
-                        RpcServerChannelConfig(api=Api(), queue='rpc'),
+                    lambda: PubCh(ConsumerChannelConfig()),
+                    lambda: ConsCh(ConsumerChannelConfig()),
+                    lambda: ConsCh(ConsumerChannelConfig()),
+                    lambda: RpcServerChannel(
+                        Api(), RpcServerChannelConfig(queue='rpc')
                     ),
-                    (RpcClientChannel, RpcClientChannelConfig(queue='rpc')),
+                    lambda: RpcClientChannel(
+                        RpcClientChannelConfig(queue='rpc')
+                    ),
                 ],
             ),
         )

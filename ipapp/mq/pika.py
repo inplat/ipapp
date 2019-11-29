@@ -2,7 +2,7 @@ import asyncio
 import logging
 from abc import ABC
 from functools import partial
-from typing import Awaitable, Callable, List, Optional, Tuple, Type
+from typing import Awaitable, Callable, List, Optional
 
 import pika
 import pika.adapters.asyncio_connection
@@ -234,18 +234,21 @@ class _Connection:
 
 class PikaChannel(ABC):
     name: Optional[str] = None
+    amqp: 'Pika'
+    _conn: '_Connection'
+    _ch: 'pika.channel.Channel'
+    _lock: 'asyncio.Lock'
+    _consumer_tag: Optional[str]
 
-    def __init__(
-        self,
-        amqp: 'Pika',
-        _conn: _Connection,
-        pch: pika.channel.Channel,
-        cfg: PikaChannelConfig,
-    ) -> None:
-        self.amqp = amqp
+    def __init__(self, cfg: PikaChannelConfig) -> None:
         self.cfg = cfg
-        self._conn = _conn
-        self._ch: pika.channel.Channel = pch
+
+    def _init(self, amqp: 'Pika', ch: pika.channel.Channel) -> None:
+        self.amqp = amqp
+        if amqp._conn is None:
+            raise UserWarning()
+        self._conn = amqp._conn  # noqa
+        self._ch = ch
         self._lock = asyncio.Lock(loop=amqp.loop)
         self._consumer_tag: Optional[str] = None
 
@@ -583,10 +586,10 @@ class Pika(Component):
     def __init__(
         self,
         cfg: PikaConfig,
-        channel_cls: List[Tuple[Type[PikaChannel], PikaChannelConfig]],
+        channel_factories: List[Callable[[], PikaChannel]],
     ):
         self.cfg = cfg
-        self._channel_cls = channel_cls
+        self._channel_factories = channel_factories
         self._channels: List[PikaChannel] = []
         self._conn: Optional[_Connection] = None
         self._started = False
@@ -647,9 +650,12 @@ class Pika(Component):
             raise UserWarning
         self._channels = []
         corors = []
-        for cls, cfg in self._channel_cls:
-            pch = await self._conn.channel(None, cls.name)
-            ch = cls(self, self._conn, pch, cfg)
+        for fn in self._channel_factories:
+            ch = fn()
+            if not isinstance(ch, PikaChannel):
+                raise UserWarning()
+            pch = await self._conn.channel(None, ch.name)
+            ch._init(self, pch)  # noqa
             self._channels.append(ch)
             corors.append(ch.prepare())
         await asyncio.gather(*corors, loop=self.loop)

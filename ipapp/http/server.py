@@ -5,10 +5,9 @@ from abc import ABCMeta
 from contextvars import Token
 from datetime import datetime, timezone
 from ssl import SSLContext
-from typing import Awaitable, Callable, Dict, List, Optional, Type, Union
+from typing import Awaitable, Callable, Dict, List, Optional, Union
 
 from aiohttp import web
-from aiohttp.abc import AbstractAccessLogger
 from aiohttp.payload import Payload
 from aiohttp.web_log import AccessLogger
 from aiohttp.web_runner import AppRunner, BaseSite, TCPSite
@@ -37,18 +36,11 @@ SERVER = 'ipapp-http/%s' % ipapp.__version__
 class ServerConfig(BaseModel):
     host: str = '127.0.0.1'
     port: int = 8080
-    access_log_class: Type[AbstractAccessLogger] = AccessLogger
-    access_log_format: str = AccessLogger.LOG_FORMAT
-    access_log: Optional[logging.Logger] = access_logger
     handle_signals: bool = True
     shutdown_timeout: float = 60.0
-    ssl_context: Optional[SSLContext] = None
     backlog: int = 128
     reuse_address: Optional[bool] = None
     reuse_port: Optional[bool] = None
-
-    class Config:
-        arbitrary_types_allowed = True
 
 
 class ServerHandler(object):
@@ -159,14 +151,20 @@ class ServerHttpSpan(HttpSpan):
 
 
 class Server(Component, ClientServerAnnotator):
-    def __init__(self, cfg: ServerConfig, handler: ServerHandler) -> None:
+    def __init__(
+        self,
+        cfg: ServerConfig,
+        handler: ServerHandler,
+        *,
+        ssl_context: Optional[SSLContext] = None,
+    ) -> None:
         handler._set_server(self)
         self.cfg = cfg
         self.handler = handler
         self.host = cfg.host
         self.port = cfg.port
         self.shutdown_timeout = cfg.shutdown_timeout
-        self.ssl_context = cfg.ssl_context
+        self.ssl_context = ssl_context
         self.backlog = cfg.backlog
         self.reuse_address = cfg.reuse_address
         self.reuse_port = cfg.reuse_port
@@ -177,9 +175,9 @@ class Server(Component, ClientServerAnnotator):
         self.runner = AppRunner(
             self.web_app,
             handle_signals=cfg.handle_signals,
-            access_log_class=cfg.access_log_class,
-            access_log_format=cfg.access_log_format,
-            access_log=cfg.access_log,
+            access_log_class=AccessLogger,
+            access_log_format=AccessLogger.LOG_FORMAT,
+            access_log=access_logger,
         )
         self.web_app.middlewares.append(self.req_wrapper)
 

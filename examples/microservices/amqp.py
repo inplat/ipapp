@@ -40,10 +40,9 @@ class App(Application):
             Pika(
                 PikaConfig(url='amqp://guest:guest@localhost:9004/'),
                 [
-                    [
-                        RpcServerChannel,
-                        RpcServerChannelConfig(api=Api(), queue='rpc'),
-                    ],
+                    lambda: RpcServerChannel(
+                        Api(), RpcServerChannelConfig(queue='rpc')
+                    )
                 ],
             ),
         )

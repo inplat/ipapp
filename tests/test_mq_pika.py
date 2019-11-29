@@ -70,8 +70,8 @@ async def test_pika(rabbitmq_url):
         Pika(
             PikaConfig(url=rabbitmq_url),
             [
-                (TestPubChg, PikaChannelConfig()),
-                (TestCnsChg, PikaChannelConfig()),
+                lambda: TestPubChg(PikaChannelConfig()),
+                lambda: TestCnsChg(PikaChannelConfig()),
             ],
         ),
     )

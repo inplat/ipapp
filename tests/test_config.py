@@ -3,8 +3,8 @@ import os
 from tempfile import NamedTemporaryFile
 from typing import Any
 
-from pytest import raises
 from pydantic import BaseModel, Field
+from pytest import raises
 
 from ipapp.config import BaseConfig
 

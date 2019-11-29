@@ -30,7 +30,6 @@ class RpcError(Exception):
 
 
 class RpcServerChannelConfig(PikaChannelConfig):
-    api: object
     queue: str
     prefetch_count: int = 1
     queue_durable: bool = True
@@ -39,9 +38,6 @@ class RpcServerChannelConfig(PikaChannelConfig):
     debug: bool = False
     encoding: str = 'UTF-8'
     propagate_trace: bool = True
-
-    class Config:
-        arbitrary_types_allowed = True
 
 
 class RpcClientChannelConfig(PikaChannelConfig):
@@ -56,6 +52,10 @@ class RpcServerChannel(PikaChannel):
     _rpc: MethodExecutor
     _lock: asyncio.Lock
 
+    def __init__(self, api: object, cfg: RpcServerChannelConfig) -> None:
+        self.api = api
+        super().__init__(cfg)
+
     async def prepare(self) -> None:
         await self.queue_declare(
             self.cfg.queue,
@@ -67,7 +67,7 @@ class RpcServerChannel(PikaChannel):
         )
         await self.qos(prefetch_count=self.cfg.prefetch_count)
         self._lock = asyncio.Lock(loop=self.amqp.loop)
-        self._rpc = MethodExecutor(self.cfg.api)
+        self._rpc = MethodExecutor(self.api)
 
     async def start(self) -> None:
         await self.consume(self.cfg.queue, self._message)
