@@ -14,7 +14,7 @@ class AdapterConfigurationError(ConfigurationError):
 
 
 class AbcConfig(BaseModel):
-    pass
+    enabled: bool = True
 
 
 class AbcAdapter(ABC):

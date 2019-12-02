@@ -11,7 +11,7 @@ from ._abc import AbcAdapter, AbcConfig, AdapterConfigurationError
 
 
 class ZipkinConfig(AbcConfig):
-    name: str
+    name: str = 'ipapp'
     addr: str = 'http://127.0.0.1:9411/api/v2/spans'
     sample_rate: float = 0.01
     send_interval: float = 5
