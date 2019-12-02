@@ -2,7 +2,7 @@ import asyncio
 import json
 import time
 from contextvars import Token
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 import asyncpg
 import asyncpg.pool
@@ -19,6 +19,7 @@ from ipapp.misc import mask_url_pwd
 from ..misc import ctx_span_get, ctx_span_reset, ctx_span_set
 
 JsonType = Union[None, int, float, str, bool, List[Any], Dict[str, Any]]
+ConnFactory = Callable[['Postgres', asyncpg.Connection], 'Connection']
 
 
 class PostgresConfig(BaseModel):
@@ -61,10 +62,25 @@ class PgSpan(Span):
 
 
 class Postgres(Component):
-    def __init__(self, cfg: PostgresConfig):
+    def __init__(
+        self,
+        cfg: PostgresConfig,
+        *,
+        connection_factory: Optional[ConnFactory] = None,
+    ) -> None:
         self.cfg = cfg
         self._pool: Optional[asyncpg.pool.Pool] = None
         self._connections: List['Connection'] = []
+
+        if connection_factory is None:
+            connection_factory = self._def_conn_factory
+
+        self._connection_factory: ConnFactory = connection_factory
+
+    def _def_conn_factory(
+        self, pg: 'Postgres', conn: 'asyncpg.Connection'
+    ) -> 'Connection':
+        return Connection(pg, conn)
 
     @property
     def pool(self) -> asyncpg.pool.Pool:
@@ -189,10 +205,15 @@ class Postgres(Component):
         *args: Any,
         timeout: Optional[float] = None,
         query_name: Optional[str] = None,
-    ) -> asyncpg.Record:
+        model_cls: Optional[Type[BaseModel]] = None,
+    ) -> Optional[Union[asyncpg.Record, BaseModel]]:
         async with self.connection() as conn:
             res = await conn.query_one(
-                query, *args, timeout=timeout, query_name=query_name
+                query,
+                *args,
+                timeout=timeout,
+                query_name=query_name,
+                model_cls=model_cls,
             )
         return res
 
@@ -202,10 +223,15 @@ class Postgres(Component):
         *args: Any,
         timeout: Optional[float] = None,
         query_name: Optional[str] = None,
-    ) -> List[asyncpg.Record]:
+        model_cls: Optional[Type[BaseModel]] = None,
+    ) -> List[Union[asyncpg.Record, BaseModel]]:
         async with self.connection() as conn:
             res = await conn.query_all(
-                query, *args, timeout=timeout, query_name=query_name
+                query,
+                *args,
+                timeout=timeout,
+                query_name=query_name,
+                model_cls=model_cls,
             )
         return res
 
@@ -279,7 +305,7 @@ class ConnectionContextManager:
                 json.dumps({'pid': str(pid)}),
             )
 
-            self._pg_conn = Connection(self._db, self._conn, pid)
+            self._pg_conn = self._db._connection_factory(self._db, self._conn)
             self._db._connections.append(self._pg_conn)  # noqa
             return self._pg_conn
 
@@ -472,12 +498,10 @@ class PreparedStatement:
 
 
 class Connection:
-    def __init__(
-        self, db: Postgres, conn: asyncpg.Connection, pid: int
-    ) -> None:
+    def __init__(self, db: Postgres, conn: asyncpg.Connection) -> None:
         self._db = db
         self._conn = conn
-        self._pid = pid
+        self._pid = conn.get_server_pid()
         self._lock = asyncio.Lock(loop=db.loop)
         self._xact_lock = asyncio.Lock(loop=db.loop)
 
@@ -530,7 +554,8 @@ class Connection:
         *args: Any,
         timeout: float = None,
         query_name: Optional[str] = None,
-    ) -> asyncpg.Record:
+        model_cls: Optional[Type[BaseModel]] = None,
+    ) -> Optional[Union[asyncpg.Record, BaseModel]]:
         span: PgSpan = ctx_span_get()  # type: ignore
         span.set_name4adapter(
             self._db.app.logger.ADAPTER_PROMETHEUS, PgSpan.P8S_NAME_EXECUTE
@@ -544,7 +569,13 @@ class Connection:
                 PgSpan.ANN_PID,
                 json.dumps({'pid': str(self.pid)}),
             )
-            return await self._conn.fetchrow(query, *args, timeout=timeout)
+            res = await self._conn.fetchrow(query, *args, timeout=timeout)
+            if res is None:
+                return None
+            if model_cls is not None:
+                return model_cls(**(dict(res)))
+            else:
+                return res
 
     @wrap2span(name=PgSpan.NAME_EXECUTE, kind=PgSpan.KIND_CLIENT, cls=PgSpan)
     async def query_all(
@@ -553,7 +584,8 @@ class Connection:
         *args: Any,
         timeout: float = None,
         query_name: Optional[str] = None,
-    ) -> List[asyncpg.Record]:
+        model_cls: Optional[Type[BaseModel]] = None,
+    ) -> List[Union[asyncpg.Record, BaseModel]]:
         span: PgSpan = ctx_span_get()  # type: ignore
         span.set_name4adapter(
             self._db.app.logger.ADAPTER_PROMETHEUS, PgSpan.P8S_NAME_EXECUTE
@@ -567,7 +599,11 @@ class Connection:
                 PgSpan.ANN_PID,
                 json.dumps({'pid': str(self.pid)}),
             )
-            return await self._conn.fetch(query, *args, timeout=timeout)
+            res = await self._conn.fetch(query, *args, timeout=timeout)
+            if model_cls is not None:
+                return [model_cls(**(dict(row))) for row in res]
+            else:
+                return res
 
     @wrap2span(name=PgSpan.NAME_PREPARE, kind=PgSpan.KIND_CLIENT, cls=PgSpan)
     async def prepare(
