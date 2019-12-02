@@ -50,7 +50,7 @@ class Request(BaseModel):
 
 
 class RequestsConfig(AbcConfig):
-    dsn: str
+    dsn: Optional[str] = None
     db_table_name: str = 'log.request'
     send_interval: float = 5.0  # 5 seconds
     send_max_count: int = 10  # 10 requests

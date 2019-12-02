@@ -7,11 +7,11 @@ from sentry_sdk.hub import Hub
 import ipapp.logger  # noqa
 
 from ..span import Span
-from ._abc import AbcAdapter, AbcConfig
+from ._abc import AbcAdapter, AbcConfig, AdapterConfigurationError
 
 
 class SentryConfig(AbcConfig):
-    dsn: str
+    dsn: Optional[str] = None
 
 
 class SentryAdapter(AbcAdapter):
@@ -26,7 +26,10 @@ class SentryAdapter(AbcAdapter):
     async def start(self, logger: 'ipapp.logger.Logger') -> None:
 
         self.logger = logger
-
+        if self.cfg.dsn is None:
+            raise AdapterConfigurationError(
+                '%s dsn is not configured' % self.__class__.__name__
+            )
         self.client = Client(dsn=self.cfg.dsn)
         Hub.current.bind_client(self.client)
 
