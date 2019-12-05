@@ -30,7 +30,7 @@ class RpcError(Exception):
 
 
 class RpcServerChannelConfig(PikaChannelConfig):
-    queue: str
+    queue: str = 'rpc'
     prefetch_count: int = 1
     queue_durable: bool = True
     queue_auto_delete: bool = False
@@ -41,7 +41,7 @@ class RpcServerChannelConfig(PikaChannelConfig):
 
 
 class RpcClientChannelConfig(PikaChannelConfig):
-    queue: str
+    queue: str = 'rpc'
     timeout: float = 60.0
     encoding: str = 'UTF-8'
     propagate_trace: bool = True

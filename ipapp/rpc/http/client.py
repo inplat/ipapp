@@ -11,7 +11,7 @@ from ..const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
 
 
 class RpcClientConfig(BaseModel):
-    url: str
+    url: str = 'http://0:8080/'
     timeout: float = 60.0
 
 
