@@ -17,7 +17,9 @@ class Args(NamedTuple):
     config: Optional[str]
 
 
-def _parse_argv(prog: str, options: list, default_env_prefix: str) -> Args:
+def _parse_argv(
+    prog: str, options: list, default_env_prefix: str = 'APP_'
+) -> Args:
     parser = argparse.ArgumentParser(prog=prog)
 
     parser.add_argument(
