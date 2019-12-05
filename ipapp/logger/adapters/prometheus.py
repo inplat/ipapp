@@ -77,7 +77,7 @@ DEFAULT_HISTOGRAM_DOCS = {
 
 
 class PrometheusConfig(AbcConfig):
-    addr: str = '127.0.0.1'
+    addr: str = '0.0.0.0'  # nosec
     port: int = 9213
     hist_labels: LabelsCfg = {}
     hist_docs: Dict[str, str] = {}

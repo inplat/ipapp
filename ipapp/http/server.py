@@ -34,7 +34,7 @@ SERVER = 'ipapp-http/%s' % ipapp.__version__
 
 
 class ServerConfig(BaseModel):
-    host: str = '127.0.0.1'
+    host: str = '0.0.0.0'  # nosec
     port: int = 8080
     handle_signals: bool = True
     shutdown_timeout: float = 60.0
