@@ -1,5 +1,6 @@
 import logging
 import random
+import sys
 from typing import Optional
 
 from aiohttp import ClientResponse, web
@@ -7,16 +8,12 @@ from iprpc.executor import method
 from yarl import URL
 
 from ipapp import Application
-from ipapp.ctx import app  # noqa
-from ipapp.ctx import span
+from ipapp.cli import main
+from ipapp.config import BaseConfig
+from ipapp.ctx import app, span
 from ipapp.db.pg import PgSpan, Postgres, PostgresConfig
 from ipapp.http.client import Client
-from ipapp.http.server import (
-    Server,
-    ServerConfig,
-    ServerHandler,
-    ServerHttpSpan,
-)
+from ipapp.http.server import Server, ServerConfig, ServerHandler
 from ipapp.logger.adapters.prometheus import (
     PrometheusAdapter,
     PrometheusConfig,
@@ -41,9 +38,27 @@ from ipapp.rpc.mq.pika import (
     RpcServerChannelConfig,
 )
 
+VERSION = '0.0.0.1'
 SPAN_TAG_WIDGET_ID = 'api.widget_id'
 
 rnd = random.SystemRandom()
+
+
+class Config(BaseConfig):
+    http1: ServerConfig
+    http2: ServerConfig
+    http2_rpc: RpcHandlerConfig
+    client_rpc: RpcClientConfig
+    amqp: PikaConfig
+    amqp_ch: PikaChannelConfig
+    amqp_rpc_clt: RpcClientChannelConfig
+    amqp_rpc_srv: RpcServerChannelConfig
+    db: PostgresConfig
+
+    log_zipkin: ZipkinConfig
+    log_prometheus: PrometheusConfig
+    log_sentry: SentryConfig
+    log_requests: RequestsConfig
 
 
 class ConsumerChannelConfig(PikaChannelConfig):
@@ -169,44 +184,28 @@ class ConsCh(PikaChannel):
 
 
 class App(Application):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, cfg: Config) -> None:
+        super().__init__(cfg)
 
-        self._version = '0.0.0.1'
+        self._version = VERSION
         self._build_stamp = 1573734614
 
-        self.add(
-            'srv',
-            Server(ServerConfig(host='127.0.0.1', port=8888), HttpHandler()),
-        )
+        self.add('srv', Server(cfg.http1, HttpHandler()))
 
-        self.add(
-            'rpc',
-            Server(
-                ServerConfig(host='127.0.0.1', port=8889),
-                RpcHandler(Api(), RpcHandlerConfig(debug=True)),
-            ),
-        )
+        self.add('rpc', Server(cfg.http2, RpcHandler(Api(), cfg.http2_rpc)))
 
-        self.add(
-            'rpc_client',
-            RpcClient(RpcClientConfig(url='http://127.0.0.1:8889/')),
-        )
+        self.add('rpc_client', RpcClient(cfg.client_rpc))
 
         self.add(
             'rmq',
             Pika(
-                PikaConfig(url='amqp://guest:guest@localhost:9004/'),
+                cfg.amqp,
                 [
-                    lambda: PubCh(ConsumerChannelConfig()),
-                    lambda: ConsCh(ConsumerChannelConfig()),
-                    lambda: ConsCh(ConsumerChannelConfig()),
-                    lambda: RpcServerChannel(
-                        Api(), RpcServerChannelConfig(queue='rpc')
-                    ),
-                    lambda: RpcClientChannel(
-                        RpcClientChannelConfig(queue='rpc')
-                    ),
+                    lambda: PubCh(cfg.amqp_ch),
+                    lambda: ConsCh(cfg.amqp_ch),
+                    lambda: ConsCh(cfg.amqp_ch),
+                    lambda: RpcServerChannel(Api(), cfg.amqp_rpc_srv),
+                    lambda: RpcClientChannel(cfg.amqp_rpc_clt),
                 ],
             ),
         )
@@ -214,53 +213,13 @@ class App(Application):
         self.add('inplat', InplatSiteClient(base_url='https://inplat.ru/123'))
 
         self.add(
-            'db',
-            Postgres(
-                PostgresConfig(
-                    url='postgres://ipapp:secretpwd@localhost:9001'
-                    '/ipapp?application_name=ipapp',
-                    pool_min_size=1,
-                )
-            ),
-            stop_after=['srv'],
+            'db', Postgres(cfg.db), stop_after=['srv'],
         )
 
-        self.logger.add(
-            PrometheusAdapter(
-                PrometheusConfig(
-                    hist_labels={
-                        ServerHttpSpan.P8S_NAME: {
-                            'widget_id': SPAN_TAG_WIDGET_ID
-                        }
-                    }
-                )
-            )
-        )
-
-        self.logger.add(
-            ZipkinAdapter(
-                ZipkinConfig(
-                    name='testapp', addr='http://127.0.0.1:9002/api/v2/spans'
-                )
-            )
-        )
-
-        self.logger.add(
-            SentryAdapter(
-                SentryConfig(
-                    dsn="http://0e1fcbe44a5541c2bd20ed5ead2ca033"
-                    "@localhost:9000/2"
-                )
-            )
-        )
-
-        self.logger.add(
-            RequestsAdapter(
-                RequestsConfig(
-                    dsn='postgres://ipapp:secretpwd@localhost:9001/ipapp'
-                )
-            )
-        )
+        self.logger.add(PrometheusAdapter(cfg.log_prometheus))
+        self.logger.add(ZipkinAdapter(cfg.log_zipkin))
+        self.logger.add(SentryAdapter(cfg.log_sentry))
+        self.logger.add(RequestsAdapter(cfg.log_requests))
 
     @property
     def srv(self) -> Server:
@@ -316,4 +275,4 @@ class App(Application):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    App().run()
+    main(sys.argv, VERSION, App, Config)

@@ -3,7 +3,9 @@ __build_stamp__ = 0
 
 from . import app, error
 from .app import Application
+from .cli import main
 from .component import Component
+from .config import BaseConfig
 from .logger import Span
 
 __all__ = [
@@ -12,6 +14,8 @@ __all__ = [
     'Component',
     'Application',
     'Span',
+    'BaseConfig',
+    'main',
 ]
 
 for mod in (

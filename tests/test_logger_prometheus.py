@@ -1,6 +1,6 @@
 from aiohttp import ClientSession
 
-from ipapp import Application
+from ipapp import Application, BaseConfig
 from ipapp.logger.adapters.prometheus import (
     PrometheusAdapter,
     PrometheusConfig,
@@ -20,7 +20,7 @@ async def test_success(unused_tcp_port):
         },
     )
     adapter = PrometheusAdapter(cfg)
-    app = Application()
+    app = Application(BaseConfig())
     app.logger.add(adapter)
 
     await app.start()

@@ -4,7 +4,7 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestServer
 
-from ipapp import Application
+from ipapp import Application, BaseConfig
 from ipapp.logger import Span
 from ipapp.logger.adapters.sentry import SentryAdapter, SentryConfig
 
@@ -43,7 +43,7 @@ async def test_success():
     async with SentryServer() as ss:
         cfg = SentryConfig(dsn=ss.addr)
         adapter = SentryAdapter(cfg)
-        app = Application()
+        app = Application(BaseConfig())
         app.logger.add(adapter)
         lgr = app.logger
         await lgr.start()

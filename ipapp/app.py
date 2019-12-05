@@ -5,6 +5,7 @@ import time
 from typing import Any, Dict, List, Optional, Union
 
 from .component import Component
+from .config import BaseConfig
 from .error import GracefulExit, PrepareError
 from .logger import Logger
 from .misc import ctx_app_set
@@ -17,8 +18,9 @@ def _raise_graceful_exit() -> None:  # pragma: no cover
 
 
 class Application(object):
-    def __init__(self) -> None:
+    def __init__(self, cfg: BaseConfig) -> None:
         ctx_app_set(self)
+        self.cfg = cfg
         self.loop = asyncio.get_event_loop()
         self._components: Dict[str, Component] = {}
         self._stop_deps: Dict[str, List[str]] = {}

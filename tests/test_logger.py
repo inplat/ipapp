@@ -2,7 +2,7 @@ from typing import List
 
 import pytest
 
-from ipapp import Application, Span
+from ipapp import Application, BaseConfig, Span
 from ipapp.logger import Logger
 from ipapp.logger.adapters import AbcAdapter
 from ipapp.misc import ctx_span_get
@@ -10,7 +10,7 @@ from ipapp.misc import ctx_span_get
 
 async def test_logger_invalid_adapter():
 
-    app = Application()
+    app = Application(BaseConfig())
     lgr = app.logger
     with pytest.raises(UserWarning):
         lgr.add(object())
@@ -31,7 +31,7 @@ async def test_logger_adapter():
         async def stop(self):
             self.stopped = True
 
-    app = Application()
+    app = Application(BaseConfig())
     lgr = app.logger
     lgr.add(TestAdapter())
 
@@ -55,7 +55,7 @@ async def test_logger_adapter():
 
 
 async def test_span_to_hdrs_non_skippable():
-    app = Application()
+    app = Application(BaseConfig())
     lgr = app.logger
 
     with lgr.span_new() as span:
@@ -77,7 +77,7 @@ async def test_span_to_hdrs_non_skippable():
 
 
 async def test_span_to_hdrs_skippable():
-    app = Application()
+    app = Application(BaseConfig())
     lgr = app.logger
 
     with lgr.span_new() as span:
@@ -100,7 +100,7 @@ async def test_span_to_hdrs_skippable():
 
 
 async def test_span_from_hdrs_non_skippable():
-    app = Application()
+    app = Application(BaseConfig())
     lgr = app.logger
 
     hdrs = {
@@ -119,7 +119,7 @@ async def test_span_from_hdrs_non_skippable():
 
 
 async def test_span_from_hdrs_skippable():
-    app = Application()
+    app = Application(BaseConfig())
     lgr = app.logger
 
     hdrs = {
@@ -136,7 +136,7 @@ async def test_span_from_hdrs_skippable():
 
 
 async def test_span_from_hdrs_new_1():
-    app = Application()
+    app = Application(BaseConfig())
     lgr = app.logger
 
     with lgr.span_from_headers({}) as span:
@@ -147,7 +147,7 @@ async def test_span_from_hdrs_new_1():
 
 
 async def test_span_from_hdrs_new_2():
-    app = Application()
+    app = Application(BaseConfig())
     lgr = app.logger
 
     with lgr.span_from_headers(None) as span:
@@ -158,7 +158,7 @@ async def test_span_from_hdrs_new_2():
 
 
 async def test_span_from_hdrs_1():
-    app = Application()
+    app = Application(BaseConfig())
     lgr = app.logger
 
     hdrs = {'X-B3-TraceId': 'f3d33b325b9458f1a18de5f226ea54d8'}
@@ -170,7 +170,7 @@ async def test_span_from_hdrs_1():
 
 
 async def test_span_from_hdrs_2():
-    app = Application()
+    app = Application(BaseConfig())
     lgr = app.logger
 
     hdrs = {'X-B3-TraceId': ''}
@@ -197,7 +197,7 @@ async def test_span_skip():
         async def stop(self):
             self.stopped = True
 
-    app = Application()
+    app = Application(BaseConfig())
     lgr = app.logger
     lgr.add(TestAdapter())
 
@@ -238,7 +238,7 @@ async def test_span():
         async def stop(self):
             self.stopped = True
 
-    app = Application()
+    app = Application(BaseConfig())
     lgr = app.logger
     lgr.add(TestAdapter())
 
@@ -369,7 +369,7 @@ async def test_span():
 
 
 async def test_span_ctx():
-    app = Application()
+    app = Application(BaseConfig())
     lgr = app.logger
 
     assert ctx_span_get() is None
@@ -382,7 +382,7 @@ async def test_span_ctx():
 
 
 async def test_trap():
-    app = Application()
+    app = Application(BaseConfig())
     lgr = app.logger
 
     class ExSpan(Span):

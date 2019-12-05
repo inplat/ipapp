@@ -1,11 +1,11 @@
 import asyncpg
 
-from ipapp import Application
+from ipapp import Application, BaseConfig
 from ipapp.db.pg import Postgres, PostgresConfig
 
 
 async def test_base(postgres_url):
-    app = Application()
+    app = Application(BaseConfig())
     app.add('db', Postgres(PostgresConfig(url=postgres_url)))
     await app.start()
     db: Postgres = app.get('db')  # type: ignore
@@ -44,7 +44,7 @@ async def test_base(postgres_url):
 
 
 async def test_xact(postgres_url):
-    app = Application()
+    app = Application(BaseConfig())
     app.add('db', Postgres(PostgresConfig(url=postgres_url)))
     await app.start()
     db: Postgres = app.get('db')  # type: ignore
@@ -65,7 +65,7 @@ async def test_xact(postgres_url):
 
 
 async def test_prepare(postgres_url):
-    app = Application()
+    app = Application(BaseConfig())
     app.add('db', Postgres(PostgresConfig(url=postgres_url)))
     await app.start()
     db: Postgres = app.get('db')  # type: ignore

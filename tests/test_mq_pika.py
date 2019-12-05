@@ -3,7 +3,7 @@ from typing import Any, Callable, List, Tuple
 
 from async_timeout import timeout as async_timeout
 
-from ipapp import Application
+from ipapp import Application, BaseConfig
 from ipapp.mq.pika import (
     Deliver,
     Pika,
@@ -64,7 +64,7 @@ async def test_pika(rabbitmq_url):
             await self.ack(delivery_tag=deliver.delivery_tag)
             messages.append((body,))
 
-    app = Application()
+    app = Application(BaseConfig())
     app.add(
         'mq',
         Pika(

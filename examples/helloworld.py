@@ -1,9 +1,14 @@
 import logging
+import sys
 
 from aiohttp import web
 
-from ipapp import Application
+from ipapp import Application, BaseConfig, main
 from ipapp.http.server import Server, ServerConfig, ServerHandler
+
+
+class Config(BaseConfig):
+    http: ServerConfig
 
 
 class HttpHandler(ServerHandler):
@@ -15,12 +20,11 @@ class HttpHandler(ServerHandler):
 
 
 class App(Application):
-    def __init__(self) -> None:
-        super().__init__()
-        self.add('srv', Server(ServerConfig(port=8888), HttpHandler()))
+    def __init__(self, cfg: Config) -> None:
+        super().__init__(cfg)
+        self.add('srv', Server(cfg.http, HttpHandler()))
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    app = App()
-    app.run()
+    main(sys.argv, '0', App, Config)
