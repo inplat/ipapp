@@ -17,7 +17,7 @@ def _raise_graceful_exit() -> None:  # pragma: no cover
     raise GracefulExit()
 
 
-class Application(object):
+class BaseApplication(object):
     def __init__(self, cfg: BaseConfig) -> None:
         ctx_app_set(self)
         self.cfg = cfg

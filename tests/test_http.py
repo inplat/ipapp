@@ -1,6 +1,6 @@
 from aiohttp import ClientResponse, web
 
-from ipapp import Application, BaseConfig
+from ipapp import BaseApplication, BaseConfig
 from ipapp.http.client import Client
 from ipapp.http.server import Server, ServerConfig, ServerHandler
 
@@ -64,7 +64,7 @@ async def test_http(unused_tcp_port):
             body = request.method
             return web.Response(text=body)
 
-    app = Application(BaseConfig())
+    app = BaseApplication(BaseConfig())
     app.add('srv', Server(ServerConfig(port=unused_tcp_port), Handler()))
     app.add('clt', TestClient())
     url_test = 'http://127.0.0.1:%d' % unused_tcp_port

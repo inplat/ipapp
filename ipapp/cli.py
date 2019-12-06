@@ -3,7 +3,7 @@ import logging
 import sys
 from typing import List, NamedTuple, Optional, Type
 
-from .app import Application
+from .app import BaseApplication
 from .config import BaseConfig
 from .error import ConfigurationError
 
@@ -114,7 +114,7 @@ def _show_config(options: Args, cfg: BaseConfig) -> None:
 def main(
     argv: List[str],
     version: str,
-    app_cls: Type[Application],
+    app_cls: Type[BaseApplication],
     cfg_cls: Type[BaseConfig],
     *,
     default_env_prefix: str = 'APP_',

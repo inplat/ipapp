@@ -7,7 +7,7 @@ from aiohttp import ClientResponse, web
 from iprpc.executor import method
 from yarl import URL
 
-from ipapp import Application
+from ipapp import BaseApplication
 from ipapp.cli import main
 from ipapp.config import BaseConfig
 from ipapp.ctx import app, span
@@ -183,7 +183,7 @@ class ConsCh(PikaChannel):
         await self.cancel()
 
 
-class App(Application):
+class App(BaseApplication):
     def __init__(self, cfg: Config) -> None:
         super().__init__(cfg)
 

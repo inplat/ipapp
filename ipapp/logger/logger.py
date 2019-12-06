@@ -19,7 +19,7 @@ class Logger:
     ADAPTER_SENTRY = ADAPTER_SENTRY
     ADAPTER_REQUESTS = ADAPTER_REQUESTS
 
-    def __init__(self, app: 'ipapp.app.Application') -> None:
+    def __init__(self, app: 'ipapp.app.BaseApplication') -> None:
         self.app = app
         self._configs: List[Coroutine[Any, Any, None]] = []
         self.adapters: List[AbcAdapter] = []

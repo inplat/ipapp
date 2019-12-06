@@ -7,7 +7,7 @@ import mock
 import pytest
 import yaml
 
-from ipapp import Application, BaseConfig
+from ipapp import BaseApplication, BaseConfig
 from ipapp.cli import Args, _parse_argv, _setup_logging, main
 
 
@@ -68,7 +68,7 @@ def test_cli_setup_logging():
 
 
 def test_cli_main(capsys):
-    class App(Application):
+    class App(BaseApplication):
         created = False
         ran = False
 

@@ -14,7 +14,7 @@ RE_SECRET_WORDS = re.compile(
 
 
 class ClientServerAnnotator:
-    app: 'ipapp.app.Application'
+    app: 'ipapp.app.BaseApplication'
 
     @staticmethod
     def _mask_url(url: URL) -> str:

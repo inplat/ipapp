@@ -3,7 +3,7 @@ from typing import Optional
 
 from iprpc import method
 
-from ipapp import Application
+from ipapp import BaseApplication
 from ipapp.ctx import app
 from ipapp.http.server import Server, ServerConfig
 from ipapp.logger.adapters.prometheus import (
@@ -27,7 +27,7 @@ class Api:
         return {'arg': arg1, 'time': result}
 
 
-class App(Application):
+class App(BaseApplication):
     SRV = "srv"
     RMQ = "rmq"
 

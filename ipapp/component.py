@@ -13,7 +13,7 @@ def _raise_graceful_exit() -> None:  # pragma: no cover
 
 
 class Component(object):
-    app: 'ipapp.app.Application'
+    app: 'ipapp.app.BaseApplication'
     loop: asyncio.AbstractEventLoop
 
     async def prepare(self) -> None:

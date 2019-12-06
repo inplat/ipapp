@@ -3,7 +3,7 @@ import sys
 
 from aiohttp import web
 
-from ipapp import Application, BaseConfig, main
+from ipapp import BaseApplication, BaseConfig, main
 from ipapp.http.server import Server, ServerConfig, ServerHandler
 
 
@@ -19,7 +19,7 @@ class HttpHandler(ServerHandler):
         return web.Response(text='Hello, world!')
 
 
-class App(Application):
+class App(BaseApplication):
     def __init__(self, cfg: Config) -> None:
         super().__init__(cfg)
         self.add('srv', Server(cfg.http, HttpHandler()))

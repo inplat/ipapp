@@ -5,7 +5,7 @@ from aiohttp import web
 from aiohttp.test_utils import TestServer
 from pydantic import BaseModel
 
-from ipapp import Application, BaseConfig
+from ipapp import BaseApplication, BaseConfig
 from ipapp.logger import Span
 from ipapp.logger.adapters import AdapterConfigurationError
 from ipapp.logger.adapters.zipkin import ZipkinAdapter, ZipkinConfig
@@ -68,7 +68,7 @@ async def test_success():
     async with ZipkinServer() as zs:
         cfg = ZipkinConfig(name='123', addr=zs.addr)
         adapter = ZipkinAdapter(cfg)
-        app = Application(BaseConfig())
+        app = BaseApplication(BaseConfig())
         app.logger.add(adapter)
         lgr = app.logger
         await lgr.start()
@@ -108,7 +108,7 @@ async def test_success():
 
 
 async def test_errors():
-    app = Application(BaseConfig())
+    app = BaseApplication(BaseConfig())
     lgr = app.logger
     cfg = ZipkinConfig(name='123')
     adapter = ZipkinAdapter(cfg)

@@ -19,11 +19,11 @@ import ipapp.logger.span  # noqa
 from .ctx import app, request, span, span_trap
 
 
-def ctx_app_get() -> Optional['ipapp.app.Application']:
+def ctx_app_get() -> Optional['ipapp.app.BaseApplication']:
     return app.__ctx__.get()  # type: ignore
 
 
-def ctx_app_set(ctx: 'ipapp.app.Application') -> Token:
+def ctx_app_set(ctx: 'ipapp.app.BaseApplication') -> Token:
     return app.__ctx__.set(ctx)  # type: ignore
 
 

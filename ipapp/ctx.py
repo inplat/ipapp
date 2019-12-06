@@ -231,7 +231,7 @@ class Proxy:
         return self.__ctx__.get().__rdivmod__(other)
 
 
-app: 'ipapp.app.Application' = Proxy('app', None)  # type: ignore
+app: 'ipapp.app.BaseApplication' = Proxy('app', None)  # type: ignore
 span: 'sp.Span' = Proxy('span', None)  # type: ignore
 span_trap: 'sp.SpanTrap' = Proxy('span_trap', None)  # type: ignore
 request: Request = Proxy('request', None)  # type: ignore

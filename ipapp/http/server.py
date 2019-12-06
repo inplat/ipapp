@@ -49,7 +49,7 @@ class ServerHandler(object):
     server: 'Server'
 
     @property
-    def app(self) -> 'ipapp.app.Application':
+    def app(self) -> 'ipapp.app.BaseApplication':
         return self.server.app
 
     def _set_server(self, srv: 'Server') -> None:

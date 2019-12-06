@@ -3,7 +3,7 @@ import logging
 
 from aiohttp import web
 
-from ipapp import Application
+from ipapp import BaseApplication
 from ipapp.ctx import span
 from ipapp.http.server import (
     Server,
@@ -42,7 +42,7 @@ class HttpHandler(ServerHandler):
         return web.Response(text=json.dumps(result))
 
 
-class App(Application):
+class App(BaseApplication):
     SRV = "srv"
     BACK = "back"
 

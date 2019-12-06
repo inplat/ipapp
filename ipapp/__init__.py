@@ -2,7 +2,7 @@ __version__ = '0.0.0'
 __build_stamp__ = 0
 
 from . import app, error
-from .app import Application
+from .app import BaseApplication
 from .cli import main
 from .component import Component
 from .config import BaseConfig
@@ -12,7 +12,7 @@ __all__ = [
     'app',
     'error',
     'Component',
-    'Application',
+    'BaseApplication',
     'Span',
     'BaseConfig',
     'main',

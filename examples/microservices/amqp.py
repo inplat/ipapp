@@ -2,7 +2,7 @@ import logging
 
 from iprpc import method
 
-from ipapp import Application
+from ipapp import BaseApplication
 from ipapp.ctx import app
 from ipapp.db.pg import Postgres, PostgresConfig
 from ipapp.http.server import ServerHttpSpan
@@ -29,7 +29,7 @@ class Api:
         return row['dt'].isoformat()
 
 
-class App(Application):
+class App(BaseApplication):
     SRV = "rmq"
     DB = "db"
 

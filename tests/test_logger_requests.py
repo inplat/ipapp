@@ -3,7 +3,7 @@ from typing import List
 
 import asyncpg
 
-from ipapp.app import Application, BaseConfig
+from ipapp.app import BaseApplication, BaseConfig
 from ipapp.http import HttpSpan
 from ipapp.logger.adapters.requests import (
     CREATE_TABLE_QUERY,
@@ -45,7 +45,7 @@ async def test_success(postgres_url: str):
         send_max_count=2,
     )
     adapter = RequestsAdapter(cfg)
-    app = Application(BaseConfig())
+    app = BaseApplication(BaseConfig())
     app.logger.add(adapter)
     await app.start()
 
