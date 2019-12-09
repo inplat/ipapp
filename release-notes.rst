@@ -5,9 +5,9 @@
 #########
 
 
-.. master:
+.. 0.0.9:
 
-master:
+0.0.9:
 =======
 
 * Application переименован в BaseApplication
