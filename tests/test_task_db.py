@@ -1,23 +1,23 @@
-import asyncpg
 import time
+import uuid
+from asyncio import Future, wait_for
+from datetime import datetime, timezone
+
+import asyncpg
+from iprpc import method
+
 from ipapp import BaseApplication, BaseConfig
-from ipapp.db.pg import Postgres, PostgresConfig
+from ipapp.db.pg import Postgres
 from ipapp.task.db import (
+    CREATE_TABLE_QUERY,
+    STATUS_CANCELED,
+    STATUS_ERROR,
+    STATUS_PENDING,
+    STATUS_SUCCESSFUL,
+    Retry,
     TaskManager,
     TaskManagerConfig,
-    CREATE_TABLE_QUERY,
-    STATUS_PENDING,
-    STATUS_RETRY,
-    STATUS_ERROR,
-    STATUS_SUCCESSFUL,
-    STATUS_CANCELED,
-    STATUS_IN_PROGRESS,
-Retry,
 )
-from iprpc import method
-from datetime import datetime, timezone
-from ipapp.db.pg import Postgres
-from asyncio import Future, wait_for
 
 
 async def connect(postgres_url) -> asyncpg.Connection:
@@ -52,11 +52,22 @@ async def get_tasks_arch(postgres_url, schema) -> list:
     return res
 
 
+async def get_tasks_by_reference(postgres_url, schema, reference) -> list:
+    conn = await connect(postgres_url)
+    res = await conn.fetch(
+        'SELECT * FROM %s.task WHERE reference=$1 ORDER BY id' % schema,
+        reference,
+    )
+    await conn.close()
+    return res
+
+
 async def get_tasks_log(postgres_url, schema) -> list:
     conn = await connect(postgres_url)
     res = await conn.fetch('SELECT * FROM %s.task_log ORDER BY id' % schema)
     await conn.close()
     return res
+
 
 async def wait_no_pending(postgres_url, schema):
     start = time.time()
@@ -153,9 +164,7 @@ async def test_reties_success(postgres_url):
     await app.start()
     tm: TaskManager = app.get('tm')  # type: ignore
 
-    await tm.schedule(Api.test, {'arg': 234},
-                      max_retries=2,
-                      retry_delay=0.2)
+    await tm.schedule(Api.test, {'arg': 234}, max_retries=2, retry_delay=0.2)
 
     res = await wait_for(fut, 10)
     assert res == 234
@@ -218,10 +227,13 @@ async def test_reties_error(postgres_url):
     await app.start()
     tm: TaskManager = app.get('tm')  # type: ignore
 
-    await tm.schedule('someTest', {'arg': 345},
-                      eta=datetime.now(tz=timezone.utc),
-                      max_retries=1,
-                      retry_delay=0.2)
+    await tm.schedule(
+        'someTest',
+        {'arg': 345},
+        eta=datetime.now(tz=timezone.utc),
+        max_retries=1,
+        retry_delay=0.2,
+    )
 
     await wait_no_pending(postgres_url, test_schema_name)
 
@@ -252,5 +264,92 @@ async def test_reties_error(postgres_url):
     assert logs[1]['traceback'] is not None
 
     assert len(await get_tasks_pending(postgres_url, test_schema_name)) == 0
+
+    await app.stop()
+
+
+async def test_tasks_by_ref(postgres_url):
+    test_schema_name = await prepare(postgres_url)
+
+    fut = Future()
+
+    class Api:
+        @method()
+        async def test(self, arg):
+            fut.set_result(arg)
+            return arg
+
+    app = BaseApplication(BaseConfig())
+    app.add(
+        'tm',
+        TaskManager(
+            Api(),
+            TaskManagerConfig(db_url=postgres_url, db_schema=test_schema_name),
+        ),
+    )
+    await app.start()
+    tm: TaskManager = app.get('tm')  # type: ignore
+
+    ref = str(uuid.uuid4())
+
+    await tm.schedule(
+        Api.test, {'arg': 123}, eta=time.time() + 0.5, reference=ref
+    )
+    tasks = await get_tasks_by_reference(postgres_url, test_schema_name, ref)
+    assert len(tasks) == 1
+    assert tasks[0]['name'] == 'test'
+    assert tasks[0]['params'] == {'arg': 123}
+    assert tasks[0]['status'] == STATUS_PENDING
+
+    res = await wait_for(fut, 10)
+    assert res == 123
+
+    tasks = await get_tasks_by_reference(postgres_url, test_schema_name, ref)
+    assert len(tasks) == 1
+    assert tasks[0]['name'] == 'test'
+    assert tasks[0]['status'] == STATUS_SUCCESSFUL
+
+    await app.stop()
+
+
+async def test_task_cancel(postgres_url):
+    test_schema_name = await prepare(postgres_url)
+
+    fut = Future()
+
+    class Api:
+        @method()
+        async def test123(self, arg):
+            fut.set_result(arg)
+            return arg
+
+    app = BaseApplication(BaseConfig())
+    app.add(
+        'tm',
+        TaskManager(
+            Api(),
+            TaskManagerConfig(db_url=postgres_url, db_schema=test_schema_name),
+        ),
+    )
+    await app.start()
+    tm: TaskManager = app.get('tm')  # type: ignore
+
+    task_id = await tm.schedule(
+        Api.test123, {'arg': 123}, eta=time.time() + 10
+    )
+
+    tasks = await get_tasks_pending(postgres_url, test_schema_name)
+    assert len(tasks) == 1
+
+    await tm.cancel(task_id)
+
+    tasks = await get_tasks_pending(postgres_url, test_schema_name)
+    assert len(tasks) == 0
+
+    tasks = await get_tasks_arch(postgres_url, test_schema_name)
+
+    assert len(tasks) == 1
+    assert tasks[0]['name'] == 'test123'
+    assert tasks[0]['status'] == STATUS_CANCELED
 
     await app.stop()

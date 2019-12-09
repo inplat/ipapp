@@ -1,22 +1,28 @@
-import json
 import asyncio
+import json
 import time
-import traceback
-import asyncpg
-from datetime import datetime
-from typing import Tuple, Optional, List, AsyncContextManager, Any
-from ipapp.misc import mask_url_pwd
-from pydantic.main import BaseModel
-from ipapp.logger import wrap2span, Span
-from ipapp.ctx import span
-from iprpc import MethodExecutor
-from ipapp.error import PrepareError
-from ipapp.db.pg import Postgres
-from ipapp import Component
-from datetime import datetime, timedelta
-from typing import Union, Optional, Callable
 from contextlib import asynccontextmanager
-import attr
+from datetime import datetime, timedelta
+from typing import (
+    Any,
+    AsyncContextManager,
+    Callable,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
+
+import asyncpg
+from iprpc import MethodExecutor
+from pydantic.main import BaseModel
+
+from ipapp import Component
+from ipapp.ctx import span
+from ipapp.db.pg import Postgres
+from ipapp.error import PrepareError
+from ipapp.logger import Span, wrap2span
+from ipapp.misc import mask_url_pwd
 
 TaskHandler = Union[Callable, str]
 ETA = Union[datetime, float, int]
@@ -43,6 +49,7 @@ CREATE SEQUENCE {schema}.task_id_seq;
 CREATE TABLE {schema}.task
 (
   id bigint NOT NULL DEFAULT nextval('{schema}.task_id_seq'::regclass),
+  reference text,
   eta timestamp with time zone NOT NULL DEFAULT now(),
   name text NOT NULL,
   params jsonb NOT NULL DEFAULT '{{}}'::jsonb,
@@ -74,7 +81,7 @@ INHERITS ({schema}.task);
 CREATE TABLE {schema}.task_arch
 (
   id bigint NOT NULL DEFAULT nextval('{schema}.task_id_seq'::regclass),
-  status {schema}.task_status NOT NULL 
+  status {schema}.task_status NOT NULL
       DEFAULT 'canceled'::{schema}.task_status,
   CONSTRAINT task_arch_pkey PRIMARY KEY (id),
   CONSTRAINT task_max_retries_check CHECK (max_retries >= 0),
@@ -95,6 +102,7 @@ CREATE TABLE {schema}.task_log
   finished timestamp with time zone,
   result jsonb,
   error text,
+  error_cls text,
   traceback text,
   CONSTRAINT task_log_pkey PRIMARY KEY (id)
 );
@@ -103,9 +111,19 @@ CREATE INDEX task_pending_eta_idx
   ON {schema}.task_pending
   USING btree
   (eta)
-  WHERE status = ANY (ARRAY['pending'::{schema}.task_status, 
+  WHERE status = ANY (ARRAY['pending'::{schema}.task_status,
                             'retry'::{schema}.task_status]);
-  
+
+CREATE INDEX task_pending_reference_idx
+  ON {schema}.task_pending
+  USING btree
+  (reference);
+
+CREATE INDEX task_arch_reference_idx
+  ON {schema}.task_arch
+  USING btree
+  (reference);
+
 CREATE INDEX task_log_task_id_idx
   ON {schema}.task_log
   USING btree
@@ -125,10 +143,10 @@ class Task(BaseModel):
 
 
 class Retry(Exception):
-    def __init__(self, err: Exception):
+    def __init__(self, err: Exception) -> None:
         self.err = err
 
-    def __str__(self):
+    def __str__(self) -> str:
         return 'Retry: %r' % (str(self.err) or repr(self.err))
 
 
@@ -200,17 +218,21 @@ class TaskManager(Component):
                 await self._scan_fut
 
     async def health(self) -> None:
-        await self._db.health(lock=True)
+        if self._db is not None:
+            await self._db.health(lock=True)
 
     async def schedule(
         self,
         func: TaskHandler,
         params: dict,
+        reference: Optional[str] = None,
         eta: Optional[ETA] = None,
         max_retries: int = 0,
         retry_delay: float = 60.0,
     ) -> int:
         if self._conn is None:  # pragma: no cover
+            raise UserWarning
+        if self._db is None:  # pragma: no cover
             raise UserWarning
 
         if not isinstance(func, str):
@@ -229,7 +251,13 @@ class TaskManager(Component):
             raise UserWarning
 
         task_id, task_delay = await self._db.task_add(
-            eta_dt, func_name, params, max_retries, retry_delay, lock=True
+            eta_dt,
+            func_name,
+            params,
+            reference,
+            max_retries,
+            retry_delay,
+            lock=True,
         )
 
         eta_float = self.loop.time() + task_delay
@@ -237,6 +265,18 @@ class TaskManager(Component):
         self.loop.call_at(eta_float, self._scan_later, eta_float)
 
         return task_id
+
+    async def cancel(self, task_id: int) -> bool:
+        if self._db is None or self._lock is None:  # pragma: no cover
+            raise UserWarning
+        with await self._lock:
+            async with self._db.transaction():
+                if await self._db.task_search4cancel(task_id, lock=False):
+                    await self._db.task_move_arch(
+                        task_id, STATUS_CANCELED, None, lock=False
+                    )
+                    return True
+                return False
 
     @wrap2span(name='dbtm:Scan', kind=Span.KIND_SERVER)
     async def _scan(self) -> List[int]:
@@ -264,7 +304,9 @@ class TaskManager(Component):
                     self.loop.call_at(eta, self._scan_later, eta)
             return []
 
-    def _scan_later(self, when):
+    def _scan_later(self, when: float) -> None:
+        if self._db is None:  # pragma: no cover
+            raise UserWarning
         if when != self.stamp_early:
             return
         if self._db is None:  # pragma: no cover
@@ -299,7 +341,7 @@ class TaskManager(Component):
         return tasks, 0
 
     @wrap2span(name='dbtm:exec', kind=Span.KIND_SERVER)
-    async def _exec(self, parent_trace_id: str, task: Task):
+    async def _exec(self, parent_trace_id: str, task: Task) -> None:
         if self._db is None or self._executor is None:  # pragma: no cover
             raise UserWarning
 
@@ -376,7 +418,11 @@ class Db:
         self._db_schema = db_schema
 
     async def _fetch(
-        self, query, *args, timeout: Optional[float] = None, lock: bool = False
+        self,
+        query: str,
+        *args: Any,
+        timeout: Optional[float] = None,
+        lock: bool = False,
     ) -> List[asyncpg.Record]:
         if self._conn is None:  # pragma: no cover
             raise UserWarning
@@ -389,7 +435,11 @@ class Db:
             return await self._conn.fetch(query, *args, timeout=timeout)
 
     async def _fetchrow(
-        self, query, *args, timeout: Optional[float] = None, lock: bool = False
+        self,
+        query: str,
+        *args: Any,
+        timeout: Optional[float] = None,
+        lock: bool = False,
     ) -> Optional[asyncpg.Record]:
         if self._conn is None:  # pragma: no cover
             raise UserWarning
@@ -402,7 +452,11 @@ class Db:
             return await self._conn.fetchrow(query, *args, timeout=timeout)
 
     async def _execute(
-        self, query, *args, timeout: Optional[float] = None, lock: bool = False
+        self,
+        query: str,
+        *args: Any,
+        timeout: Optional[float] = None,
+        lock: bool = False,
     ) -> None:
         if self._conn is None:  # pragma: no cover
             raise UserWarning
@@ -414,9 +468,12 @@ class Db:
         else:
             await self._conn.execute(query, *args, timeout=timeout)
 
-    @asynccontextmanager
+    @asynccontextmanager  # type: ignore
     async def transaction(
-        self, isolation='read_committed', readonly=False, deferrable=False
+        self,
+        isolation: str = 'read_committed',
+        readonly: bool = False,
+        deferrable: bool = False,
     ) -> AsyncContextManager['Db']:
         async with self._lock:
             async with self._conn.transaction(
@@ -429,22 +486,30 @@ class Db:
         eta: Optional[datetime],
         name: str,
         params: dict,
+        reference: Optional[str],
         max_retries: int,
         retry_delay: float,
         *,
         lock: bool = False,
     ) -> Tuple[int, float]:
-        query = (
+        query = (  # nosec
             "INSERT INTO %s.task_pending"
-            "(eta,name,params,max_retries,retry_delay) "
-            "VALUES(COALESCE($1, NOW()),$2,$3,$4,"
-            "make_interval(secs=>$5::float)) "
+            "(eta,name,params,reference,max_retries,retry_delay) "
+            "VALUES(COALESCE($1, NOW()),$2,$3,$4,$5,"
+            "make_interval(secs=>$6::float)) "
             "RETURNING id, "
             "greatest(extract(epoch from NOW() - eta), 0) as delay"
         ) % self._db_schema
 
         res = await self._fetchrow(
-            query, eta, name, params, max_retries, retry_delay, lock=lock
+            query,
+            eta,
+            name,
+            params,
+            reference,
+            max_retries,
+            retry_delay,
+            lock=lock,
         )
         if res is None:  # pragma: no cover
             raise UserWarning
@@ -453,7 +518,7 @@ class Db:
     async def task_search(
         self, batch_size: int, *, lock: bool = False
     ) -> List[Task]:
-        query = (
+        query = (  # nosec
             "UPDATE %s.task_pending SET status='progress',last_stamp=NOW() "
             "WHERE id IN ("
             "SELECT id FROM %s.task_pending "
@@ -463,16 +528,31 @@ class Db:
             "LIMIT $1 FOR UPDATE SKIP LOCKED) "
             "RETURNING "
             "id,eta,name,params,max_retries,retry_delay,status,retries"
-        ) % (self._db_schema, self._db_schema,
-             self._db_schema, self._db_schema)
+        ) % (
+            self._db_schema,
+            self._db_schema,
+            self._db_schema,
+            self._db_schema,
+        )
 
         res = await self._fetch(query, batch_size, lock=lock)
 
         return [Task(**dict(row)) for row in res]
 
-    async def task_next_delay(self, *, lock: bool = False) -> Optional[float]:
+    async def task_search4cancel(
+        self, task_id: int, *, lock: bool = False
+    ) -> Optional[bool]:
+        query = (  # nosec
+            "UPDATE %s.task_pending SET status='progress',last_stamp=NOW() "
+            "WHERE id=$1 AND status IN ('retry','pending') "
+            "RETURNING "
+            "id"
+        ) % (self._db_schema,)
+        res = await self._fetchrow(query, task_id, lock=lock)
+        return res is not None
 
-        query = (
+    async def task_next_delay(self, *, lock: bool = False) -> Optional[float]:
+        query = (  # nosec
             "SELECT EXTRACT(EPOCH FROM eta-NOW())t "
             "FROM %s.task_pending "
             "WHERE "
@@ -495,7 +575,7 @@ class Db:
         *,
         lock: bool = False,
     ) -> None:
-        query = (
+        query = (  # nosec
             'UPDATE %s.task_pending SET status=$2,retries=$3,'
             'eta=COALESCE(NOW()+make_interval(secs=>$4::float),eta),'
             'last_stamp=NOW() '
@@ -507,17 +587,23 @@ class Db:
         )
 
     async def task_move_arch(
-        self, task_id: int, status: str, retries: int, *, lock: bool = False
+        self,
+        task_id: int,
+        status: str,
+        retries: Optional[int],
+        *,
+        lock: bool = False,
     ) -> None:
-
-        query = (
+        query = (  # nosec
             'WITH del AS (DELETE FROM %s.task_pending WHERE id=$1 '
-            'RETURNING id,eta,name,params,max_retries,retry_delay)'
+            'RETURNING id,eta,name,params,max_retries,retry_delay,'
+            'retries,reference)'
             'INSERT INTO %s.task_arch'
             '(id,eta,name,params,max_retries,retry_delay,status,'
-            'retries,last_stamp)'
+            'retries,last_stamp,reference)'
             'SELECT '
-            'id,eta,name,params,max_retries,retry_delay,$2,$3,NOW() '
+            'id,eta,name,params,max_retries,retry_delay,$2,'
+            'COALESCE($3,retries),NOW(),reference '
             'FROM del'
         ) % (self._db_schema, self._db_schema)
         await self._execute(query, task_id, status, retries, lock=lock)
@@ -534,7 +620,7 @@ class Db:
         *,
         lock: bool = False,
     ) -> None:
-        query = (
+        query = (  # nosec
             'INSERT INTO %s.task_log'
             '(task_id,eta,started,finished,result,error,traceback)'
             'VALUES($1,$2,to_timestamp($3),to_timestamp($4),'
@@ -546,5 +632,5 @@ class Db:
             query, task_id, eta, started, finished, js, error, trace, lock=lock
         )
 
-    async def health(self, *, lock: bool = False):
+    async def health(self, *, lock: bool = False) -> None:
         await self._execute('SELECT 1', lock=lock)
