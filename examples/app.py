@@ -290,8 +290,8 @@ class App(BaseApplication):
 
 if __name__ == "__main__":
     """
-    Usage: 
-    
+    Usage:
+
     APP_AMQP_URL=amqp://guest:guest@localhost:9004/ \
     APP_DB_URL=postgres://ipapp:secretpwd@localhost:9001/ipapp \
     APP_DB_LOG_QUERY=1 \
@@ -300,7 +300,7 @@ if __name__ == "__main__":
     APP_LOG_ZIPKIN_ENABLED=1 \
     APP_LOG_ZIPKIN_ADDR=http://127.0.0.1:9002/api/v2/spans \
     python -m examples.app
-    
+
     """
     logging.basicConfig(level=logging.INFO)
     main(sys.argv, VERSION, App, Config)

@@ -585,6 +585,7 @@ class Connection:
                     PgSpan.ANN_RESULT,
                     json_encode({'result': str(res)}),
                 )
+            return res
 
     @wrap2span(name=PgSpan.NAME_EXECUTE, kind=PgSpan.KIND_CLIENT, cls=PgSpan)
     async def query_one(
