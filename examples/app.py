@@ -216,10 +216,14 @@ class App(BaseApplication):
             'db', Postgres(cfg.db), stop_after=['srv'],
         )
 
-        self.logger.add(PrometheusAdapter(cfg.log_prometheus))
-        self.logger.add(ZipkinAdapter(cfg.log_zipkin))
-        self.logger.add(SentryAdapter(cfg.log_sentry))
-        self.logger.add(RequestsAdapter(cfg.log_requests))
+        if cfg.log_prometheus.enabled:
+            self.logger.add(PrometheusAdapter(cfg.log_prometheus))
+        if cfg.log_zipkin.enabled:
+            self.logger.add(ZipkinAdapter(cfg.log_zipkin))
+        if cfg.log_sentry.enabled:
+            self.logger.add(SentryAdapter(cfg.log_sentry))
+        if cfg.log_requests.enabled:
+            self.logger.add(RequestsAdapter(cfg.log_requests))
 
     @property
     def srv(self) -> Server:
