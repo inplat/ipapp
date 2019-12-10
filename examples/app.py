@@ -44,13 +44,17 @@ SPAN_TAG_WIDGET_ID = 'api.widget_id'
 rnd = random.SystemRandom()
 
 
+class ConsumerChannelConfig(PikaChannelConfig):
+    queue: str = 'myqueue'
+
+
 class Config(BaseConfig):
     http1: ServerConfig
     http2: ServerConfig
     http2_rpc: RpcHandlerConfig
     client_rpc: RpcClientConfig
     amqp: PikaConfig
-    amqp_ch: PikaChannelConfig
+    amqp_ch: ConsumerChannelConfig
     amqp_rpc_clt: RpcClientChannelConfig
     amqp_rpc_srv: RpcServerChannelConfig
     db: PostgresConfig
@@ -59,10 +63,6 @@ class Config(BaseConfig):
     log_prometheus: PrometheusConfig
     log_sentry: SentryConfig
     log_requests: RequestsConfig
-
-
-class ConsumerChannelConfig(PikaChannelConfig):
-    queue: str = 'myqueue'
 
 
 class InplatSiteClient(Client):
@@ -122,9 +122,20 @@ class HttpHandler(ServerHandler):
 
         async with self.app.db.connection() as conn:
             async with conn.xact():
-                await conn.prepare(
+                await conn.query_one(
+                    'SELECT 1 as a, NOW() as now', query_name='test_one'
+                )
+                await conn.query_all(
+                    'SELECT 1 as a, NOW() as now', query_name='test_all'
+                )
+                await conn.execute(
+                    'SELECT 1 as a, NOW() as now', query_name='test_exec'
+                )
+                ps = await conn.prepare(
                     'SELECT $1::int as i', query_name='test prepare'
                 )
+                await ps.query_one(1)
+                await ps.query_all(2)
 
                 with self.app.logger.capture_span(cls=PgSpan) as trap2:
                     with self.app.logger.capture_span(cls=PgSpan) as trap1:
@@ -278,5 +289,18 @@ class App(BaseApplication):
 
 
 if __name__ == "__main__":
+    """
+    Usage: 
+    
+    APP_AMQP_URL=amqp://guest:guest@localhost:9004/ \
+    APP_DB_URL=postgres://ipapp:secretpwd@localhost:9001/ipapp \
+    APP_DB_LOG_QUERY=1 \
+    APP_DB_LOG_RESULT=1 \
+    APP_HTTP2_PORT=8081 \
+    APP_LOG_ZIPKIN_ENABLED=1 \
+    APP_LOG_ZIPKIN_ADDR=http://127.0.0.1:9002/api/v2/spans \
+    python -m examples.app
+    
+    """
     logging.basicConfig(level=logging.INFO)
     main(sys.argv, VERSION, App, Config)
