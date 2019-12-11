@@ -152,3 +152,15 @@ def dict_merge(*args: dict) -> dict:
         dict_merger.merge(first, args[i])
 
     return first
+
+
+def decode_bytes(b: bytes, encoding: Optional[str] = None) -> str:
+    if encoding is not None:
+        try:
+            return b.decode(encoding)
+        except Exception:  # nosec
+            pass
+    try:
+        return b.decode()
+    except Exception:
+        return str(b)

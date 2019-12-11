@@ -20,7 +20,14 @@ from ipapp.ctx import span
 from ipapp.error import PrepareError
 from ipapp.logger import wrap2span
 from ipapp.logger.span import Span
-from ipapp.misc import ctx_span_reset, ctx_span_set, dict_merge, mask_url_pwd
+from ipapp.misc import (
+    ctx_span_reset,
+    ctx_span_set,
+    decode_bytes,
+    dict_merge,
+    json_encode,
+    mask_url_pwd,
+)
 
 pika.connection.LOGGER.level = logging.ERROR
 pika.channel.LOGGER.level = logging.ERROR
@@ -48,12 +55,15 @@ class AmqpSpan(Span):
     NAME_CANCEL = 'amqp::cancel'
     NAME_MESSAGE = 'amqp::message'
 
-    ANN_MESSAGE_HEADERS = 'amqp_headers'
-    ANN_MESSAGE_PROPS = 'amqp_props'
-    ANN_MESSAGE_BODY = 'amqp_body'
+    ANN_IN_PROPS = 'amqp_in_props'
+    ANN_IN_BODY = 'amqp_in_body'
+    ANN_OUT_PROPS = 'amqp_out_props'
+    ANN_OUT_BODY = 'amqp_out_body'
 
     TAG_CHANNEL_NAME = 'amqp.channel_name'
     TAG_CHANNEL_NUMBER = 'amqp.channel_number'
+    TAG_EXCHANGE = 'amqp.exchange'
+    TAG_ROUTING_KEY = 'amqp.routing_key'
 
 
 class PikaConfig(BaseModel):
@@ -66,6 +76,10 @@ class PikaConfig(BaseModel):
     publish_timeout: float = 60.0
     connect_max_attempts: int = 10
     connect_retry_delay: float = 1.0
+    log_in_props: bool = True
+    log_in_body: bool = True
+    log_out_props: bool = True
+    log_out_body: bool = True
 
 
 class PikaChannelConfig(BaseModel):
@@ -439,6 +453,8 @@ class PikaChannel(ABC):
         propagate_trace: bool = True,
     ) -> None:
         span.tag(AmqpSpan.TAG_CHANNEL_NUMBER, str(self._ch.channel_number))
+        span.tag(AmqpSpan.TAG_EXCHANGE, str(exchange))
+        span.tag(AmqpSpan.TAG_ROUTING_KEY, str(routing_key))
         with timeout(self.amqp.cfg.publish_timeout):
             if not self._ch.is_closed or self.name is None:
 
@@ -452,6 +468,32 @@ class PikaChannel(ABC):
                         properties.headers = dict_merge(
                             properties.headers, hdrs
                         )
+
+                if self.amqp.cfg.log_out_props:
+                    span.annotate(AmqpSpan.ANN_IN_PROPS, repr(properties))
+                    span.annotate4adapter(
+                        self.amqp.app.logger.ADAPTER_ZIPKIN,
+                        AmqpSpan.ANN_IN_PROPS,
+                        json_encode(
+                            {
+                                "properties": repr(
+                                    {
+                                        k: v
+                                        for k, v in properties.__dict__.items()
+                                        if v is not None
+                                    }
+                                )
+                            }
+                        ),
+                    )
+                if self.amqp.cfg.log_out_body:
+                    _body = decode_bytes(body)
+                    span.annotate(AmqpSpan.ANN_OUT_BODY, _body)
+                    span.annotate4adapter(
+                        self.amqp.app.logger.ADAPTER_ZIPKIN,
+                        AmqpSpan.ANN_OUT_BODY,
+                        json_encode({"message": _body}),
+                    )
 
                 self._ch.basic_publish(
                     exchange, routing_key, body, properties, mandatory
@@ -558,6 +600,35 @@ class PikaChannel(ABC):
                 AmqpSpan.TAG_CHANNEL_NUMBER,
                 str(_unused_channel.channel_number),
             )
+            span.tag(AmqpSpan.TAG_EXCHANGE, basic_deliver.exchange)
+            span.tag(AmqpSpan.TAG_ROUTING_KEY, basic_deliver.routing_key)
+
+            if self.amqp.cfg.log_in_props:
+                span.annotate(AmqpSpan.ANN_IN_PROPS, repr(properties))
+                span.annotate4adapter(
+                    self.amqp.app.logger.ADAPTER_ZIPKIN,
+                    AmqpSpan.ANN_IN_PROPS,
+                    json_encode(
+                        {
+                            "properties": repr(
+                                {
+                                    k: v
+                                    for k, v in properties.__dict__.items()
+                                    if v is not None
+                                }
+                            )
+                        }
+                    ),
+                )
+            if self.amqp.cfg.log_in_body:
+                _body = decode_bytes(body)
+                span.annotate(AmqpSpan.ANN_IN_BODY, _body)
+                span.annotate4adapter(
+                    self.amqp.app.logger.ADAPTER_ZIPKIN,
+                    AmqpSpan.ANN_IN_BODY,
+                    json_encode({"message": _body}),
+                )
+
             token = ctx_span_set(span)
             try:
                 await cb(body, basic_deliver, properties)
