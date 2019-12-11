@@ -251,6 +251,7 @@ class PikaChannel(ABC):
         self._ch = ch
         self._lock = asyncio.Lock(loop=amqp.loop)
         self._consumer_tag: Optional[str] = None
+        self._close_fut: asyncio.Future = asyncio.Future(loop=amqp.loop)
 
     async def prepare(self) -> None:
         pass
@@ -260,6 +261,10 @@ class PikaChannel(ABC):
 
     async def stop(self) -> None:
         pass
+
+    async def on_close(self, err: Exception) -> None:
+        self.amqp.app.log_err(err)
+        self._close_fut.set_exception(err)
 
     @wrap2span(
         name=AmqpSpan.NAME_DECLARE_EXCHANGE,
@@ -293,12 +298,15 @@ class PikaChannel(ABC):
                 callback=cb,
             )
 
-            res: pika.frame.Method = await asyncio.wait_for(
-                fut,
+            await asyncio.wait(
+                [fut, self._close_fut],
                 timeout=self.amqp.cfg.exchange_declare_timeout,
                 loop=self.amqp.loop,
+                return_when=asyncio.FIRST_COMPLETED,
             )
-            return res
+            if self._close_fut.done():
+                self._close_fut.result()
+            return fut.result()
 
     def _on_exchange_declareok(
         self, fut: asyncio.Future, _unused_frame: pika.frame.Method
@@ -335,12 +343,15 @@ class PikaChannel(ABC):
                 callback=cb,
             )
 
-            res: pika.frame.Method = await asyncio.wait_for(
-                fut,
+            await asyncio.wait(
+                [fut, self._close_fut],
                 timeout=self.amqp.cfg.queue_declare_timeout,
                 loop=self.amqp.loop,
+                return_when=asyncio.FIRST_COMPLETED,
             )
-            return res
+            if self._close_fut.done():
+                self._close_fut.result()
+            return fut.result()
 
     def _on_queue_declareok(
         self, fut: asyncio.Future, _unused_frame: pika.frame.Method
@@ -368,10 +379,15 @@ class PikaChannel(ABC):
                 arguments=arguments,
                 callback=cb,
             )
-            res: pika.frame.Method = await asyncio.wait_for(
-                fut, timeout=self.amqp.cfg.bind_timeout, loop=self.amqp.loop,
+            await asyncio.wait(
+                [fut, self._close_fut],
+                timeout=self.amqp.cfg.bind_timeout,
+                loop=self.amqp.loop,
+                return_when=asyncio.FIRST_COMPLETED,
             )
-            return res
+            if self._close_fut.done():
+                self._close_fut.result()
+            return fut.result()
 
     def _on_bindok(
         self, fut: asyncio.Future, _unused_frame: pika.frame.Method
@@ -395,10 +411,15 @@ class PikaChannel(ABC):
                 global_qos=global_qos,
                 callback=cb,
             )
-            res: pika.frame.Method = await asyncio.wait_for(
-                fut, timeout=self.amqp.cfg.bind_timeout, loop=self.amqp.loop,
+            await asyncio.wait(
+                [fut, self._close_fut],
+                timeout=self.amqp.cfg.bind_timeout,
+                loop=self.amqp.loop,
+                return_when=asyncio.FIRST_COMPLETED,
             )
-            return res
+            if self._close_fut.done():
+                self._close_fut.result()
+            return fut.result()
 
     def _on_basic_qos_ok(
         self, fut: asyncio.Future, _unused_frame: pika.frame.Method
@@ -483,10 +504,15 @@ class PikaChannel(ABC):
             )
 
             self.amqp.app.log_info('Consuming %s', queue)
-            res: pika.frame.Method = await asyncio.wait_for(
-                fut, timeout=self.amqp.cfg.bind_timeout, loop=self.amqp.loop,
+            await asyncio.wait(
+                [fut, self._close_fut],
+                timeout=self.amqp.cfg.bind_timeout,
+                loop=self.amqp.loop,
+                return_when=asyncio.FIRST_COMPLETED,
             )
-            return res
+            if self._close_fut.done():
+                self._close_fut.result()
+            return fut.result()
 
     def _on_basic_consume_ok(
         self, fut: asyncio.Future, _unused_frame: pika.frame.Method
@@ -571,10 +597,15 @@ class PikaChannel(ABC):
             fut: asyncio.Future = asyncio.Future(loop=self.amqp.loop)
             cb = partial(self._on_cancel_ok, fut)
             self._ch.basic_cancel(consumer_tag=consumer_tag, callback=cb)
-            res: pika.frame.Method = await asyncio.wait_for(
-                fut, timeout=self.amqp.cfg.bind_timeout, loop=self.amqp.loop,
+            await asyncio.wait(
+                [fut, self._close_fut],
+                timeout=self.amqp.cfg.exchange_declare_timeout,
+                loop=self.amqp.loop,
+                return_when=asyncio.FIRST_COMPLETED,
             )
-            return res
+            if self._close_fut.done():
+                self._close_fut.result()
+            return fut.result()
 
     def _on_cancel_ok(
         self, fut: asyncio.Future, _unused_frame: pika.frame.Method
@@ -645,6 +676,11 @@ class Pika(Component):
                 *[ch.start() for ch in self._channels], loop=self.loop
             )
 
+    async def _on_channel_close(
+        self, ch: PikaChannel, pika_ch: pika.channel.Channel, err: Exception
+    ) -> None:
+        await ch.on_close(err)
+
     async def _open_channels(self) -> None:
         if self._conn is None:
             raise UserWarning
@@ -654,7 +690,9 @@ class Pika(Component):
             ch = fn()
             if not isinstance(ch, PikaChannel):
                 raise UserWarning()
-            pch = await self._conn.channel(None, ch.name)
+            pch = await self._conn.channel(
+                partial(self._on_channel_close, ch), ch.name
+            )
             ch._init(self, pch)  # noqa
             self._channels.append(ch)
             corors.append(ch.prepare())

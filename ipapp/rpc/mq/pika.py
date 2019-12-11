@@ -7,7 +7,7 @@ from iprpc.executor import MethodExecutor
 
 from ipapp.ctx import span
 from ipapp.logger.span import Span
-from ipapp.misc import ctx_span_get
+from ipapp.misc import ctx_span_get, json_encode
 from ipapp.mq.pika import (
     AmqpSpan,
     Deliver,
@@ -15,7 +15,6 @@ from ipapp.mq.pika import (
     PikaChannelConfig,
     Properties,
 )
-from ipapp.misc import json_encode
 
 from ..const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
 
