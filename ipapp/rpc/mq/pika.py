@@ -15,6 +15,7 @@ from ipapp.mq.pika import (
     PikaChannelConfig,
     Properties,
 )
+from ipapp.misc import json_encode
 
 from ..const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
 
@@ -87,6 +88,10 @@ class RpcServerChannel(PikaChannel):
             span.name = 'rpc::in::%s' % result.method
             if result.error is not None:
                 span.error(result.error)
+                if result.error.trace:
+                    self.amqp.app.log_err(result.error.trace)
+                else:
+                    self.amqp.app.log_err(result.error)
 
             if proprties.reply_to:
                 if result.error is not None:
@@ -108,7 +113,7 @@ class RpcServerChannel(PikaChannel):
                     }
 
                 span.tag(SPAN_TAG_RPC_CODE, resp['code'])
-                msg = json.dumps(resp).encode(self.cfg.encoding)
+                msg = json_encode(resp).encode(self.cfg.encoding)
                 props = Properties()
                 if proprties.correlation_id:
                     props.correlation_id = proprties.correlation_id
@@ -172,7 +177,7 @@ class RpcClientChannel(PikaChannel):
         params: Dict[str, Any],
         timeout: Optional[float] = None,
     ) -> Any:
-        msg = json.dumps({"method": method, "params": params}).encode(
+        msg = json_encode({"method": method, "params": params}).encode(
             self.cfg.encoding
         )
         correlation_id = str(uuid.uuid4())
