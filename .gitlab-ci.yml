@@ -107,6 +107,7 @@ build:
 pages:
   stage: build
   script:
+    - pip install sphinx-build
     - make docs
     - mkdir -p public
     - cp -R docs/build/html/* public/
