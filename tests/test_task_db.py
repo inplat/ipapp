@@ -100,7 +100,7 @@ async def test_success(postgres_url):
     await app.start()
     tm: TaskManager = app.get('tm')  # type: ignore
 
-    await tm.schedule(Api.test, {'arg': 123}, eta=time.time() + 0.5)
+    await tm.schedule(Api.test, {'arg': 123}, eta=time.time() + 1)
     tasks = await get_tasks_pending(postgres_url, test_schema_name)
     assert len(tasks) == 1
     assert tasks[0]['name'] == 'test'
@@ -293,7 +293,7 @@ async def test_tasks_by_ref(postgres_url):
     ref = str(uuid.uuid4())
 
     await tm.schedule(
-        Api.test, {'arg': 123}, eta=time.time() + 0.5, reference=ref
+        Api.test, {'arg': 123}, eta=time.time() + 1, reference=ref
     )
     tasks = await get_tasks_by_reference(postgres_url, test_schema_name, ref)
     assert len(tasks) == 1
@@ -335,7 +335,7 @@ async def test_task_cancel(postgres_url):
     tm: TaskManager = app.get('tm')  # type: ignore
 
     task_id = await tm.schedule(
-        Api.test123, {'arg': 123}, eta=time.time() + 10
+        Api.test123, {'arg': 123}, eta=time.time() + 600
     )
 
     tasks = await get_tasks_pending(postgres_url, test_schema_name)
