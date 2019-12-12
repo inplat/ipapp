@@ -106,16 +106,12 @@ build: venv  ## Run tests
 	$(VENV_BIN)/python setup.py bdist_wheel
 
 .PHONY: docs
-docs-quiet: venv  ## Make documentation
-	rm -f docs/source/ipapp.rst
-	rm -f docs/source/modules.rst
+docs: venv clean-docs  ## Make documentation and open it in browser
 	$(VENV_BIN)/sphinx-apidoc -o docs/source/ ipapp
-	$(MAKE) -C docs clean
-	$(MAKE) -C docs html
-
-.PHONY: docs
-docs: venv docs-quiet  ## Make documentation and open it in browser
+	. $(VENV_BIN)/activate && $(MAKE) -C docs clean && $(MAKE) -C docs html
+ifndef CI
 	$(BROWSER) docs/build/html/index.html
+endif
 
 .PHONY: help
 help:  ## Show this help message and exit
