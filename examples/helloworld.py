@@ -27,4 +27,4 @@ class App(BaseApplication):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    main(sys.argv, '0', App, Config)
+    main(sys.argv, '0.0.1', App, Config)

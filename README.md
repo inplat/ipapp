@@ -1,13 +1,7 @@
-Features
-========
+Inplat application framework
+============================
 
-
-- zipkin
-- statsd
-- prometheus
-- request log
-- centry
-
+Докумментация в [GitLab Pages](https://inplat.pages.app.ipl/ipapp/).
 
 
 

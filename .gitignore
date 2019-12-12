@@ -64,8 +64,7 @@ instance/
 
 # Sphinx documentation
 docs/build/
-docs/source/mgf_promo*
-docs/source/mgf_promo.rst
+docs/source/ipapp*
 docs/source/modules.rst
 
 # PyBuilder
