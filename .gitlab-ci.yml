@@ -21,6 +21,7 @@ venv:
   artifacts:
     paths:
     - .venv/
+    expire_in: 1 day
   tags:
     - kube-test
 
@@ -74,6 +75,7 @@ test:
   artifacts:
     paths:
       - coverage
+    expire_in: 1 day
   script:
     - make test
   coverage: /\d+\%\s*$/
@@ -95,6 +97,24 @@ build:
   artifacts:
     paths:
       - .venv/
+    expire_in: 1 day
+  tags:
+    - build
+  only:
+    - tags
+    - master
+
+pages:
+  stage: build
+  script:
+    - make docs
+    - mkdir -p public
+    - cp -R docs/build/html/* public/
+  dependencies:
+    - venv
+  artifacts:
+    paths:
+      - public
     expire_in: 1 day
   tags:
     - build
