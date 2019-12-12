@@ -9,7 +9,6 @@ services:
 
 stages:
   - venv
-  - lint
   - test
   - build
 
@@ -26,7 +25,7 @@ venv:
     - kube-test
 
 flake8:
-  stage: lint
+  stage: test
   script:
     - make flake8
   dependencies:
@@ -35,7 +34,7 @@ flake8:
     - kube-test
 
 bandit:
-  stage: lint
+  stage: test
   script:
     - make bandit
   dependencies:
@@ -44,7 +43,7 @@ bandit:
     - kube-test
 
 mypy:
-  stage: lint
+  stage: test
   script:
     - make mypy
   dependencies:
@@ -53,7 +52,7 @@ mypy:
     - kube-test
 
 safety:
-  stage: lint
+  stage: test
   script:
     - make safety
   dependencies:
@@ -62,7 +61,7 @@ safety:
     - kube-test
 
 black:
-  stage: lint
+  stage: test
   script:
     - make black
   dependencies:
