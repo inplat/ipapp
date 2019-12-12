@@ -6,7 +6,12 @@ from ipapp.db.pg import Postgres, PostgresConfig
 
 async def test_base(postgres_url):
     app = BaseApplication(BaseConfig())
-    app.add('db', Postgres(PostgresConfig(url=postgres_url)))
+    app.add(
+        'db',
+        Postgres(
+            PostgresConfig(url=postgres_url, log_result=True, log_query=True)
+        ),
+    )
     await app.start()
     db: Postgres = app.get('db')  # type: ignore
 
@@ -45,7 +50,12 @@ async def test_base(postgres_url):
 
 async def test_xact(postgres_url):
     app = BaseApplication(BaseConfig())
-    app.add('db', Postgres(PostgresConfig(url=postgres_url)))
+    app.add(
+        'db',
+        Postgres(
+            PostgresConfig(url=postgres_url, log_result=True, log_query=True)
+        ),
+    )
     await app.start()
     db: Postgres = app.get('db')  # type: ignore
 
@@ -66,7 +76,12 @@ async def test_xact(postgres_url):
 
 async def test_prepare(postgres_url):
     app = BaseApplication(BaseConfig())
-    app.add('db', Postgres(PostgresConfig(url=postgres_url)))
+    app.add(
+        'db',
+        Postgres(
+            PostgresConfig(url=postgres_url, log_result=True, log_query=True)
+        ),
+    )
     await app.start()
     db: Postgres = app.get('db')  # type: ignore
 

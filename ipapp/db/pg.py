@@ -473,11 +473,12 @@ class PreparedStatement:
             res = await self._pg_stmt.fetchrow(*args, timeout=timeout)
 
             if self._conn._db.cfg.log_result:
-                span.annotate(PgSpan.ANN_RESULT, json_encode(dict(res)))
+                _res = dict(res) if res is not None else None
+                span.annotate(PgSpan.ANN_RESULT, json_encode(_res))
                 span.annotate4adapter(
                     self._conn._db.app.logger.ADAPTER_ZIPKIN,
                     PgSpan.ANN_RESULT,
-                    json_encode({'result': repr(dict(res))}),
+                    json_encode({'result': repr(_res)}),
                 )
 
             return res
@@ -618,11 +619,12 @@ class Connection:
                 )
             res = await self._conn.fetchrow(query, *args, timeout=timeout)
             if self._db.cfg.log_result:
-                span.annotate(PgSpan.ANN_RESULT, json_encode(dict(res)))
+                _res = dict(res) if res is not None else None
+                span.annotate(PgSpan.ANN_RESULT, json_encode(_res))
                 span.annotate4adapter(
                     self._db.app.logger.ADAPTER_ZIPKIN,
                     PgSpan.ANN_RESULT,
-                    json_encode({'result': repr(dict(res))}),
+                    json_encode({'result': repr(_res)}),
                 )
             if res is None:
                 return None
