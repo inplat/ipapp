@@ -2,8 +2,6 @@ import logging
 import sys
 from typing import Optional
 
-from iprpc import method
-
 from ipapp import BaseApplication, BaseConfig, main
 from ipapp.error import GracefulExit
 from ipapp.logger.adapters.zipkin import ZipkinAdapter, ZipkinConfig
