@@ -349,6 +349,36 @@ class Span:
         d = ' in %.02f ms' % dur if self.start_stamp is not None else ''
         return '%s[%s]%s' % (self.__class__.__name__, self._name, d)
 
+    def copy_to(
+        self,
+        target: 'Span',
+        *,
+        annotations: bool = False,
+        tags: bool = False,
+        error: bool = False,
+    ) -> None:
+        if annotations:
+            for kind, anns in self._annotations.items():
+                for value, ts in anns:
+                    target.annotate(kind, value, ts)
+
+            for adapter, adapter_anns in self._annotations4adapter.items():
+                for kind, anns in adapter_anns.items():
+                    for value, ts in anns:
+                        target.annotate4adapter(adapter, kind, value, ts)
+
+        if tags:
+            for name, value in self._tags.items():
+                target.tag(name, value)
+            for adapter, adapter_tags in self._tags4adapter.items():
+                for name, value in self._tags.items():
+                    target.set_tag4adapter(adapter, name, value)
+
+        if error:
+            _err = self.get_error()
+            if _err is not None:
+                target.error(_err)
+
 
 class SpanTrap:
     def __init__(self, cls: Type[Span]) -> None:

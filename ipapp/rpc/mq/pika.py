@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional, Tuple
 from iprpc.executor import MethodExecutor
 
 from ipapp.ctx import span
-from ipapp.logger.span import Span
+from ipapp.logger import Span, wrap2span
 from ipapp.misc import ctx_span_get, json_encode
 from ipapp.mq.pika import (
     AmqpSpan,
@@ -81,7 +81,9 @@ class RpcServerChannel(PikaChannel):
         self, body: bytes, deliver: Deliver, proprties: Properties
     ) -> None:
         async with self._lock:
-            await self.ack(delivery_tag=deliver.delivery_tag)
+            with self.amqp.app.logger.capture_span(AmqpSpan) as trap:
+                await self.ack(delivery_tag=deliver.delivery_tag)
+                trap.span.skip()
             result = await self._rpc.call(body, encoding=self.cfg.encoding)
             span.tag(SPAN_TAG_RPC_METHOD, result.method)
             span.name = 'rpc::in::%s' % result.method
@@ -116,6 +118,8 @@ class RpcServerChannel(PikaChannel):
                 props = Properties()
                 if proprties.correlation_id:
                     props.correlation_id = proprties.correlation_id
+                if self.cfg.propagate_trace:
+                    props.headers = span.to_headers()
 
                 with self.amqp.app.logger.capture_span(AmqpSpan) as trap:
                     await self.publish(
@@ -123,9 +127,13 @@ class RpcServerChannel(PikaChannel):
                         proprties.reply_to,
                         msg,
                         props,
-                        propagate_trace=self.cfg.propagate_trace,
+                        propagate_trace=False,
                     )
-                    trap.span.name = 'rpc::result::out'
+                    # trap.span.name = 'rpc::result::out'
+                    trap.span.copy_to(
+                        span, annotations=True, tags=True, error=True
+                    )
+                    trap.span.skip()
 
 
 class RpcClientChannel(PikaChannel):
@@ -152,7 +160,6 @@ class RpcClientChannel(PikaChannel):
     async def _message(
         self, body: bytes, deliver: Deliver, proprties: Properties
     ) -> None:
-        span.name = 'rpc::result::in'
         async with self._lock:
             await self.ack(delivery_tag=deliver.delivery_tag)
 
@@ -160,9 +167,8 @@ class RpcClientChannel(PikaChannel):
 
         if proprties.correlation_id in self._futs:
             fut, parent_span = self._futs[proprties.correlation_id]
-
-            span.move(parent_span)
-
+            span.copy_to(parent_span, annotations=True, tags=True, error=True)
+            span.skip()
             if js['code'] == 0:
                 fut.set_result(js['result'])
             else:
@@ -170,6 +176,7 @@ class RpcClientChannel(PikaChannel):
                     RpcError(js['code'], js['message'], js.get('detail'))
                 )
 
+    @wrap2span(kind=Span.KIND_CLIENT)
     async def call(
         self,
         method: str,
@@ -180,24 +187,40 @@ class RpcClientChannel(PikaChannel):
             self.cfg.encoding
         )
         correlation_id = str(uuid.uuid4())
+
         fut: asyncio.Future = asyncio.Future(loop=self.amqp.app.loop)
-        parent_span = ctx_span_get()
-        if parent_span is None:
+
+        span = ctx_span_get()
+        if span is None:  # pragma: no cover
             raise UserWarning
-        self._futs[correlation_id] = (fut, parent_span)
+        span.tag(SPAN_TAG_RPC_METHOD, method)
+        span.name = 'rpc::out::%s' % method
+
+        self._futs[correlation_id] = (fut, span)
         try:
             with self.amqp.app.logger.capture_span(AmqpSpan) as trap:
+                headers: Dict[str, str] = {}
+                if self.cfg.propagate_trace:
+                    headers = span.to_headers()
                 await self.publish(
                     '',
                     self.cfg.queue,
                     msg,
                     Properties(
-                        correlation_id=correlation_id, reply_to=self._queue
+                        correlation_id=correlation_id,
+                        reply_to=self._queue,
+                        headers=headers,
                     ),
-                    propagate_trace=self.cfg.propagate_trace,
+                    propagate_trace=False,
                 )
-                trap.span.tag(SPAN_TAG_RPC_METHOD, method)
-                trap.span.name = 'rpc::out::%s' % method
+                trap.span.copy_to(
+                    span, annotations=True, tags=True, error=True
+                )
+                # span.annotate('amqp_publish_log',
+                #               'Published in %.2f ms'
+                #               '' % (trap.span.duration * 1000),
+                #               ts=trap.span.start_stamp)
+                trap.span.skip()
             return await asyncio.wait_for(
                 fut, timeout=timeout or self.cfg.timeout
             )

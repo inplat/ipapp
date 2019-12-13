@@ -96,7 +96,7 @@ class BaseApplication(object):
             except PrepareError as e:
                 self.log_err(e)
                 return 1
-            except KeyboardInterrupt:  # pragma: no cover
+            except (KeyboardInterrupt, GracefulExit):  # pragma: no cover
                 return 1
 
             try:

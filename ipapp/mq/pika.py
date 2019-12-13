@@ -6,8 +6,12 @@ from typing import Awaitable, Callable, List, Optional
 
 import pika
 import pika.adapters.asyncio_connection
+import pika.adapters.base_connection
+import pika.adapters.select_connection
 import pika.adapters.utils.connection_workflow
 import pika.adapters.utils.io_services_utils
+import pika.adapters.utils.selector_ioloop_adapter
+import pika.callback
 import pika.channel
 import pika.exceptions
 import pika.frame
@@ -29,11 +33,15 @@ from ipapp.misc import (
     mask_url_pwd,
 )
 
-pika.connection.LOGGER.level = logging.ERROR
-pika.channel.LOGGER.level = logging.ERROR
-pika.adapters.utils.connection_workflow._LOG.level = logging.ERROR
-pika.adapters.utils.io_services_utils._LOGGER.level = logging.ERROR
-pika.adapters.asyncio_connection.LOGGER.level = logging.ERROR
+pika.adapters.utils.selector_ioloop_adapter.LOGGER.level = logging.CRITICAL
+pika.connection.LOGGER.level = logging.CRITICAL
+pika.callback.LOGGER.level = logging.CRITICAL
+pika.channel.LOGGER.level = logging.CRITICAL
+pika.adapters.utils.connection_workflow._LOG.level = logging.CRITICAL
+pika.adapters.utils.io_services_utils._LOGGER.level = logging.CRITICAL
+pika.adapters.base_connection.LOGGER.level = logging.CRITICAL
+pika.adapters.select_connection.LOGGER.level = logging.CRITICAL
+pika.adapters.asyncio_connection.LOGGER.level = logging.CRITICAL
 
 
 Deliver = pika.spec.Basic.Deliver
