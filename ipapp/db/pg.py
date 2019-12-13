@@ -41,6 +41,7 @@ class PgSpan(Span):
     NAME_XACT_COMMITED = 'db::xact (commited)'
     NAME_XACT_REVERTED = 'db::xact (reverted)'
     NAME_EXECUTE = 'db::execute'
+    NAME_EXECUTEMANY = 'db::executemany'
     NAME_PREPARE = 'db::prepare'
     NAME_EXECUTE_PREPARED = 'db::execute (prepared)'
 
@@ -48,6 +49,7 @@ class PgSpan(Span):
     P8S_NAME_XACT_COMMITED = 'db_xact_commited'
     P8S_NAME_XACT_REVERTED = 'db_xact_reverted'
     P8S_NAME_EXECUTE = 'db_execute'
+    P8S_NAME_EXECUTEMANY = 'db_executemany'
     P8S_NAME_PREPARE = 'db_prepare'
     P8S_NAME_EXECUTE_PREPARED = 'db_execute_prepared'
 
@@ -249,6 +251,19 @@ class Postgres(Component):
         async with self.connection() as conn:
             res = await conn.execute(
                 query, *args, timeout=timeout, query_name=query_name
+            )
+        return res
+
+    async def executemany(
+        self,
+        query: str,
+        args: Any,
+        timeout: Optional[float] = None,
+        query_name: Optional[str] = None,
+    ) -> str:
+        async with self.connection() as conn:
+            res = await conn.executemany(
+                query, args, timeout=timeout, query_name=query_name
             )
         return res
 
@@ -579,6 +594,45 @@ class Connection:
                     json.dumps({'query': str(query)}),
                 )
             res = await self._conn.execute(query, *args, timeout=timeout)
+            if self._db.cfg.log_result:
+                span.annotate(PgSpan.ANN_RESULT, str(res))
+                span.annotate4adapter(
+                    self._db.app.logger.ADAPTER_ZIPKIN,
+                    PgSpan.ANN_RESULT,
+                    json_encode({'result': str(res)}),
+                )
+            return res
+
+    @wrap2span(name=PgSpan.NAME_EXECUTEMANY, kind=PgSpan.KIND_CLIENT, cls=PgSpan)
+    async def executemany(
+        self,
+        query: str,
+        args: Any,
+        timeout: float = None,
+        query_name: Optional[str] = None,
+    ) -> str:
+        span: PgSpan = ctx_span_get()  # type: ignore
+        span.set_name4adapter(
+            self._db.app.logger.ADAPTER_PROMETHEUS, PgSpan.P8S_NAME_EXECUTEMANY
+        )
+        if query_name is not None:
+            span.tag(PgSpan.TAG_QUERY_NAME, query_name)
+        with await self._lock:
+            span.annotate(PgSpan.ANN_PID, self.pid)
+            span.annotate4adapter(
+                self._db.app.logger.ADAPTER_ZIPKIN,
+                PgSpan.ANN_PID,
+                json.dumps({'pid': str(self.pid)}),
+            )
+
+            if self._db.cfg.log_query:
+                span.annotate(PgSpan.ANN_QUERY, query)
+                span.annotate4adapter(
+                    self._db.app.logger.ADAPTER_ZIPKIN,
+                    PgSpan.ANN_QUERY,
+                    json.dumps({'query': str(query)}),
+                )
+            res = await self._conn.executemany(query, args, timeout=timeout)
             if self._db.cfg.log_result:
                 span.annotate(PgSpan.ANN_RESULT, str(res))
                 span.annotate4adapter(
