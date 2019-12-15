@@ -603,7 +603,9 @@ class Connection:
                 )
             return res
 
-    @wrap2span(name=PgSpan.NAME_EXECUTEMANY, kind=PgSpan.KIND_CLIENT, cls=PgSpan)
+    @wrap2span(
+        name=PgSpan.NAME_EXECUTEMANY, kind=PgSpan.KIND_CLIENT, cls=PgSpan
+    )
     async def executemany(
         self,
         query: str,
