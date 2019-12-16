@@ -212,7 +212,7 @@ class TaskManager(Component):
         self._stopping = True
         if self._lock is None:
             return
-        await self._lock
+        await self._lock.acquire()
         if self._scan_fut is not None:
             if not self._scan_fut.done():
                 await self._scan_fut
@@ -285,7 +285,7 @@ class TaskManager(Component):
         if self._stopping:
             return []
 
-        with await self._lock:
+        async with self._lock:
             delay = 1.0  # default: 1 second
             try:
                 tasks, delay = await self._search_and_exec()
