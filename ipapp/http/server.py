@@ -223,10 +223,13 @@ class Server(Component, ClientServerAnnotator):
                     resp = await handler(request)
                     ts2 = time.time()
                 except Exception as err:
+                    self.app.log_err(err)
+                    span.error(err)
                     try:
                         resp = await self.handler.error_handler(request, err)
                         ts2 = time.time()
                     except Exception as err2:
+                        self.app.log_err(err2)
                         span.error(err2)
                         if isinstance(err2, web.Response):
                             resp = err2
