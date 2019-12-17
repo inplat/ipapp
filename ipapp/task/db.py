@@ -168,7 +168,6 @@ class TaskManager(Component):
         self._scan_fut: Optional[asyncio.Future] = None
         self.stamp_early: float = 0.0
         self._lock: Optional[asyncio.Lock] = None
-        self._conn: Optional[asyncpg.Connection] = None
         self._db: Optional[Db] = None
 
     @property
@@ -183,26 +182,13 @@ class TaskManager(Component):
 
         self._lock = asyncio.Lock(loop=self.loop)
 
-        for i in range(self.cfg.db_connect_max_attempts):
-            try:
-                self.app.log_info("Connecting to %s", self._masked_url)
-                self._conn = await asyncpg.connect(dsn=self.cfg.db_url)
-                await Postgres._conn_init(self._conn)  # noqa
-                self.app.log_info("Connected to %s", self._masked_url)
-                return
-            except Exception as e:
-                self.app.log_err(str(e))
-                await asyncio.sleep(self.cfg.db_connect_retry_delay)
-        raise PrepareError("Could not connect to %s" % self._masked_url)
+        self._db = Db(self, self.cfg)
+        await self._db.init()
 
     async def start(self) -> None:
         if self.app is None:  # pragma: no cover
             raise UserWarning('Unattached component')
 
-        if self._conn is None:  # pragma: no cover
-            raise UserWarning
-
-        self._db = Db(self._conn, self.cfg.db_schema)
         if not self.cfg.idle:
             self._scan_fut = asyncio.ensure_future(
                 self._scan(), loop=self.loop
@@ -230,8 +216,6 @@ class TaskManager(Component):
         max_retries: int = 0,
         retry_delay: float = 60.0,
     ) -> int:
-        if self._conn is None:  # pragma: no cover
-            raise UserWarning
         if self._db is None:  # pragma: no cover
             raise UserWarning
 
@@ -412,10 +396,47 @@ class TaskManager(Component):
 
 
 class Db:
-    def __init__(self, conn: asyncpg.Connection, db_schema: str) -> None:
+    def __init__(self, tm: TaskManager, cfg: TaskManagerConfig) -> None:
         self._lock = asyncio.Lock()
-        self._conn: asyncpg.Connection = conn
-        self._db_schema = db_schema
+        self._tm = tm
+        self._cfg = cfg
+        self._conn: Optional[asyncpg.Connection] = None
+
+    async def init(self) -> None:
+        try:
+            await self.get_conn(can_reconnect=True)
+        except Exception as err:
+            raise PrepareError(str(err))
+
+    @property
+    def _masked_url(self) -> Optional[str]:
+        if self._cfg.db_url is not None:
+            return mask_url_pwd(self._cfg.db_url)
+        return None
+
+    async def get_conn(self, can_reconnect: bool) -> asyncpg.Connection:
+        if self._conn is not None and not self._conn.is_closed():
+            return self._conn
+        if not can_reconnect:
+            raise Exception('Not connected to %s' % self._masked_url)
+        for _ in range(self._cfg.db_connect_max_attempts):
+            try:
+                self._tm.app.logger.app.log_info(
+                    "Connecting to %s", self._masked_url
+                )
+                self._conn = await asyncpg.connect(self._cfg.db_url)
+                await Postgres._conn_init(self._conn)  # noqa
+                self._tm.app.logger.app.log_info(
+                    "Connected to %s", self._masked_url
+                )
+                return self._conn
+            except Exception as err:
+                self._tm.app.logger.app.log_err(err)
+                await asyncio.sleep(
+                    self._cfg.db_connect_retry_delay,
+                    loop=self._tm.app.logger.app.loop,
+                )
+        raise Exception("Could not connect to %s" % self._masked_url)
 
     async def _fetch(
         self,
@@ -424,15 +445,14 @@ class Db:
         timeout: Optional[float] = None,
         lock: bool = False,
     ) -> List[asyncpg.Record]:
-        if self._conn is None:  # pragma: no cover
-            raise UserWarning
-        if lock and self._conn.is_in_transaction():  # pragma: no cover
+        conn = await self.get_conn(can_reconnect=lock)
+        if lock and conn.is_in_transaction():  # pragma: no cover
             raise UserWarning
         if lock:
             async with self._lock:
-                return await self._conn.fetch(query, *args, timeout=timeout)
+                return await conn.fetch(query, *args, timeout=timeout)
         else:
-            return await self._conn.fetch(query, *args, timeout=timeout)
+            return await conn.fetch(query, *args, timeout=timeout)
 
     async def _fetchrow(
         self,
@@ -441,15 +461,14 @@ class Db:
         timeout: Optional[float] = None,
         lock: bool = False,
     ) -> Optional[asyncpg.Record]:
-        if self._conn is None:  # pragma: no cover
-            raise UserWarning
-        if lock and self._conn.is_in_transaction():  # pragma: no cover
+        conn = await self.get_conn(can_reconnect=lock)
+        if lock and conn.is_in_transaction():  # pragma: no cover
             raise UserWarning
         if lock:
             async with self._lock:
-                return await self._conn.fetchrow(query, *args, timeout=timeout)
+                return await conn.fetchrow(query, *args, timeout=timeout)
         else:
-            return await self._conn.fetchrow(query, *args, timeout=timeout)
+            return await conn.fetchrow(query, *args, timeout=timeout)
 
     async def _execute(
         self,
@@ -458,15 +477,14 @@ class Db:
         timeout: Optional[float] = None,
         lock: bool = False,
     ) -> None:
-        if self._conn is None:  # pragma: no cover
-            raise UserWarning
-        if lock and self._conn.is_in_transaction():  # pragma: no cover
+        conn = await self.get_conn(can_reconnect=lock)
+        if lock and conn.is_in_transaction():  # pragma: no cover
             raise UserWarning
         if lock:
             async with self._lock:
-                await self._conn.execute(query, *args, timeout=timeout)
+                await conn.execute(query, *args, timeout=timeout)
         else:
-            await self._conn.execute(query, *args, timeout=timeout)
+            await conn.execute(query, *args, timeout=timeout)
 
     @asynccontextmanager  # type: ignore
     async def transaction(
@@ -475,8 +493,9 @@ class Db:
         readonly: bool = False,
         deferrable: bool = False,
     ) -> AsyncContextManager['Db']:
+        conn = await self.get_conn(can_reconnect=True)
         async with self._lock:
-            async with self._conn.transaction(
+            async with conn.transaction(
                 isolation=isolation, readonly=readonly, deferrable=deferrable
             ):
                 yield self
@@ -499,7 +518,7 @@ class Db:
             "make_interval(secs=>$6::float)) "
             "RETURNING id, "
             "greatest(extract(epoch from NOW() - eta), 0) as delay"
-        ) % self._db_schema
+        ) % self._cfg.db_schema
 
         res = await self._fetchrow(
             query,
@@ -529,10 +548,10 @@ class Db:
             "RETURNING "
             "id,eta,name,params,max_retries,retry_delay,status,retries"
         ) % (
-            self._db_schema,
-            self._db_schema,
-            self._db_schema,
-            self._db_schema,
+            self._cfg.db_schema,
+            self._cfg.db_schema,
+            self._cfg.db_schema,
+            self._cfg.db_schema,
         )
 
         res = await self._fetch(query, batch_size, lock=lock)
@@ -547,7 +566,7 @@ class Db:
             "WHERE id=$1 AND status IN ('retry','pending') "
             "RETURNING "
             "id"
-        ) % (self._db_schema,)
+        ) % (self._cfg.db_schema,)
         res = await self._fetchrow(query, task_id, lock=lock)
         return res is not None
 
@@ -561,7 +580,7 @@ class Db:
             "ORDER BY eta "
             "LIMIT 1 "
             "FOR SHARE SKIP LOCKED"
-        ) % (self._db_schema, self._db_schema, self._db_schema)
+        ) % (self._cfg.db_schema, self._cfg.db_schema, self._cfg.db_schema)
         res = await self._fetchrow(query, lock=lock)
         if res:
             return res['t']
@@ -580,7 +599,7 @@ class Db:
             'eta=COALESCE(NOW()+make_interval(secs=>$4::float),eta),'
             'last_stamp=NOW() '
             'WHERE id=$1'
-        ) % self._db_schema
+        ) % self._cfg.db_schema
 
         await self._execute(
             query, task_id, STATUS_RETRY, retries, eta_delay, lock=lock
@@ -605,7 +624,7 @@ class Db:
             'id,eta,name,params,max_retries,retry_delay,$2,'
             'COALESCE($3,retries),NOW(),reference '
             'FROM del'
-        ) % (self._db_schema, self._db_schema)
+        ) % (self._cfg.db_schema, self._cfg.db_schema)
         await self._execute(query, task_id, status, retries, lock=lock)
 
     async def task_log_add(
@@ -625,7 +644,7 @@ class Db:
             '(task_id,eta,started,finished,result,error,traceback)'
             'VALUES($1,$2,to_timestamp($3),to_timestamp($4),'
             '$5::text::jsonb,$6,$7)'
-        ) % self._db_schema
+        ) % self._cfg.db_schema
         js = json.dumps(result) if result is not None else None
 
         await self._execute(

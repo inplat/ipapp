@@ -9,6 +9,8 @@ from pydantic.main import BaseModel
 import ipapp.http as ht
 import ipapp.logger  # noqa
 
+from ...error import PrepareError
+from ...misc import mask_url_pwd
 from ..span import Span
 from ._abc import AbcAdapter, AbcConfig, AdapterConfigurationError
 
@@ -57,6 +59,8 @@ class RequestsConfig(AbcConfig):
     max_hdrs_length: int = 64 * 1024  # 64kB
     max_body_length: int = 64 * 1024  # 64kB
     max_queue_size: int = 2 * 1024
+    connect_max_attempts: int = 10
+    connect_retry_delay: float = 1.0
 
 
 class RequestsAdapter(AbcAdapter):
@@ -82,7 +86,7 @@ class RequestsAdapter(AbcAdapter):
     def __init__(self, cfg: RequestsConfig) -> None:
         self.cfg = cfg
         self.logger: Optional['ipapp.logger.Logger'] = None
-        self.db: Optional[asyncpg.Connection] = None
+        self._db: Optional[asyncpg.Connection] = None
         self._queue: Optional[Deque[Request]] = None
         self._send_lock: asyncio.Lock = asyncio.Lock()
         self._send_fut: asyncio.Future[Any] = asyncio.Future()
@@ -126,9 +130,34 @@ class RequestsAdapter(AbcAdapter):
         ]
 
         self._queue = deque(maxlen=self.cfg.max_queue_size)
-        self.db = await asyncpg.connect(self.cfg.dsn)
+
+        await self.get_conn()
         self._send_fut = asyncio.ensure_future(self._send_loop())
         # TODO validate table struct
+
+    @property
+    def _masked_url(self) -> Optional[str]:
+        if self.cfg.dsn is not None:
+            return mask_url_pwd(self.cfg.dsn)
+        return None
+
+    async def get_conn(self) -> asyncpg.Connection:
+        if self.logger is None or self.logger.app is None:  # pragma: no cover
+            raise UserWarning
+        if self._db is not None and not self._db.is_closed():
+            return self._db
+        for _ in range(self.cfg.connect_max_attempts):
+            try:
+                self.logger.app.log_info("Connecting to %s", self._masked_url)
+                self._db = await asyncpg.connect(self.cfg.dsn)
+                self.logger.app.log_info("Connected to %s", self._masked_url)
+                return self._db
+            except Exception as err:
+                self.logger.app.log_err(err)
+                await asyncio.sleep(
+                    self.cfg.connect_retry_delay, loop=self.logger.app.loop
+                )
+        raise PrepareError("Could not connect to %s" % self._masked_url)
 
     def handle(self, span: Span) -> None:
         if self.logger is None:  # pragma: no cover
@@ -224,17 +253,18 @@ class RequestsAdapter(AbcAdapter):
                 self._sleep_fut = None
 
     async def _send(self) -> None:
-        if self._queue is None or self.db is None:
+        if self._queue is None:
             return
         if len(self._queue) == 0:
             return
+        conn = await self.get_conn()
         async with self._send_lock:
             cnt = min(self.cfg.max_queue_size, len(self._queue))
             phs, params = self._build_query(cnt)
             query = self._query_template.format(
                 table_name=self.cfg.db_table_name, placeholders=','.join(phs)
             )
-            await self.db.execute(query, *params)
+            await conn.execute(query, *params)
 
     def _build_query(self, count: int) -> Tuple[List[str], List[Any]]:
         if self._queue is None:  # pragma: no cover
