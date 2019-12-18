@@ -2,7 +2,7 @@ import asyncio
 import logging
 from abc import ABC
 from functools import partial
-from typing import Awaitable, Callable, List, Optional
+from typing import Awaitable, Callable, List, Optional, Any
 
 import pika
 import pika.adapters.asyncio_connection
@@ -216,7 +216,7 @@ class _Connection:
                 on_open_callback=partial(self._on_channel_open, on_close)
             )
             try:
-                channel = await asyncio.wait_for(
+                channel: Any = await asyncio.wait_for(
                     self._fut, timeout=self.cfg.channel_open_timeout
                 )
                 if not isinstance(channel, pika.channel.Channel):
