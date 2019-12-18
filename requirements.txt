@@ -1,8 +1,8 @@
-pydantic==1.1.1
+pydantic==1.2
 aiohttp==3.6.2
 aiozipkin==0.6.0
 prometheus-client==0.7.1
-sentry-sdk==0.13.2
+sentry-sdk==0.13.5
 deepmerge==0.1.0
 async-timeout==3.0.1
-pyyaml==5.1.2
+pyyaml==5.2
