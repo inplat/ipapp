@@ -115,7 +115,7 @@ pages:
     paths:
       - public
     expire_in: 1 day
-  tags:
-    - build
+#  tags:
+#    - build
   only:
     - tags
