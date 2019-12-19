@@ -6,7 +6,7 @@ import pika
 import pytest
 from async_timeout import timeout as async_timeout
 
-TIMEOUT = 1
+TIMEOUT = 60
 COMPOSE_POSTGRES_URL = 'postgres://ipapp:secretpwd@127.0.0.1:58971/ipapp'
 COMPOSE_RABBITMQ_URL = 'amqp://guest:guest@127.0.0.1:58972/'
 
@@ -41,10 +41,6 @@ async def wait_service(
                     break
                 except Exception as err:
                     last_err = err
-                    print(type(err))
-                    import traceback
-
-                    print(traceback.format_exc())
                     await asyncio.sleep(0.1)
     except asyncio.TimeoutError:
         raise TimeoutError(err_template.format(url=url, err=last_err))
