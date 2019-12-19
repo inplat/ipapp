@@ -34,12 +34,30 @@ SERVER = 'ipapp-http/%s' % ipapp.__version__
 
 
 class ServerConfig(BaseModel):
+    """
+    Конфигурация HTTP сервера
+    """
+
+    #: HOST to listen on
     host: str = '0.0.0.0'  # nosec
+
+    #: PORT to listen on
     port: int = 8080
+
+    #: не трогать это
     handle_signals: bool = True
+
+    #: максимально время ожидания завершения обработки входящих запросов
+    #: перед остановкой сервиса
     shutdown_timeout: float = 60.0
+
+    #: максимально количество соединений
     backlog: int = 128
+
+    #: SO_REUSEADDR
     reuse_address: Optional[bool] = None
+
+    #: SO_REUSEPORT
     reuse_port: Optional[bool] = None
 
 

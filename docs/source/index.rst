@@ -1,13 +1,21 @@
-Документация
-============
+Inplat application framework
+============================
 
 .. toctree::
    :maxdepth: 2
    :caption: Содержание:
 
    about
+   configuring
+   logging
+   http_server
+   http_client
+   db_postgres
+   pika
+   task_db
+   rpc_http
+   rpc_amqp
    release-notes
-
 
 Indices and tables
 ==================
