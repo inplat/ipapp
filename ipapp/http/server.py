@@ -44,9 +44,6 @@ class ServerConfig(BaseModel):
     #: PORT to listen on
     port: int = 8080
 
-    #: не трогать это
-    handle_signals: bool = True
-
     #: максимально время ожидания завершения обработки входящих запросов
     #: перед остановкой сервиса
     shutdown_timeout: float = 60.0
@@ -192,15 +189,15 @@ class Server(Component, ClientServerAnnotator):
         self.web_app = web.Application()
         self.runner = AppRunner(
             self.web_app,
-            handle_signals=cfg.handle_signals,
+            handle_signals=True,
             access_log_class=AccessLogger,
             access_log_format=AccessLogger.LOG_FORMAT,
             access_log=access_logger,
         )
-        self.web_app.middlewares.append(self.req_wrapper)
+        self.web_app.middlewares.append(self._req_wrapper)
 
     @web.middleware
-    async def req_wrapper(
+    async def _req_wrapper(
         self,
         request: web.Request,
         handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
