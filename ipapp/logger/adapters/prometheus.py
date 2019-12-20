@@ -13,9 +13,12 @@ LabelsCfg = Dict[str, Dict[str, str]]
 
 RE_P8S_METRIC_NAME = re.compile(r'[^a-zA-Z0-9_]')
 
+DEFAULT_LE = ('0.005,0.01,0.025,0.05,0.075,0.1,0.25,0.5,0.75,'
+              '1.0,2.5,5.0,7.5,10.0,60.0,Inf')
+
 DEFAULT_HISTOGRAM_LABELS: LabelsCfg = {  # {name: {label: tag}, }
     'http_in': {
-        'le': '0.01,0.1,1,10,Inf',  # le mapping to quantiles
+        'le': DEFAULT_LE,  # le mapping to quantiles
         'route': 'http.route',
         'host': 'http.host',
         'method': 'http.method',
@@ -23,48 +26,48 @@ DEFAULT_HISTOGRAM_LABELS: LabelsCfg = {  # {name: {label: tag}, }
         'error': 'error.class',
     },
     'http_out': {
-        'le': '0.01,0.1,1,10,Inf',  # le mapping to quantiles
+        'le': DEFAULT_LE,  # le mapping to quantiles
         'host': 'http.host',
         'method': 'http.method',
         'status_code': 'http.status_code',
         'error': 'error.class',
     },
     'db_connection': {
-        'le': '0.01,0.1,1,10,Inf',  # le mapping to quantiles
+        'le': DEFAULT_LE,  # le mapping to quantiles
         'error': 'error.class',
         'free': 'db.pool.free',
     },
     'db_xact_commited': {
-        'le': '0.01,0.1,1,10,Inf',  # le mapping to quantiles
+        'le': DEFAULT_LE,  # le mapping to quantiles
         'error': 'error.class',
     },
     'db_xact_reverted': {
-        'le': '0.01,0.1,1,10,Inf',  # le mapping to quantiles
+        'le': DEFAULT_LE,  # le mapping to quantiles
         'error': 'error.class',
     },
     'db_execute': {
-        'le': '0.01,0.1,1,10,Inf',  # le mapping to quantiles
+        'le': DEFAULT_LE,  # le mapping to quantiles
         'error': 'error.class',
         'query': 'db.query',
     },
     'db_prepare': {
-        'le': '0.01,0.1,1,10,Inf',  # le mapping to quantiles
+        'le': DEFAULT_LE,  # le mapping to quantiles
         'error': 'error.class',
         'query': 'db.query',
     },
     'db_execute_prepared': {
-        'le': '0.01,0.1,1,10,Inf',  # le mapping to quantiles
+        'le': DEFAULT_LE,  # le mapping to quantiles
         'error': 'error.class',
         'query': 'db.query',
     },
     'rpc_in': {
-        'le': '0.01,0.1,1,10,Inf',  # le mapping to quantiles
+        'le': DEFAULT_LE,  # le mapping to quantiles
         'error': 'error.class',
         'method': 'rpc.method',
         'code': 'rpc.code',
     },
     'rpc_out': {
-        'le': '0.01,0.1,1,10,Inf',  # le mapping to quantiles
+        'le': DEFAULT_LE,  # le mapping to quantiles
         'error': 'error.class',
         'method': 'rpc.method',
         'code': 'rpc.code',
