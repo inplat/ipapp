@@ -49,11 +49,11 @@
             for row in tree:
                 result.append(
                     ExchangeRate(
-                        num_code=row.find('NumCode').text,
-                        char_code=row.find('CharCode').text,
-                        nominal=row.find('Nominal').text,
-                        name=row.find('Name').text,
-                        value=row.find('Value').text.replace(',', '.'),
+                        num_code=row.findtext('NumCode'),
+                        char_code=row.findtext('CharCode'),
+                        nominal=row.findtext('Nominal'),
+                        name=row.findtext('Name'),
+                        value=row.findtext('Value').replace(',', '.'),
                     )
                 )
             return result
