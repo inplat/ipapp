@@ -2,7 +2,7 @@ import asyncio
 import logging
 from abc import ABC
 from functools import partial
-from typing import Awaitable, Callable, List, Optional, Any
+from typing import Any, Awaitable, Callable, List, Optional
 
 import pika
 import pika.adapters.asyncio_connection
