@@ -135,6 +135,8 @@ class ServerHandler(object):
     async def error_handler(
         self, request: web.Request, err: Exception
     ) -> web.Response:
+        if isinstance(err, web.Response):
+            return err
         return web.HTTPInternalServerError()
 
 

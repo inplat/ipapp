@@ -38,16 +38,6 @@ class RpcHandler(ServerHandler):
 
         return resp
 
-    async def error_handler(
-        self, request: web.Request, err: Exception
-    ) -> web.Response:
-        return web.Response(
-            body=json.dumps(
-                self._err_resp(InternalError(parent=err))
-            ).encode(),
-            content_type='application/json',
-        )
-
     async def rpc_handler(self, request: web.Request) -> web.Response:
         try:
             result = await self._rpc.call(
@@ -75,4 +65,9 @@ class RpcHandler(ServerHandler):
         except Exception as err:
             span.error(err)
             self.app.log_err(err)
-            raise
+            return web.Response(
+                body=json.dumps(
+                    self._err_resp(InternalError(parent=err))
+                ).encode(),
+                content_type='application/json',
+            )
