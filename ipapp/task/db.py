@@ -2,7 +2,7 @@ import asyncio
 import json
 import time
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import (
     Any,
     AsyncContextManager,
@@ -207,6 +207,7 @@ class TaskManager(Component):
         if self._db is not None:
             await self._db.health(lock=True)
 
+    @wrap2span(name='dbtm:schedule', kind=Span.KIND_CLIENT)
     async def schedule(
         self,
         func: TaskHandler,
@@ -226,13 +227,18 @@ class TaskManager(Component):
         else:
             func_name = func
 
+        span.name += ' (%s)' % func_name
+
         eta_dt: Optional[datetime] = None
         if isinstance(eta, int) or isinstance(eta, float):
-            eta_dt = datetime.fromtimestamp(eta)
+            eta_dt = datetime.fromtimestamp(eta, tz=timezone.utc)
         elif isinstance(eta, datetime):
             eta_dt = eta
         elif eta is not None:  # pragma: no cover
             raise UserWarning
+
+        if eta_dt is not None:
+            span.annotate('eta', 'ETA: %s' % eta_dt.isoformat())
 
         task_id, task_delay = await self._db.task_add(
             eta_dt,
@@ -243,6 +249,8 @@ class TaskManager(Component):
             retry_delay,
             lock=True,
         )
+
+        span.annotate('delay', 'Delay: %s' % task_delay)
 
         eta_float = self.loop.time() + task_delay
         self.stamp_early = eta_float
@@ -262,7 +270,7 @@ class TaskManager(Component):
                     return True
                 return False
 
-    @wrap2span(name='dbtm:Scan', kind=Span.KIND_SERVER)
+    @wrap2span(name='dbtm:Scan', kind=Span.KIND_SERVER, ignore_ctx=True)
     async def _scan(self) -> List[int]:
         if self.app is None or self._lock is None:  # pragma: no cover
             raise UserWarning
@@ -308,6 +316,7 @@ class TaskManager(Component):
         async with self._db.transaction():
 
             tasks = await self._db.task_search(self.cfg.batch_size, lock=False)
+            span.annotate('tasks', repr(tasks))
             if len(tasks) == 0:
                 next_delay = await self._db.task_next_delay(lock=False)
                 if (
@@ -324,12 +333,12 @@ class TaskManager(Component):
 
         return tasks, 0
 
-    @wrap2span(name='dbtm:exec', kind=Span.KIND_SERVER)
+    @wrap2span(name='dbtm:exec', kind=Span.KIND_SERVER, ignore_ctx=True)
     async def _exec(self, parent_trace_id: str, task: Task) -> None:
         if self._db is None or self._executor is None:  # pragma: no cover
             raise UserWarning
 
-        span.name = 'dbtm:%s' % task.name
+        span.name = 'dbtm:exec (%s)' % task.name
         span.tag('dbtm.parent_trace_id', parent_trace_id)
         span.tag('dbtm.task_id', task.id)
         span.tag('dbtm.task_name', task.name)
@@ -446,6 +455,8 @@ class Db:
         lock: bool = False,
     ) -> List[asyncpg.Record]:
         conn = await self.get_conn(can_reconnect=lock)
+        if lock and conn.is_in_transaction():  # pragma: no cover
+            raise UserWarning
         if lock:
             async with self._lock:
                 return await conn.fetch(query, *args, timeout=timeout)
@@ -460,6 +471,8 @@ class Db:
         lock: bool = False,
     ) -> Optional[asyncpg.Record]:
         conn = await self.get_conn(can_reconnect=lock)
+        if lock and conn.is_in_transaction():  # pragma: no cover
+            raise UserWarning
         if lock:
             async with self._lock:
                 return await conn.fetchrow(query, *args, timeout=timeout)
@@ -474,6 +487,8 @@ class Db:
         lock: bool = False,
     ) -> None:
         conn = await self.get_conn(can_reconnect=lock)
+        if lock and conn.is_in_transaction():  # pragma: no cover
+            raise UserWarning
         if lock:
             async with self._lock:
                 await conn.execute(query, *args, timeout=timeout)
@@ -511,7 +526,7 @@ class Db:
             "VALUES(COALESCE($1, NOW()),$2,$3,$4,$5,"
             "make_interval(secs=>$6::float)) "
             "RETURNING id, "
-            "greatest(extract(epoch from NOW() - eta), 0) as delay"
+            "greatest(extract(epoch from eta-NOW()), 0) as delay"
         ) % self._cfg.db_schema
 
         res = await self._fetchrow(

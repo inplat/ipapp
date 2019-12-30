@@ -295,6 +295,7 @@ class Span:
         if self.parent is None or self.parent._is_handled:
             self._handle_children(self)
             if not self._skip and self.logger is not None:
+                # TODO loop.call_soon
                 self.logger.handle_span(self)
             self._is_handled = True
 
