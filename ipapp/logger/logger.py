@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Coroutine, List, Mapping, Optional, Type
+from typing import Any, Coroutine, List, Mapping, Optional, Type, Callable
 
 import ipapp.app
 
@@ -26,6 +26,7 @@ class Logger:
         self.default_sampled = True
         self.default_debug = False
         self._started = False
+        self._before_handle_callbacks: List[Callable[[Span], None]] = []
 
     async def start(self) -> None:
         self._started = True
@@ -76,7 +77,12 @@ class Logger:
         self.adapters.append(adapter)
         return adapter
 
+    def add_before_handle_cb(self, fn: Callable[[Span], None]) -> None:
+        self._before_handle_callbacks.append(fn)
+
     def handle_span(self, span: Span) -> None:
+        for cb in self._before_handle_callbacks:
+            cb(span)
         for adapter in self.adapters:
             try:
                 adapter.handle(span)

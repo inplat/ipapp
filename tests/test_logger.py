@@ -398,3 +398,46 @@ async def test_trap():
                 pass
     assert trap.span is not None
     assert trap.span.name == 't2'
+
+
+async def test_logger_span_callback():
+    class TestAdapter(AbcAdapter):
+        started = False
+        stopped = False
+        handled: List[Span] = []
+
+        async def start(self, logger: 'Logger'):
+            self.started = True
+
+        def handle(self, span: Span):
+            self.handled.append(span)
+
+        async def stop(self):
+            self.stopped = True
+
+    def replace_tags(span: Span) -> None:
+        for tag in span.tags.keys():
+            span.tag(tag, '***')
+
+    app = BaseApplication(BaseConfig())
+    lgr = app.logger
+    lgr.add(TestAdapter())
+
+    adapter = lgr.adapters[0]
+    assert isinstance(adapter, TestAdapter)
+    lgr.add_before_handle_cb(replace_tags)
+
+    await lgr.start()
+    assert adapter.started
+
+    with lgr.span_new() as span:
+        span.tag('tag', 'abc')
+
+    assert len(adapter.handled) == 1
+    assert span.start_stamp is not None
+    assert span.finish_stamp is not None
+    assert 'tag' in span.tags
+    assert span.tags['tag'] == '***'
+
+    await lgr.stop()
+    assert adapter.stopped
