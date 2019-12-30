@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Coroutine, List, Mapping, Optional, Type, Callable
+from typing import Any, Callable, Coroutine, List, Mapping, Optional, Type
 
 import ipapp.app
 

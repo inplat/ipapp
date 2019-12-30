@@ -142,6 +142,21 @@ class Task(BaseModel):
     retries: Optional[int]
 
 
+class TaskManagerSpan(Span):
+    NAME_SCHEDULE = 'dbtm::schedule'
+    NAME_SCAN = 'dbtm::scan'
+    NAME_EXEC = 'dbtm::exec'
+
+    TAG_PARENT_TRACE_ID = 'dbtm.parent_trace_id'
+    TAG_TASK_ID = 'dbtm.task_id'
+    TAG_TASK_NAME = 'dbtm.task_name'
+
+    ANN_ETA = 'eta'
+    ANN_DELAY = 'delay'
+    ANN_NEXT_SCAN = 'next_scan'
+    ANN_TASKS = 'tasks'
+
+
 class Retry(Exception):
     def __init__(self, err: Exception) -> None:
         self.err = err
@@ -207,7 +222,11 @@ class TaskManager(Component):
         if self._db is not None:
             await self._db.health(lock=True)
 
-    @wrap2span(name='dbtm:schedule', kind=Span.KIND_CLIENT)
+    @wrap2span(
+        name=TaskManagerSpan.NAME_SCHEDULE,
+        kind=Span.KIND_CLIENT,
+        cls=TaskManagerSpan,
+    )
     async def schedule(
         self,
         func: TaskHandler,
@@ -227,7 +246,7 @@ class TaskManager(Component):
         else:
             func_name = func
 
-        span.name += ' (%s)' % func_name
+        span.name = '%s::%s' % (TaskManagerSpan.NAME_SCHEDULE, func_name)
 
         eta_dt: Optional[datetime] = None
         if isinstance(eta, int) or isinstance(eta, float):
@@ -238,7 +257,9 @@ class TaskManager(Component):
             raise UserWarning
 
         if eta_dt is not None:
-            span.annotate('eta', 'ETA: %s' % eta_dt.isoformat())
+            span.annotate(
+                TaskManagerSpan.ANN_ETA, 'ETA: %s' % eta_dt.isoformat()
+            )
 
         task_id, task_delay = await self._db.task_add(
             eta_dt,
@@ -250,7 +271,7 @@ class TaskManager(Component):
             lock=True,
         )
 
-        span.annotate('delay', 'Delay: %s' % task_delay)
+        span.annotate(TaskManagerSpan.ANN_DELAY, 'Delay: %s' % task_delay)
 
         eta_float = self.loop.time() + task_delay
         self.stamp_early = eta_float
@@ -270,7 +291,12 @@ class TaskManager(Component):
                     return True
                 return False
 
-    @wrap2span(name='dbtm:Scan', kind=Span.KIND_SERVER, ignore_ctx=True)
+    @wrap2span(
+        name=TaskManagerSpan.NAME_SCAN,
+        kind=Span.KIND_SERVER,
+        ignore_ctx=True,
+        cls=TaskManagerSpan,
+    )
     async def _scan(self) -> List[int]:
         if self.app is None or self._lock is None:  # pragma: no cover
             raise UserWarning
@@ -290,7 +316,9 @@ class TaskManager(Component):
             finally:
                 self._scan_fut = None
                 if not self._stopping:
-                    span.annotate('next_scan', 'next: %s' % delay)
+                    span.annotate(
+                        TaskManagerSpan.ANN_NEXT_SCAN, 'next: %s' % delay
+                    )
                     eta = self.loop.time() + delay
                     self.stamp_early = eta
                     self.loop.call_at(eta, self._scan_later, eta)
@@ -316,7 +344,7 @@ class TaskManager(Component):
         async with self._db.transaction():
 
             tasks = await self._db.task_search(self.cfg.batch_size, lock=False)
-            span.annotate('tasks', repr(tasks))
+            span.annotate(TaskManagerSpan.ANN_TASKS, repr(tasks))
             if len(tasks) == 0:
                 next_delay = await self._db.task_next_delay(lock=False)
                 if (
@@ -333,15 +361,20 @@ class TaskManager(Component):
 
         return tasks, 0
 
-    @wrap2span(name='dbtm:exec', kind=Span.KIND_SERVER, ignore_ctx=True)
+    @wrap2span(
+        name=TaskManagerSpan.NAME_EXEC,
+        kind=Span.KIND_SERVER,
+        ignore_ctx=True,
+        cls=TaskManagerSpan,
+    )
     async def _exec(self, parent_trace_id: str, task: Task) -> None:
         if self._db is None or self._executor is None:  # pragma: no cover
             raise UserWarning
 
-        span.name = 'dbtm:exec (%s)' % task.name
-        span.tag('dbtm.parent_trace_id', parent_trace_id)
-        span.tag('dbtm.task_id', task.id)
-        span.tag('dbtm.task_name', task.name)
+        span.name = '%s::%s' % (TaskManagerSpan.NAME_EXEC, task.name)
+        span.tag(TaskManagerSpan.TAG_PARENT_TRACE_ID, parent_trace_id)
+        span.tag(TaskManagerSpan.TAG_TASK_ID, task.id)
+        span.tag(TaskManagerSpan.TAG_TASK_NAME, task.name)
         try:
             time_begin = time.time()
             res = await self._executor.call_parsed(task.name, task.params, {})
