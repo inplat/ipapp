@@ -3,7 +3,8 @@ import sys
 
 from aiohttp import web
 
-from ipapp import BaseApplication, BaseConfig, main
+from ipapp import BaseApplication, BaseConfig, Span, main
+from ipapp.http import HttpSpan
 from ipapp.http.server import Server, ServerConfig, ServerHandler
 
 
@@ -23,6 +24,14 @@ class App(BaseApplication):
     def __init__(self, cfg: Config) -> None:
         super().__init__(cfg)
         self.add('srv', Server(cfg.http, HttpHandler()))
+
+        self.logger.add_before_handle_cb(self.handle_span)
+
+    @staticmethod
+    def handle_span(span: Span) -> None:
+        if isinstance(span, HttpSpan):
+            if 'secret' in span.tags:
+                span.tag('secret', '***')
 
 
 if __name__ == "__main__":
