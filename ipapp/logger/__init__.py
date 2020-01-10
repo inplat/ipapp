@@ -1,6 +1,7 @@
 from functools import wraps
 from types import TracebackType
 from typing import Any, Callable, Optional, Type
+from contextvars import Token
 
 import ipapp  # noqa
 import ipapp.misc
@@ -35,6 +36,7 @@ class _Wrapper:
         self.ignore_ctx = ignore_ctx
         self.app = app
         self.span: Optional[Span] = None
+        self._app_token: Optional[Token] = None
 
     def __call__(self, func: Callable) -> Callable:
         @wraps(func)
@@ -47,6 +49,8 @@ class _Wrapper:
                         raise UserWarning
                 else:
                     app = self.app
+                    if app is not None:
+                        self._app_token = ipapp.misc.ctx_app_set(app)
                 new_span = app.logger.span_new(
                     self.name, self.kind, cls=self.cls
                 )
@@ -58,6 +62,9 @@ class _Wrapper:
                 except Exception as err:
                     new_span.error(err)
                     raise
+                finally:
+                    if self._app_token is not None:
+                        ipapp.misc.ctx_app_reset(self._app_token)
 
         return wrapper
 
@@ -68,6 +75,8 @@ class _Wrapper:
                 app = ipapp.misc.ctx_app_get()
             else:
                 app = self.app
+                if app is not None:
+                    self._app_token = ipapp.misc.ctx_app_set(app)
             if app is None:  # pragma: no cover
                 raise UserWarning
             self.span = app.logger.span_new(self.name, self.kind, cls=self.cls)
@@ -88,6 +97,9 @@ class _Wrapper:
             return
 
         self.span.__exit__(exc_type, exc_value, traceback)
+
+        if self._app_token is not None:
+            ipapp.misc.ctx_app_reset(self._app_token)
 
 
 __all__ = [
