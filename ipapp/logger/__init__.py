@@ -41,9 +41,12 @@ class _Wrapper:
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             span = ipapp.misc.ctx_span_get()
             if span is None or self.ignore_ctx:
-                app = ipapp.misc.ctx_app_get()
-                if app is None:  # pragma: no cover
-                    raise UserWarning
+                if self.app is None:
+                    app = ipapp.misc.ctx_app_get()
+                    if app is None:  # pragma: no cover
+                        raise UserWarning
+                else:
+                    app = self.app
                 new_span = app.logger.span_new(
                     self.name, self.kind, cls=self.cls
                 )

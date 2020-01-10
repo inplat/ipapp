@@ -40,19 +40,18 @@ class Logger:
             *[adapter.stop() for adapter in self.adapters], loop=self.app.loop
         )
 
-    @staticmethod
     def span_new(
+        self,
         name: Optional[str] = None,
         kind: Optional[str] = None,
         cls: Type[Span] = Span,
     ) -> 'Span':
-        return cls.new(name=name, kind=kind)
+        return cls.new(name=name, kind=kind, app=self.app)
 
-    @staticmethod
     def span_from_headers(
-        headers: Mapping[str, str], cls: Type[Span] = Span
+        self, headers: Mapping[str, str], cls: Type[Span] = Span
     ) -> 'Span':
-        return cls.from_headers(headers)
+        return cls.from_headers(headers, app=self.app)
 
     def add(self, adapter: AbcAdapter) -> AbcAdapter:
         if self._started:  # pragma: no cover

@@ -83,7 +83,11 @@ class Span:
         return headers
 
     @classmethod
-    def from_headers(cls, headers: Optional[Mapping]) -> 'Span':
+    def from_headers(
+        cls,
+        headers: Optional[Mapping],
+        app: Optional['ipapp.app.BaseApplication'] = None,
+    ) -> 'Span':
         if headers is not None:
             headers = {k.lower(): v for k, v in headers.items()}
         else:
@@ -97,9 +101,10 @@ class Span:
             trace_id = headers.get(azh.TRACE_ID_HEADER.lower())
             if not trace_id:
                 trace_id = azu.generate_random_128bit_string()
-            app = misc.ctx_app_get()
-            if app is None:  # pragma: no cover
-                raise UserWarning
+            if app is None:
+                app = misc.ctx_app_get()
+                if app is None:  # pragma: no cover
+                    raise UserWarning
             span = cls(
                 logger=app.logger,
                 trace_id=trace_id,
@@ -114,11 +119,15 @@ class Span:
 
     @classmethod
     def new(
-        cls, name: Optional[str] = None, kind: Optional[str] = None
+        cls,
+        name: Optional[str] = None,
+        kind: Optional[str] = None,
+        app: Optional['ipapp.app.BaseApplication'] = None,
     ) -> 'Span':
-        app = misc.ctx_app_get()
-        if app is None:  # pragma: no cover
-            raise UserWarning
+        if app is None:
+            app = misc.ctx_app_get()
+            if app is None:  # pragma: no cover
+                raise UserWarning
         span = cls(
             logger=app.logger,
             trace_id=azu.generate_random_128bit_string(),
