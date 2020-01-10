@@ -12,7 +12,6 @@ import ipapp
 from ipapp.component import Component
 from ipapp.logger import Span, wrap2span
 
-from ..misc import ctx_span_get
 from ._base import ClientServerAnnotator, HttpSpan
 
 __version__ = '0.0.1b6'
@@ -67,7 +66,6 @@ class Client(Component, ClientServerAnnotator):
     async def stop(self) -> None:
         pass
 
-    @wrap2span(kind=HttpSpan.KIND_CLIENT, cls=ClientHttpSpan)
     async def request(
         self,
         method: str,
@@ -81,57 +79,59 @@ class Client(Component, ClientServerAnnotator):
         request_kwargs: Optional[Dict[str, Optional[str]]] = None,
         propagate_trace: bool = True,
     ) -> ClientResponse:
-        span: Optional[HttpSpan] = ctx_span_get()  # type: ignore
-        if span is None:  # pragma: no cover
-            raise UserWarning
+        span: 'ClientHttpSpan'
+        with wrap2span(  # type: ignore
+            kind=HttpSpan.KIND_CLIENT, cls=ClientHttpSpan, app=self.app
+        ) as span:
+            if not isinstance(url, URL):
+                url = URL(url)
 
-        if not isinstance(url, URL):
-            url = URL(url)
+            span.tag(HttpSpan.TAG_HTTP_URL, self._mask_url(url))
+            span.tag(HttpSpan.TAG_HTTP_HOST, url.host)
+            span.tag(HttpSpan.TAG_HTTP_METHOD, method)
+            span.tag(HttpSpan.TAG_HTTP_PATH, url.path)
+            if body is not None:
+                span.tag(HttpSpan.TAG_HTTP_REQUEST_SIZE, len(body))
+            else:
+                span.tag(HttpSpan.TAG_HTTP_REQUEST_SIZE, 0)
 
-        span.tag(HttpSpan.TAG_HTTP_URL, self._mask_url(url))
-        span.tag(HttpSpan.TAG_HTTP_HOST, url.host)
-        span.tag(HttpSpan.TAG_HTTP_METHOD, method)
-        span.tag(HttpSpan.TAG_HTTP_PATH, url.path)
-        if body is not None:
-            span.tag(HttpSpan.TAG_HTTP_REQUEST_SIZE, len(body))
-        else:
-            span.tag(HttpSpan.TAG_HTTP_REQUEST_SIZE, 0)
+            if timeout is None:
+                timeout = ClientTimeout()
 
-        if timeout is None:
-            timeout = ClientTimeout()
+            if headers is None:
+                headers = {}
+            if propagate_trace:
+                headers.update(span.to_headers())
+            if 'User-Agent' not in headers:
+                headers['User-Agent'] = USER_AGENT
 
-        if headers is None:
-            headers = {}
-        if propagate_trace:
-            headers.update(span.to_headers())
-        if 'User-Agent' not in headers:
-            headers['User-Agent'] = USER_AGENT
+            async with ClientSession(
+                loop=self.app.loop,
+                timeout=timeout,
+                **(session_kwargs or {}),  # type: ignore
+            ) as session:
+                ts1 = time.time()
+                resp = await session.request(
+                    method=method,
+                    url=url,
+                    data=body,
+                    headers=headers,
+                    ssl=ssl,
+                    **(request_kwargs or {}),
+                )
+                ts2 = time.time()
+                self._span_annotate_req_hdrs(
+                    span, resp.request_info.headers, ts1
+                )
+                self._span_annotate_req_body(span, body, ts1)
+                self._span_annotate_resp_hdrs(span, resp.headers, ts2)
+                resp_body = await resp.read()
+                self._span_annotate_resp_body(span, resp_body, ts2)
 
-        async with ClientSession(
-            loop=self.app.loop,
-            timeout=timeout,
-            **(session_kwargs or {}),  # type: ignore
-        ) as session:
-            ts1 = time.time()
-            resp = await session.request(
-                method=method,
-                url=url,
-                data=body,
-                headers=headers,
-                ssl=ssl,
-                **(request_kwargs or {}),
-            )
-            ts2 = time.time()
-            self._span_annotate_req_hdrs(span, resp.request_info.headers, ts1)
-            self._span_annotate_req_body(span, body, ts1)
-            self._span_annotate_resp_hdrs(span, resp.headers, ts2)
-            resp_body = await resp.read()
-            self._span_annotate_resp_body(span, resp_body, ts2)
+                span.tag(HttpSpan.TAG_HTTP_RESPONSE_SIZE, resp.content_length)
+                span.tag(HttpSpan.TAG_HTTP_STATUS_CODE, str(resp.status))
 
-            span.tag(HttpSpan.TAG_HTTP_RESPONSE_SIZE, resp.content_length)
-            span.tag(HttpSpan.TAG_HTTP_STATUS_CODE, str(resp.status))
-
-            return resp
+                return resp
 
     async def health(self) -> None:
         pass

@@ -7,7 +7,7 @@ from iprpc.executor import MethodExecutor
 
 from ipapp.ctx import span
 from ipapp.logger import Span, wrap2span
-from ipapp.misc import ctx_span_get, json_encode
+from ipapp.misc import json_encode
 from ipapp.mq.pika import (
     AmqpSpan,
     Deliver,
@@ -176,7 +176,6 @@ class RpcClientChannel(PikaChannel):
                     RpcError(js['code'], js['message'], js.get('detail'))
                 )
 
-    @wrap2span(kind=Span.KIND_CLIENT)
     async def call(
         self,
         method: str,
@@ -189,40 +188,37 @@ class RpcClientChannel(PikaChannel):
         correlation_id = str(uuid.uuid4())
 
         fut: asyncio.Future = asyncio.Future(loop=self.amqp.app.loop)
+        with wrap2span(kind=Span.KIND_CLIENT, app=self.amqp.app) as span:
+            span.tag(SPAN_TAG_RPC_METHOD, method)
+            span.name = 'rpc::out::%s' % method
 
-        span = ctx_span_get()
-        if span is None:  # pragma: no cover
-            raise UserWarning
-        span.tag(SPAN_TAG_RPC_METHOD, method)
-        span.name = 'rpc::out::%s' % method
-
-        self._futs[correlation_id] = (fut, span)
-        try:
-            with self.amqp.app.logger.capture_span(AmqpSpan) as trap:
-                headers: Dict[str, str] = {}
-                if self.cfg.propagate_trace:
-                    headers = span.to_headers()
-                await self.publish(
-                    '',
-                    self.cfg.queue,
-                    msg,
-                    Properties(
-                        correlation_id=correlation_id,
-                        reply_to=self._queue,
-                        headers=headers,
-                    ),
-                    propagate_trace=False,
+            self._futs[correlation_id] = (fut, span)
+            try:
+                with self.amqp.app.logger.capture_span(AmqpSpan) as trap:
+                    headers: Dict[str, str] = {}
+                    if self.cfg.propagate_trace:
+                        headers = span.to_headers()
+                    await self.publish(
+                        '',
+                        self.cfg.queue,
+                        msg,
+                        Properties(
+                            correlation_id=correlation_id,
+                            reply_to=self._queue,
+                            headers=headers,
+                        ),
+                        propagate_trace=False,
+                    )
+                    trap.span.copy_to(
+                        span, annotations=True, tags=True, error=True
+                    )
+                    # span.annotate('amqp_publish_log',
+                    #               'Published in %.2f ms'
+                    #               '' % (trap.span.duration * 1000),
+                    #               ts=trap.span.start_stamp)
+                    trap.span.skip()
+                return await asyncio.wait_for(
+                    fut, timeout=timeout or self.cfg.timeout
                 )
-                trap.span.copy_to(
-                    span, annotations=True, tags=True, error=True
-                )
-                # span.annotate('amqp_publish_log',
-                #               'Published in %.2f ms'
-                #               '' % (trap.span.duration * 1000),
-                #               ts=trap.span.start_stamp)
-                trap.span.skip()
-            return await asyncio.wait_for(
-                fut, timeout=timeout or self.cfg.timeout
-            )
-        finally:
-            del self._futs[correlation_id]
+            finally:
+                del self._futs[correlation_id]

@@ -222,11 +222,6 @@ class TaskManager(Component):
         if self._db is not None:
             await self._db.health(lock=True)
 
-    @wrap2span(
-        name=TaskManagerSpan.NAME_SCHEDULE,
-        kind=Span.KIND_CLIENT,
-        cls=TaskManagerSpan,
-    )
     async def schedule(
         self,
         func: TaskHandler,
@@ -236,48 +231,54 @@ class TaskManager(Component):
         max_retries: int = 0,
         retry_delay: float = 60.0,
     ) -> int:
-        if self._db is None:  # pragma: no cover
-            raise UserWarning
+        with wrap2span(
+            name=TaskManagerSpan.NAME_SCHEDULE,
+            kind=Span.KIND_CLIENT,
+            cls=TaskManagerSpan,
+            app=self.app,
+        ) as span:
+            if self._db is None:  # pragma: no cover
+                raise UserWarning
 
-        if not isinstance(func, str):
-            if not hasattr(func, '__rpc_name__'):  # pragma: no cover
-                raise UserWarning('Invalid task handler')
-            func_name = getattr(func, '__rpc_name__')
-        else:
-            func_name = func
+            if not isinstance(func, str):
+                if not hasattr(func, '__rpc_name__'):  # pragma: no cover
+                    raise UserWarning('Invalid task handler')
+                func_name = getattr(func, '__rpc_name__')
+            else:
+                func_name = func
 
-        span.name = '%s::%s' % (TaskManagerSpan.NAME_SCHEDULE, func_name)
+            span.name = '%s::%s' % (TaskManagerSpan.NAME_SCHEDULE, func_name)
 
-        eta_dt: Optional[datetime] = None
-        if isinstance(eta, int) or isinstance(eta, float):
-            eta_dt = datetime.fromtimestamp(eta, tz=timezone.utc)
-        elif isinstance(eta, datetime):
-            eta_dt = eta
-        elif eta is not None:  # pragma: no cover
-            raise UserWarning
+            eta_dt: Optional[datetime] = None
+            if isinstance(eta, int) or isinstance(eta, float):
+                eta_dt = datetime.fromtimestamp(eta, tz=timezone.utc)
+            elif isinstance(eta, datetime):
+                eta_dt = eta
+            elif eta is not None:  # pragma: no cover
+                raise UserWarning
 
-        if eta_dt is not None:
-            span.annotate(
-                TaskManagerSpan.ANN_ETA, 'ETA: %s' % eta_dt.isoformat()
+            if eta_dt is not None:
+                span.annotate(
+                    TaskManagerSpan.ANN_ETA, 'ETA: %s' % eta_dt.isoformat()
+                )
+
+            task_id, task_delay = await self._db.task_add(
+                eta_dt,
+                func_name,
+                params,
+                reference,
+                max_retries,
+                retry_delay,
+                lock=True,
             )
 
-        task_id, task_delay = await self._db.task_add(
-            eta_dt,
-            func_name,
-            params,
-            reference,
-            max_retries,
-            retry_delay,
-            lock=True,
-        )
+            span.annotate(TaskManagerSpan.ANN_DELAY, 'Delay: %s' % task_delay)
 
-        span.annotate(TaskManagerSpan.ANN_DELAY, 'Delay: %s' % task_delay)
+            eta_float = self.loop.time() + task_delay
+            self.stamp_early = eta_float
+            self.loop.call_at(eta_float, self._scan_later, eta_float)
 
-        eta_float = self.loop.time() + task_delay
-        self.stamp_early = eta_float
-        self.loop.call_at(eta_float, self._scan_later, eta_float)
-
-        return task_id
+            return task_id
 
     async def cancel(self, task_id: int) -> bool:
         if self._db is None or self._lock is None:  # pragma: no cover
@@ -291,38 +292,39 @@ class TaskManager(Component):
                     return True
                 return False
 
-    @wrap2span(
-        name=TaskManagerSpan.NAME_SCAN,
-        kind=Span.KIND_SERVER,
-        ignore_ctx=True,
-        cls=TaskManagerSpan,
-    )
     async def _scan(self) -> List[int]:
-        if self.app is None or self._lock is None:  # pragma: no cover
-            raise UserWarning
-        if self._stopping:
-            return []
+        with wrap2span(
+            name=TaskManagerSpan.NAME_SCAN,
+            kind=Span.KIND_SERVER,
+            ignore_ctx=True,
+            cls=TaskManagerSpan,
+            app=self.app,
+        ) as span:
+            if self.app is None or self._lock is None:  # pragma: no cover
+                raise UserWarning
+            if self._stopping:
+                return []
 
-        async with self._lock:
-            delay = 1.0  # default: 1 second
-            try:
-                tasks, delay = await self._search_and_exec()
-                if len(tasks) == 0:
-                    span.skip()
-                return [task.id for task in tasks]
-            except Exception as err:
-                span.error(err)
-                self.app.log_err(err)
-            finally:
-                self._scan_fut = None
-                if not self._stopping:
-                    span.annotate(
-                        TaskManagerSpan.ANN_NEXT_SCAN, 'next: %s' % delay
-                    )
-                    eta = self.loop.time() + delay
-                    self.stamp_early = eta
-                    self.loop.call_at(eta, self._scan_later, eta)
-            return []
+            async with self._lock:
+                delay = 1.0  # default: 1 second
+                try:
+                    tasks, delay = await self._search_and_exec()
+                    if len(tasks) == 0:
+                        span.skip()
+                    return [task.id for task in tasks]
+                except Exception as err:
+                    span.error(err)
+                    self.app.log_err(err)
+                finally:
+                    self._scan_fut = None
+                    if not self._stopping:
+                        span.annotate(
+                            TaskManagerSpan.ANN_NEXT_SCAN, 'next: %s' % delay
+                        )
+                        eta = self.loop.time() + delay
+                        self.stamp_early = eta
+                        self.loop.call_at(eta, self._scan_later, eta)
+                return []
 
     def _scan_later(self, when: float) -> None:
         if self._db is None:  # pragma: no cover
@@ -361,80 +363,83 @@ class TaskManager(Component):
 
         return tasks, 0
 
-    @wrap2span(
-        name=TaskManagerSpan.NAME_EXEC,
-        kind=Span.KIND_SERVER,
-        ignore_ctx=True,
-        cls=TaskManagerSpan,
-    )
     async def _exec(self, parent_trace_id: str, task: Task) -> None:
-        if self._db is None or self._executor is None:  # pragma: no cover
-            raise UserWarning
+        with wrap2span(
+            name=TaskManagerSpan.NAME_EXEC,
+            kind=Span.KIND_SERVER,
+            ignore_ctx=True,
+            cls=TaskManagerSpan,
+            app=self.app,
+        ) as span:
+            if self._db is None or self._executor is None:  # pragma: no cover
+                raise UserWarning
 
-        span.name = '%s::%s' % (TaskManagerSpan.NAME_EXEC, task.name)
-        span.tag(TaskManagerSpan.TAG_PARENT_TRACE_ID, parent_trace_id)
-        span.tag(TaskManagerSpan.TAG_TASK_ID, task.id)
-        span.tag(TaskManagerSpan.TAG_TASK_NAME, task.name)
-        try:
-            time_begin = time.time()
-            res = await self._executor.call_parsed(task.name, task.params, {})
-            time_finish = time.time()
+            span.name = '%s::%s' % (TaskManagerSpan.NAME_EXEC, task.name)
+            span.tag(TaskManagerSpan.TAG_PARENT_TRACE_ID, parent_trace_id)
+            span.tag(TaskManagerSpan.TAG_TASK_ID, task.id)
+            span.tag(TaskManagerSpan.TAG_TASK_NAME, task.name)
+            try:
+                time_begin = time.time()
+                res = await self._executor.call_parsed(
+                    task.name, task.params, {}
+                )
+                time_finish = time.time()
 
-            err_str: Optional[str] = None
-            err_trace: Optional[str] = None
-            if res.error is not None:
-                if res.error.parent is not None:
-                    if isinstance(res.error.parent, Retry):
-                        err_str = str(res.error.parent.err)
+                err_str: Optional[str] = None
+                err_trace: Optional[str] = None
+                if res.error is not None:
+                    if res.error.parent is not None:
+                        if isinstance(res.error.parent, Retry):
+                            err_str = str(res.error.parent.err)
+                        else:
+                            err_str = str(res.error.parent)
                     else:
-                        err_str = str(res.error.parent)
+                        err_str = str(res.error)
+                    err_trace = res.error.trace
+
+                    span.error(res.error)
+                    self.app.log_err(res.error)
+
+                await self._db.task_log_add(
+                    task.id,
+                    task.eta,
+                    time_begin,
+                    time_finish,
+                    res.result,
+                    err_str,
+                    err_trace,
+                    lock=True,
+                )
+
+                if task.retries is None:
+                    retries = 0
                 else:
-                    err_str = str(res.error)
-                err_trace = res.error.trace
+                    retries = task.retries + 1
 
-                span.error(res.error)
-                self.app.log_err(res.error)
-
-            await self._db.task_log_add(
-                task.id,
-                task.eta,
-                time_begin,
-                time_finish,
-                res.result,
-                err_str,
-                err_trace,
-                lock=True,
-            )
-
-            if task.retries is None:
-                retries = 0
-            else:
-                retries = task.retries + 1
-
-            if res.error is not None:
-                if isinstance(res.error.parent, Retry):
-                    if retries >= task.max_retries:
+                if res.error is not None:
+                    if isinstance(res.error.parent, Retry):
+                        if retries >= task.max_retries:
+                            await self._db.task_move_arch(
+                                task.id, STATUS_ERROR, retries, lock=True
+                            )
+                        else:
+                            await self._db.task_retry(
+                                task.id,
+                                retries,
+                                task.retry_delay.total_seconds(),
+                                lock=True,
+                            )
+                    else:
                         await self._db.task_move_arch(
                             task.id, STATUS_ERROR, retries, lock=True
                         )
-                    else:
-                        await self._db.task_retry(
-                            task.id,
-                            retries,
-                            task.retry_delay.total_seconds(),
-                            lock=True,
-                        )
                 else:
                     await self._db.task_move_arch(
-                        task.id, STATUS_ERROR, retries, lock=True
+                        task.id, STATUS_SUCCESSFUL, retries, lock=True
                     )
-            else:
-                await self._db.task_move_arch(
-                    task.id, STATUS_SUCCESSFUL, retries, lock=True
-                )
-        except Exception as err:
-            span.error(err)
-            raise
+            except Exception as err:
+                span.error(err)
+                raise
 
 
 class Db:
