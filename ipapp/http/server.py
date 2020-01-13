@@ -57,6 +57,11 @@ class ServerConfig(BaseModel):
     #: SO_REUSEPORT
     reuse_port: Optional[bool] = None
 
+    log_req_hdrs: bool = True
+    log_req_body: bool = True
+    log_resp_hdrs: bool = True
+    log_resp_body: bool = True
+
 
 class ServerHandler(object):
     __metaclass__ = ABCMeta
@@ -221,13 +226,15 @@ class Server(Component, ClientServerAnnotator):
                 span.tag(HttpSpan.TAG_HTTP_PATH, request.raw_path)
                 span.tag(HttpSpan.TAG_HTTP_METHOD, request.method.upper())
                 span.tag(HttpSpan.TAG_HTTP_URL, self._mask_url(request.url))
-                self._span_annotate_req_hdrs(span, request.headers, ts=ts1)
-                self._span_annotate_req_body(
-                    span,
-                    await request.read(),
-                    ts=ts1,
-                    encoding=request.charset,
-                )
+                if self.cfg.log_req_hdrs:
+                    self._span_annotate_req_hdrs(span, request.headers, ts=ts1)
+                if self.cfg.log_req_body:
+                    self._span_annotate_req_body(
+                        span,
+                        await request.read(),
+                        ts=ts1,
+                        encoding=request.charset,
+                    )
 
                 resource = request.match_info.route.resource
                 # available only in aiohttp >= 3.3.1
@@ -259,17 +266,20 @@ class Server(Component, ClientServerAnnotator):
 
                 span.tag(HttpSpan.TAG_HTTP_STATUS_CODE, str(resp.status))
 
-                self._span_annotate_resp_hdrs(span, resp.headers, ts=ts2)
-                if resp.body is not None:
-                    if isinstance(resp.body, Payload):
-                        body = (
-                            '--- payload %s ---' % resp.body.__class__.__name__
-                        ).encode()
-                    else:
-                        body = resp.body
-                    self._span_annotate_resp_body(
-                        span, body, ts=ts2, encoding=resp.charset
-                    )
+                if self.cfg.log_resp_hdrs:
+                    self._span_annotate_resp_hdrs(span, resp.headers, ts=ts2)
+                if self.cfg.log_resp_body:
+                    if resp.body is not None:
+                        if isinstance(resp.body, Payload):
+                            body = (
+                                '--- payload %s ---'
+                                '' % resp.body.__class__.__name__
+                            ).encode()
+                        else:
+                            body = resp.body
+                        self._span_annotate_resp_body(
+                            span, body, ts=ts2, encoding=resp.charset
+                        )
 
                 return resp
         finally:

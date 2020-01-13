@@ -1,7 +1,7 @@
+from contextvars import Token
 from functools import wraps
 from types import TracebackType
 from typing import Any, Callable, Optional, Type
-from contextvars import Token
 
 import ipapp  # noqa
 import ipapp.misc

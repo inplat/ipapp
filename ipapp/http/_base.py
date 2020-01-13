@@ -1,5 +1,6 @@
 import json
 import re
+import warnings
 from typing import Optional
 
 from multidict import MultiMapping
@@ -28,8 +29,6 @@ class ClientServerAnnotator:
     def _span_annotate_req_hdrs(
         self, span: 'HttpSpan', headers: MultiMapping[str], ts: float
     ) -> None:
-        if not span.ann_req_hdrs:
-            return
         try:
             hdrs = '\r\n'.join('%s: %s' % (k, v) for k, v in headers.items())
             span.annotate(HttpSpan.ANN_REQUEST_HDRS, hdrs, ts)
@@ -47,8 +46,6 @@ class ClientServerAnnotator:
         ts: float,
         encoding: Optional[str] = None,
     ) -> None:
-        if not span.ann_req_body:
-            return
         try:
             if body is None:
                 content = ''
@@ -66,8 +63,6 @@ class ClientServerAnnotator:
     def _span_annotate_resp_hdrs(
         self, span: 'HttpSpan', headers: MultiMapping[str], ts: float
     ) -> None:
-        if not span.ann_resp_hdrs:
-            return
         try:
             hdrs = '\r\n'.join('%s: %s' % (k, v) for k, v in headers.items())
             span.annotate(HttpSpan.ANN_RESPONSE_HDRS, hdrs, ts)
@@ -84,8 +79,6 @@ class ClientServerAnnotator:
         ts: float,
         encoding: Optional[str] = None,
     ) -> None:
-        if not span.ann_resp_body:
-            return
         try:
             content = self._decode_bytes(body, encoding=encoding)
             span.annotate(HttpSpan.ANN_RESPONSE_BODY, content, ts)
@@ -140,7 +133,62 @@ class HttpSpan(Span):
     ANN_RESPONSE_HDRS = 'response_hdrs'
     ANN_RESPONSE_BODY = 'response_body'
 
-    ann_req_hdrs: bool = True
-    ann_req_body: bool = True
-    ann_resp_hdrs: bool = True
-    ann_resp_body: bool = True
+    @property
+    def ann_req_hdrs(self) -> bool:
+        warnings.warn(
+            "parameter 'ann_req_hdrs' is deprecated, "
+            "use component configuration "
+            "or app.logger.add_before_handle_cb",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return True
+
+    @ann_req_hdrs.setter
+    def ann_req_hdrs(self, value: bool) -> None:
+        pass
+
+    @property
+    def ann_req_body(self) -> bool:
+        warnings.warn(
+            "parameter 'ann_req_body' is deprecated, "
+            "use component configuration "
+            "or app.logger.add_before_handle_cb",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return True
+
+    @ann_req_body.setter
+    def ann_req_body(self, value: bool) -> None:
+        pass
+
+    @property
+    def ann_resp_hdrs(self) -> bool:
+        warnings.warn(
+            "parameter 'ann_resp_hdrs' is deprecated, "
+            "use component configuration "
+            "or app.logger.add_before_handle_cb",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return True
+
+    @ann_resp_hdrs.setter
+    def ann_resp_hdrs(self, value: bool) -> None:
+        pass
+
+    @property
+    def ann_resp_body(self) -> bool:
+        warnings.warn(
+            "parameter 'ann_resp_body' is deprecated, "
+            "use component configuration "
+            "or app.logger.add_before_handle_cb",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return True
+
+    @ann_resp_body.setter
+    def ann_resp_body(self, value: bool) -> None:
+        pass

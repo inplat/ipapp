@@ -6,6 +6,7 @@ from typing import Dict, Optional
 
 from aiohttp import ClientResponse, ClientSession, ClientTimeout
 from aiohttp.typedefs import StrOrURL
+from pydantic.main import BaseModel
 from yarl import URL
 
 import ipapp
@@ -24,13 +25,15 @@ RE_SECRET_WORDS = re.compile(
 )
 
 
+class ClientConfig(BaseModel):
+    log_req_hdrs: bool = True
+    log_req_body: bool = True
+    log_resp_hdrs: bool = True
+    log_resp_body: bool = True
+
+
 class ClientHttpSpan(HttpSpan):
     P8S_NAME = 'http_out'
-
-    # ann_req_hdrs: bool = True
-    # ann_req_body: bool = True
-    # ann_resp_hdrs: bool = True
-    # ann_resp_body: bool = True
 
     def finish(
         self,
@@ -56,6 +59,12 @@ class ClientHttpSpan(HttpSpan):
 
 class Client(Component, ClientServerAnnotator):
     # TODO make pool of clients
+
+    cfg = ClientConfig()
+
+    def __init__(self, cfg: Optional[ClientConfig] = None):
+        if cfg is not None:
+            self.cfg = cfg
 
     async def prepare(self) -> None:
         pass
@@ -120,13 +129,17 @@ class Client(Component, ClientServerAnnotator):
                     **(request_kwargs or {}),
                 )
                 ts2 = time.time()
-                self._span_annotate_req_hdrs(
-                    span, resp.request_info.headers, ts1
-                )
-                self._span_annotate_req_body(span, body, ts1)
-                self._span_annotate_resp_hdrs(span, resp.headers, ts2)
-                resp_body = await resp.read()
-                self._span_annotate_resp_body(span, resp_body, ts2)
+                if self.cfg.log_req_hdrs:
+                    self._span_annotate_req_hdrs(
+                        span, resp.request_info.headers, ts1
+                    )
+                if self.cfg.log_req_body:
+                    self._span_annotate_req_body(span, body, ts1)
+                if self.cfg.log_resp_hdrs:
+                    self._span_annotate_resp_hdrs(span, resp.headers, ts2)
+                if self.cfg.log_resp_body:
+                    resp_body = await resp.read()
+                    self._span_annotate_resp_body(span, resp_body, ts2)
 
                 span.tag(HttpSpan.TAG_HTTP_RESPONSE_SIZE, resp.content_length)
                 span.tag(HttpSpan.TAG_HTTP_STATUS_CODE, str(resp.status))
