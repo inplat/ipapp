@@ -14,6 +14,12 @@ from ...misc import mask_url_pwd
 from ..span import Span
 from ._abc import AbcAdapter, AbcConfig, AdapterConfigurationError
 
+
+try:
+    import ipapp.mq.pika as amqp
+except ImportError:
+    amqp = None  # type: ignore
+
 CREATE_TABLE_QUERY = """\
 CREATE TABLE IF NOT EXISTS {table_name}
 (
@@ -128,6 +134,35 @@ class RequestsAdapter(AbcAdapter):
                 self.cfg.max_body_length,
             ),
         ]
+        if amqp is not None:
+            self._anns_mapping.append(
+                (
+                    'req_hdrs',
+                    amqp.AmqpSpan.ANN_IN_PROPS,
+                    self.cfg.max_hdrs_length,
+                )
+            )
+            self._anns_mapping.append(
+                (
+                    'req_body',
+                    amqp.AmqpSpan.ANN_IN_BODY,
+                    self.cfg.max_body_length,
+                )
+            )
+            self._anns_mapping.append(
+                (
+                    'resp_hdrs',
+                    amqp.AmqpSpan.ANN_OUT_PROPS,
+                    self.cfg.max_hdrs_length,
+                )
+            )
+            self._anns_mapping.append(
+                (
+                    'resp_body',
+                    amqp.AmqpSpan.ANN_OUT_BODY,
+                    self.cfg.max_body_length,
+                )
+            )
 
         self._queue = deque(maxlen=self.cfg.max_queue_size)
 
@@ -190,7 +225,7 @@ class RequestsAdapter(AbcAdapter):
                 if len(val) > max_len:
                     val = val[:max_len]
                 kwargs[key] = val
-            else:
+            elif key not in kwargs:
                 kwargs[key] = None
 
         # удаляем лишние теги
