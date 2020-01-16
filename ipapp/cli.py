@@ -118,6 +118,7 @@ def main(
     cfg_cls: Type[BaseConfig],
     *,
     default_env_prefix: str = 'APP_',
+    build_stamp: Optional[float] = None
 ) -> int:
     try:
         prog, args = argv[0], argv[1:]
@@ -131,6 +132,9 @@ def main(
             _show_config(options, cfg)
             return 0
         app = app_cls(cfg)
+        app._version = version
+        if build_stamp is not None:
+            app._build_stamp = build_stamp
         return app.run()
     except KeyboardInterrupt:  # pragma: no cover
         return 0
