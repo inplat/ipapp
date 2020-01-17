@@ -118,7 +118,7 @@ def main(
     cfg_cls: Type[BaseConfig],
     *,
     default_env_prefix: str = 'APP_',
-    build_stamp: Optional[float] = None
+    build_stamp: Optional[float] = None,
 ) -> int:
     try:
         prog, args = argv[0], argv[1:]

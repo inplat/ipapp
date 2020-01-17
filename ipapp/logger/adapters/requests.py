@@ -14,7 +14,6 @@ from ...misc import mask_url_pwd
 from ..span import Span
 from ._abc import AbcAdapter, AbcConfig, AdapterConfigurationError
 
-
 try:
     import ipapp.mq.pika as amqp
 except ImportError:

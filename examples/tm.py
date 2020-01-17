@@ -15,6 +15,8 @@ from ipapp.logger.adapters.requests import RequestsAdapter, RequestsConfig
 from ipapp.logger.adapters.zipkin import ZipkinAdapter, ZipkinConfig
 from ipapp.task.db import TaskManager, TaskManagerConfig
 
+app: 'App'  # type: ignore
+
 
 class Config(BaseConfig):
     http: ServerConfig
@@ -29,16 +31,14 @@ class HttpHandler(ServerHandler):
         self.server.add_route('GET', '/', self.home)
 
     async def home(self, request: web.Request) -> web.Response:
-        app: 'App'
-        await app.tm.schedule(Api.test, {}, eta=time.time())
+        await app.tm.schedule(Api.test, {}, eta=time.time())  # type: ignore
         return web.Response(text='OK')
 
 
 class Api:
     @method()
     async def test(self) -> str:
-        app: 'App'
-        async with app.db.connection() as conn:
+        async with app.db.connection() as conn:  # type: ignore
             async with conn.xact():
                 await conn.query_one('SELECT 1')
                 await conn.query_one('SELECT 2')
