@@ -56,7 +56,7 @@ class RpcHandler(ServerHandler):
                 resp = {"code": 0, "message": 'OK', 'result': result.result}
 
             span.tag(SPAN_TAG_RPC_CODE, resp['code'])
-            span.name = 'rpc::in::%s' % result.method
+            span.name = 'rpc::in (%s)' % result.method
             span.set_name4adapter(self.app.logger.ADAPTER_PROMETHEUS, 'rpc_in')
 
             body = json.dumps(resp).encode()

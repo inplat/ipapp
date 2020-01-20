@@ -43,7 +43,7 @@ class PgSpan(Span):
     NAME_EXECUTE = 'db::execute'
     NAME_EXECUTEMANY = 'db::executemany'
     NAME_PREPARE = 'db::prepare'
-    NAME_EXECUTE_PREPARED = 'db::execute (prepared)'
+    NAME_EXECUTE_PREPARED = 'db::execute_prepared'
 
     P8S_NAME_ACQUIRE = 'db_connection'
     P8S_NAME_XACT_COMMITED = 'db_xact_commited'
@@ -64,7 +64,17 @@ class PgSpan(Span):
     ANN_XACT_END = 'pg_xact_end'
     ANN_STMT_NAME = 'pg_stmt_name'
     ANN_QUERY = 'query'
+    ANN_PARAMS = 'query_params'
     ANN_RESULT = 'result'
+
+    def finish(
+        self,
+        ts: Optional[float] = None,
+        exception: Optional[BaseException] = None,
+    ) -> 'Span':
+        if self.TAG_QUERY_NAME in self._tags:
+            self.name += ' (' + str(self._tags.get(self.TAG_QUERY_NAME)) + ')'
+        return super().finish(ts, exception)
 
 
 class Postgres(Component):
@@ -490,6 +500,14 @@ class PreparedStatement:
             if self._query_name is not None:
                 span.tag(PgSpan.TAG_QUERY_NAME, self._query_name)
             with await self._conn._lock:
+                if self._conn._db.cfg.log_query:
+                    span.annotate(PgSpan.ANN_PARAMS, repr(args))
+                    span.annotate4adapter(
+                        self._conn._db.app.logger.ADAPTER_ZIPKIN,
+                        PgSpan.ANN_PARAMS,
+                        json.dumps({'query_params': str(args)}),
+                    )
+
                 res = await self._pg_stmt.fetchrow(*args, timeout=timeout)
 
                 if self._conn._db.cfg.log_result:
@@ -531,6 +549,14 @@ class PreparedStatement:
             if self._query_name is not None:
                 span.tag(PgSpan.TAG_QUERY_NAME, self._query_name)
             with await self._conn._lock:
+                if self._conn._db.cfg.log_query:
+                    span.annotate(PgSpan.ANN_PARAMS, repr(args))
+                    span.annotate4adapter(
+                        self._conn._db.app.logger.ADAPTER_ZIPKIN,
+                        PgSpan.ANN_PARAMS,
+                        json.dumps({'query_params': str(args)}),
+                    )
+
                 res = await self._pg_stmt.fetch(*args, timeout=timeout)
 
                 if self._conn._db.cfg.log_result:
@@ -604,6 +630,12 @@ class Connection:
                         PgSpan.ANN_QUERY,
                         json.dumps({'query': str(query)}),
                     )
+                    span.annotate(PgSpan.ANN_PARAMS, repr(args))
+                    span.annotate4adapter(
+                        self._db.app.logger.ADAPTER_ZIPKIN,
+                        PgSpan.ANN_PARAMS,
+                        json.dumps({'query_params': str(args)}),
+                    )
                 res = await self._conn.execute(query, *args, timeout=timeout)
                 if self._db.cfg.log_result:
                     span.annotate(PgSpan.ANN_RESULT, str(res))
@@ -647,6 +679,12 @@ class Connection:
                         self._db.app.logger.ADAPTER_ZIPKIN,
                         PgSpan.ANN_QUERY,
                         json.dumps({'query': str(query)}),
+                    )
+                    span.annotate(PgSpan.ANN_PARAMS, repr(args))
+                    span.annotate4adapter(
+                        self._db.app.logger.ADAPTER_ZIPKIN,
+                        PgSpan.ANN_PARAMS,
+                        json.dumps({'query_params': str(args)}),
                     )
                 res = await self._conn.executemany(
                     query, args, timeout=timeout
@@ -692,6 +730,12 @@ class Connection:
                         self._db.app.logger.ADAPTER_ZIPKIN,
                         PgSpan.ANN_QUERY,
                         json.dumps({'query': str(query)}),
+                    )
+                    span.annotate(PgSpan.ANN_PARAMS, repr(args))
+                    span.annotate4adapter(
+                        self._db.app.logger.ADAPTER_ZIPKIN,
+                        PgSpan.ANN_PARAMS,
+                        json.dumps({'query_params': str(args)}),
                     )
                 res = await self._conn.fetchrow(query, *args, timeout=timeout)
                 if self._db.cfg.log_result:
@@ -742,6 +786,12 @@ class Connection:
                         self._db.app.logger.ADAPTER_ZIPKIN,
                         PgSpan.ANN_QUERY,
                         json.dumps({'query': str(query)}),
+                    )
+                    span.annotate(PgSpan.ANN_PARAMS, repr(args))
+                    span.annotate4adapter(
+                        self._db.app.logger.ADAPTER_ZIPKIN,
+                        PgSpan.ANN_PARAMS,
+                        json.dumps({'query_params': str(args)}),
                     )
                 res = await self._conn.fetch(query, *args, timeout=timeout)
                 if self._db.cfg.log_result:

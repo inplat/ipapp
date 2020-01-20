@@ -47,7 +47,7 @@ class RpcClient(Client):
                 req_err = err
 
             if trap.is_captured:
-                trap.span.name = 'rpc::out::%s' % method
+                trap.span.name = 'rpc::out (%s)' % method
                 trap.span.set_name4adapter(
                     app.logger.ADAPTER_PROMETHEUS, 'rpc_out'
                 )

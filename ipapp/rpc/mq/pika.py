@@ -86,7 +86,7 @@ class RpcServerChannel(PikaChannel):
                 trap.span.skip()
             result = await self._rpc.call(body, encoding=self.cfg.encoding)
             span.tag(SPAN_TAG_RPC_METHOD, result.method)
-            span.name = 'rpc::in::%s' % result.method
+            span.name = 'rpc::in (%s)' % result.method
             if result.error is not None:
                 span.error(result.error)
                 if result.error.trace:
@@ -190,7 +190,7 @@ class RpcClientChannel(PikaChannel):
         fut: asyncio.Future = asyncio.Future(loop=self.amqp.app.loop)
         with wrap2span(kind=Span.KIND_CLIENT, app=self.amqp.app) as span:
             span.tag(SPAN_TAG_RPC_METHOD, method)
-            span.name = 'rpc::out::%s' % method
+            span.name = 'rpc::out (%s)' % method
 
             self._futs[correlation_id] = (fut, span)
             try:
