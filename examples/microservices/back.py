@@ -32,7 +32,7 @@ class App(BaseApplication):
     RMQ = "rmq"
 
     def __init__(self):
-        super().__init__()
+        super().__init__(None)
         self.add(
             self.SRV,
             Server(
@@ -44,7 +44,11 @@ class App(BaseApplication):
             self.RMQ,
             Pika(
                 PikaConfig(url='amqp://guest:guest@localhost:9004/'),
-                [(RpcClientChannel, RpcClientChannelConfig(queue='rpc'))],
+                [
+                    lambda: RpcClientChannel(
+                        RpcClientChannelConfig(queue='rpc')
+                    )
+                ],
             ),
         )
 
@@ -70,7 +74,8 @@ class App(BaseApplication):
         self.logger.add(
             RequestsAdapter(
                 RequestsConfig(
-                    dsn="postgres://ipapp:secretpwd@localhost:9001/ipapp"
+                    dsn="postgres://ipapp:secretpwd@localhost:9001/ipapp",
+                    name='back',
                 )
             )
         )

@@ -2,15 +2,14 @@ import json
 from typing import Any, Dict, Optional
 
 from aiohttp import ClientTimeout
-from pydantic.main import BaseModel
 
 from ipapp.ctx import app
-from ipapp.http.client import Client, ClientHttpSpan
+from ipapp.http.client import Client, ClientConfig, ClientHttpSpan
 
 from ..const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
 
 
-class RpcClientConfig(BaseModel):
+class RpcClientConfig(ClientConfig):
     url: str = 'http://0:8080/'
     timeout: float = 60.0
 
@@ -26,8 +25,11 @@ class RpcError(Exception):
 
 
 class RpcClient(Client):
+    cfg: RpcClientConfig
+
     def __init__(self, cfg: RpcClientConfig) -> None:
-        self._cfg = cfg
+        super().__init__(cfg)
+        self.cfg = cfg
 
     async def call(
         self, method: str, params: Dict[str, Any], timeout: float = 60.0
@@ -37,11 +39,11 @@ class RpcClient(Client):
         with app.logger.capture_span(ClientHttpSpan) as trap:
             req_err: Optional[Exception] = None
             try:
-                tout = timeout or self._cfg.timeout
+                tout = timeout or self.cfg.timeout
                 if tout:
                     otout = ClientTimeout(tout)
                 resp = await self.request(
-                    'POST', self._cfg.url, body=body, timeout=otout
+                    'POST', self.cfg.url, body=body, timeout=otout
                 )
             except Exception as err:
                 req_err = err

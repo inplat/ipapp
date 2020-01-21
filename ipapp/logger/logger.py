@@ -27,6 +27,18 @@ class Logger:
         self.default_debug = False
         self._started = False
         self._before_handle_callbacks: List[Callable[[Span], None]] = []
+        self._started_spans = 0
+        self._waiting_all_spans_finished = False
+        self._fut_all_spans_finished: asyncio.Future = asyncio.Future()
+
+    def _span_started(self, span: Span) -> None:
+        self._started_spans += 1
+
+    def _span_finished(self, span: Span) -> None:
+        self._started_spans -= 1
+        if self._waiting_all_spans_finished and self._started_spans == 0:
+            self._fut_all_spans_finished.set_result(None)
+            self._waiting_all_spans_finished = False
 
     async def start(self) -> None:
         self._started = True
@@ -35,6 +47,11 @@ class Logger:
     async def stop(self) -> None:
         if not self._started:  # pragma: no cover
             raise UserWarning
+
+        # wait until all started spans are finished
+        if self._started_spans > 0:
+            self._waiting_all_spans_finished = True
+            await asyncio.wait(self._fut_all_spans_finished)
 
         await asyncio.gather(
             *[adapter.stop() for adapter in self.adapters], loop=self.app.loop

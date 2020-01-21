@@ -34,7 +34,7 @@ class App(BaseApplication):
     DB = "db"
 
     def __init__(self):
-        super().__init__()
+        super().__init__(None)
         self.add(
             self.SRV,
             Pika(
@@ -85,7 +85,8 @@ class App(BaseApplication):
         self.logger.add(
             RequestsAdapter(
                 RequestsConfig(
-                    dsn="postgres://ipapp:secretpwd@localhost:9001/ipapp"
+                    dsn="postgres://ipapp:secretpwd@localhost:9001/ipapp",
+                    name='amqp',
                 )
             )
         )

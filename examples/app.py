@@ -297,6 +297,8 @@ if __name__ == "__main__":
     APP_DB_LOG_QUERY=1 \
     APP_DB_LOG_RESULT=1 \
     APP_HTTP2_PORT=8081 \
+    APP_LOG_REQUESTS_ENABLED=1 \
+    APP_LOG_REQUESTS_DSN=postgres://ipapp:secretpwd@localhost:9001/ipapp \
     APP_LOG_ZIPKIN_ENABLED=1 \
     APP_LOG_ZIPKIN_ADDR=http://127.0.0.1:9002/api/v2/spans \
     python -m examples.app

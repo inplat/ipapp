@@ -34,6 +34,7 @@ class HttpHandler(ServerHandler):
         self.server.add_route("GET", "/", self.home)
 
     async def home(self, request: web.Request) -> web.Response:
+
         arg: str = request.query.get("arg", "")
         span.tag("data.arg", arg)
 
@@ -47,7 +48,7 @@ class App(BaseApplication):
     BACK = "back"
 
     def __init__(self):
-        super().__init__()
+        super().__init__(None)
         self.add(self.SRV, Server(ServerConfig(port=8888), HttpHandler()))
         self.add(
             self.BACK,
@@ -83,7 +84,8 @@ class App(BaseApplication):
         self.logger.add(
             RequestsAdapter(
                 RequestsConfig(
-                    dsn="postgres://ipapp:secretpwd@localhost:9001/ipapp"
+                    dsn="postgres://ipapp:secretpwd@localhost:9001/ipapp",
+                    name='front',
                 )
             )
         )

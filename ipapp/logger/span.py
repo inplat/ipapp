@@ -290,6 +290,8 @@ class Span:
 
     def start(self, ts: Optional[float] = None) -> 'Span':
         self._start_stamp = ts or time.time()
+        if self.logger is not None:
+            self.logger._span_started(self)  # noqa
         return self
 
     def finish(
@@ -308,6 +310,8 @@ class Span:
                 self.logger.handle_span(self)
             self._is_handled = True
 
+        if self.logger is not None:
+            self.logger._span_finished(self)  # noqa
         return self
 
     def move(self, parent: 'Span') -> None:

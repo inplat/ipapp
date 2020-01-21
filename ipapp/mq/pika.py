@@ -71,6 +71,15 @@ class AmqpSpan(Span):
     TAG_CHANNEL_NUMBER = 'amqp.channel_number'
     TAG_EXCHANGE = 'amqp.exchange'
     TAG_ROUTING_KEY = 'amqp.routing_key'
+    TAG_URL = 'amqp.url'
+
+
+class AmqpInSpan(AmqpSpan):
+    pass
+
+
+class AmqpOutSpan(AmqpSpan):
+    pass
 
 
 class PikaConfig(BaseModel):
@@ -132,7 +141,8 @@ class _Connection:
             kind=AmqpSpan.KIND_CLIENT,
             cls=AmqpSpan,
             app=self.pika.app,
-        ):
+        ) as span:
+            span.tag(AmqpSpan.TAG_URL, self.pika._masked_url)
             async with self._lock:
                 self._state = self.STATE_CONNECTING
                 self._on_close = on_close
@@ -486,12 +496,14 @@ class PikaChannel(ABC):
         with wrap2span(
             name=AmqpSpan.NAME_PUBLISH,
             kind=AmqpSpan.KIND_CLIENT,
-            cls=AmqpSpan,
+            cls=AmqpOutSpan,
             app=self.amqp.app,
         ) as span:
             span.tag(AmqpSpan.TAG_CHANNEL_NUMBER, str(self._ch.channel_number))
             span.tag(AmqpSpan.TAG_EXCHANGE, str(exchange))
             span.tag(AmqpSpan.TAG_ROUTING_KEY, str(routing_key))
+            span.tag(AmqpSpan.TAG_URL, self._conn.pika._masked_url)
+
             with timeout(self.amqp.cfg.publish_timeout):
                 if not self._ch.is_closed or self.name is None:
 
@@ -509,10 +521,12 @@ class PikaChannel(ABC):
                             )
 
                     if self.amqp.cfg.log_out_props:
-                        span.annotate(AmqpSpan.ANN_IN_PROPS, repr(properties))
+                        span.annotate(
+                            AmqpSpan.ANN_OUT_PROPS, props2ann(properties)
+                        )
                         span.annotate4adapter(
                             self.amqp.app.logger.ADAPTER_ZIPKIN,
-                            AmqpSpan.ANN_IN_PROPS,
+                            AmqpSpan.ANN_OUT_PROPS,
                             json_encode(
                                 {
                                     "properties": repr(
@@ -636,10 +650,11 @@ class PikaChannel(ABC):
     ) -> None:
         headers = dict(properties.headers or {})
         with self.amqp.app.logger.span_from_headers(
-            headers, cls=AmqpSpan
+            headers, cls=AmqpInSpan
         ) as span:
             span.name = AmqpSpan.NAME_MESSAGE
             span.kind = AmqpSpan.KIND_SERVER
+            span.tag(AmqpSpan.TAG_URL, self._conn.pika._masked_url)
             span.tag(
                 AmqpSpan.TAG_CHANNEL_NUMBER,
                 str(_unused_channel.channel_number),
@@ -648,7 +663,7 @@ class PikaChannel(ABC):
             span.tag(AmqpSpan.TAG_ROUTING_KEY, basic_deliver.routing_key)
 
             if self.amqp.cfg.log_in_props:
-                span.annotate(AmqpSpan.ANN_IN_PROPS, repr(properties))
+                span.annotate(AmqpSpan.ANN_IN_PROPS, props2ann(properties))
                 span.annotate4adapter(
                     self.amqp.app.logger.ADAPTER_ZIPKIN,
                     AmqpSpan.ANN_IN_PROPS,
@@ -676,8 +691,8 @@ class PikaChannel(ABC):
             token = ctx_span_set(span)
             try:
                 await cb(body, basic_deliver, properties)
-            except BaseException as err:
-                self.amqp.app.log_err(err)
+            except BaseException:
+                raise
             finally:
                 ctx_span_reset(token)
 
@@ -855,3 +870,28 @@ class Pika(Component):
             if ch.name == name:
                 return ch
         return None
+
+
+def props2ann(properties: pika.spec.BasicProperties) -> str:
+    anns: List[str] = []
+    for prop in (
+        'content_type',
+        'content_encoding',
+        'headers',
+        'delivery_mode',
+        'priority',
+        'correlation_id',
+        'reply_to',
+        'expiration',
+        'message_id',
+        'timestamp',
+        'type',
+        'user_id',
+        'app_id',
+        'cluster_id',
+    ):
+        attr: Any = getattr(properties, prop)
+        if attr is not None:
+            anns.append('%s: %s' % (prop, json_encode(attr)))
+
+    return '\n'.join(anns)

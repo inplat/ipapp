@@ -9,6 +9,7 @@ from ipapp.ctx import span
 from ipapp.logger import Span, wrap2span
 from ipapp.misc import json_encode
 from ipapp.mq.pika import (
+    AmqpOutSpan,
     AmqpSpan,
     Deliver,
     PikaChannel,
@@ -85,7 +86,8 @@ class RpcServerChannel(PikaChannel):
                 await self.ack(delivery_tag=deliver.delivery_tag)
                 trap.span.skip()
             result = await self._rpc.call(body, encoding=self.cfg.encoding)
-            span.tag(SPAN_TAG_RPC_METHOD, result.method)
+            if result.method is not None:
+                span.tag(SPAN_TAG_RPC_METHOD, result.method)
             span.name = 'rpc::in (%s)' % result.method
             if result.error is not None:
                 span.error(result.error)
@@ -167,8 +169,28 @@ class RpcClientChannel(PikaChannel):
 
         if proprties.correlation_id in self._futs:
             fut, parent_span = self._futs[proprties.correlation_id]
-            span.copy_to(parent_span, annotations=True, tags=True, error=True)
+
+            anns = span.annotations.get(AmqpSpan.ANN_IN_PROPS)
+            if anns is not None and len(anns) > 0:
+                ann_body, ann_stamp = anns[0]
+                parent_span.annotate(
+                    AmqpSpan.ANN_OUT_PROPS, ann_body, ann_stamp
+                )
+
+            anns = span.annotations.get(AmqpSpan.ANN_IN_BODY)
+            if anns is not None and len(anns) > 0:
+                ann_body, ann_stamp = anns[0]
+                parent_span.annotate(
+                    AmqpSpan.ANN_OUT_BODY, ann_body, ann_stamp
+                )
+
+            span.copy_to(
+                parent_span, annotations=False, tags=False, error=True
+            )
             span.skip()
+
+            parent_span.tag(SPAN_TAG_RPC_CODE, js['code'])
+
             if js['code'] == 0:
                 fut.set_result(js['result'])
             else:
@@ -188,7 +210,9 @@ class RpcClientChannel(PikaChannel):
         correlation_id = str(uuid.uuid4())
 
         fut: asyncio.Future = asyncio.Future(loop=self.amqp.app.loop)
-        with wrap2span(kind=Span.KIND_CLIENT, app=self.amqp.app) as span:
+        with wrap2span(
+            kind=Span.KIND_CLIENT, app=self.amqp.app, cls=AmqpOutSpan
+        ) as span:
             span.tag(SPAN_TAG_RPC_METHOD, method)
             span.name = 'rpc::out (%s)' % method
 
@@ -209,16 +233,29 @@ class RpcClientChannel(PikaChannel):
                         ),
                         propagate_trace=False,
                     )
+
+                    anns = trap.span.annotations.get(AmqpSpan.ANN_OUT_PROPS)
+                    if anns is not None and len(anns) > 0:
+                        ann_body, ann_stamp = anns[0]
+                        span.annotate(
+                            AmqpSpan.ANN_IN_PROPS, ann_body, ann_stamp
+                        )
+
+                    anns = trap.span.annotations.get(AmqpSpan.ANN_OUT_BODY)
+                    if anns is not None and len(anns) > 0:
+                        ann_body, ann_stamp = anns[0]
+                        span.annotate(
+                            AmqpSpan.ANN_IN_BODY, ann_body, ann_stamp
+                        )
+
                     trap.span.copy_to(
-                        span, annotations=True, tags=True, error=True
+                        span, annotations=False, tags=True, error=True
                     )
-                    # span.annotate('amqp_publish_log',
-                    #               'Published in %.2f ms'
-                    #               '' % (trap.span.duration * 1000),
-                    #               ts=trap.span.start_stamp)
                     trap.span.skip()
+
                 return await asyncio.wait_for(
                     fut, timeout=timeout or self.cfg.timeout
                 )
+
             finally:
                 del self._futs[correlation_id]

@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS {table_name}
     id bigserial PRIMARY KEY,
     stamp_begin timestamptz NOT NULL,
     stamp_end timestamptz NOT NULL,
+    service text,
+    type text,
     is_out boolean NOT NULL,
     trace_id character varying(32) NOT NULL,
     url text,
@@ -39,14 +41,77 @@ CREATE TABLE IF NOT EXISTS {table_name}
 );
 """
 
+CHECK_SQL = """\
+WITH req(r_name,r_type,r_notnull) AS (
+    values
+    ('id', array['bigint'::regtype, 'int'::regtype], true),
+    ('stamp_begin',array['timestamp with time zone'::regtype], true),
+    ('stamp_end',array['timestamp with time zone'::regtype], true),
+    ('is_out',array['boolean'::regtype], true),
+    ('trace_id',array['text'::regtype, 'character varying'::regtype], true),
+    ('url',array['text'::regtype, 'character varying'::regtype], false),
+    ('method',array['text'::regtype, 'character varying'::regtype], false),
+    ('req_hdrs',array['text'::regtype, 'character varying'::regtype], false),
+    ('req_body',array['text'::regtype, 'character varying'::regtype], false),
+    ('resp_hdrs',array['text'::regtype, 'character varying'::regtype], false),
+    ('resp_body',array['text'::regtype, 'character varying'::regtype], false),
+    ('status_code',array['bigint'::regtype, 'smallint'::regtype,
+                         'integer'::regtype], false),
+    ('error',array['text'::regtype, 'character varying'::regtype], false),
+    ('tags',array['jsonb'::regtype, 'json'::regtype], false),
+    ('service',array['text'::regtype, 'character varying'::regtype], false),
+    ('type',array['text'::regtype, 'character varying'::regtype], false)
+),
+ex AS (
+    SELECT
+        attname            AS r_name,
+        atttypid::regtype  AS r_type,
+        attnotnull as r_notnull,
+        atthasdef as r_hasdef
+    FROM   pg_attribute
+    WHERE  attrelid = '{table_name}'::regclass
+    AND    attnum > 0
+    AND    NOT attisdropped
+    ORDER  BY attnum
+),
+checks AS (
+    SELECT
+        *,
+        CASE WHEN ex.r_name IS NULL THEN
+            format('column "%s" does not exist', req.r_name)
+        WHEN NOT ex.r_type = ANY(req.r_type) THEN
+            format('column "%s" has invalid type "%s" (not any of %s)',
+                   req.r_name, ex.r_type, req.r_type)
+        END as res
+    FROM
+        req
+    LEFT JOIN
+        ex USING (r_name)
+)
+SELECT res FROM checks WHERE res IS NOT NULL
+UNION
+SELECT format('table has column "%s" which has NOT NULL'
+              || ' constraint and without default value',
+              r_name)
+FROM ex
+WHERE
+    r_notnull
+    AND
+    NOT r_hasdef
+    AND
+    r_name NOT IN (SELECT r_name FROM req)
+"""
+
 
 class Request(BaseModel):
-    trace_id: str
-    stamp_begin: float
-    stamp_end: float
-    is_out: bool
-    url: Optional[str]
-    method: Optional[str]
+    service: Optional[str] = None
+    type: Optional[str] = None
+    trace_id: str = ''
+    stamp_begin: float = 0
+    stamp_end: float = 0
+    is_out: bool = False
+    url: Optional[str] = None
+    method: Optional[str] = None
     req_hdrs: Optional[str] = None
     req_body: Optional[str] = None
     resp_hdrs: Optional[str] = None
@@ -58,6 +123,7 @@ class Request(BaseModel):
 
 class RequestsConfig(AbcConfig):
     dsn: Optional[str] = None
+    name: Optional[str] = None
     db_table_name: str = 'log.request'
     send_interval: float = 5.0  # 5 seconds
     send_max_count: int = 10  # 10 requests
@@ -73,6 +139,8 @@ class RequestsAdapter(AbcAdapter):
     cfg: RequestsConfig
 
     _QUERY_COLS = (
+        'service',
+        'type',
         'trace_id',
         'stamp_begin',
         'stamp_end',
@@ -96,7 +164,6 @@ class RequestsAdapter(AbcAdapter):
         self._send_lock: asyncio.Lock = asyncio.Lock()
         self._send_fut: asyncio.Future[Any] = asyncio.Future()
         self._sleep_fut: Optional[asyncio.Future[Any]] = None
-        self._tags_mapping: List[Tuple[str, str]] = []
         self._anns_mapping: List[Tuple[str, str, int]] = []
         self._stopping: bool = False
         self._query_template = (
@@ -105,12 +172,7 @@ class RequestsAdapter(AbcAdapter):
 
     async def start(self, logger: 'ipapp.logger.Logger') -> None:
         self.logger = logger
-        self._tags_mapping = [
-            ('url', ht.HttpSpan.TAG_HTTP_URL),
-            ('method', ht.HttpSpan.TAG_HTTP_METHOD),
-            ('status_code', ht.HttpSpan.TAG_HTTP_STATUS_CODE),
-            ('error', ht.HttpSpan.TAG_ERROR_MESSAGE),
-        ]
+
         self._anns_mapping = [
             (
                 'req_hdrs',
@@ -184,6 +246,7 @@ class RequestsAdapter(AbcAdapter):
             try:
                 self.logger.app.log_info("Connecting to %s", self._masked_url)
                 self._db = await asyncpg.connect(self.cfg.dsn)
+                await self._check_conn()
                 self.logger.app.log_info("Connected to %s", self._masked_url)
                 return self._db
             except Exception as err:
@@ -193,30 +256,104 @@ class RequestsAdapter(AbcAdapter):
                 )
         raise PrepareError("Could not connect to %s" % self._masked_url)
 
-    def handle(self, span: Span) -> None:
+    async def _check_conn(self) -> None:
+        if self._db is None:  # pragma: no cover
+            raise UserWarning
+        query = CHECK_SQL.format(table_name=self.cfg.db_table_name)
+        res = await self._db.fetch(query)
+        if len(res) > 0:
+            msg = 'Invalid table "%s" for requests log  [%s]: %s' '' % (
+                self.cfg.db_table_name,
+                self._masked_url,
+                ', '.join([row['res'] for row in res]),
+            )
+            raise PrepareError(msg)
+
+    def handle(self, span: Span) -> None:  # noqa
         if self.logger is None:  # pragma: no cover
             raise UserWarning
         if self._stopping:  # pragma: no cover
             self.logger.app.log_warn('WTF??? RAHSWS')
         if self._queue is None:  # pragma: no cover
             raise UserWarning
-        if not isinstance(span, ht.HttpSpan):
-            return
 
         kwargs: Dict[str, Any] = dict(
             trace_id=span.trace_id,
             stamp_begin=round(span.start_stamp or 0, 6),
             stamp_end=round(span.finish_stamp or 0, 6),
-            is_out=span.kind != span.KIND_SERVER,
+            service=self.cfg.name,
         )
-        tags = span.get_tags4adapter(self.name).copy()
-        anns = span.get_annotations4adapter(self.name).copy()
 
-        for key, tag_name in self._tags_mapping:
-            if tag_name in tags:
-                kwargs[key] = tags.pop(tag_name)
+        tags = span.get_tags4adapter(self.name).copy()
+
+        if isinstance(span, ht.HttpSpan):
+            kwargs['type'] = 'http'
+            kwargs['is_out'] = span.kind != ht.HttpSpan.KIND_SERVER
+            if kwargs['is_out']:
+                kwargs['type'] += '_out'
             else:
-                kwargs[key] = None
+                kwargs['type'] += '_in'
+
+            if ht.HttpSpan.TAG_HTTP_URL in tags:
+                kwargs['url'] = tags.pop(ht.HttpSpan.TAG_HTTP_URL)
+
+            if 'rpc.method' in tags:
+                kwargs['method'] = tags.pop('rpc.method')
+                kwargs['type'] = 'rpc_' + kwargs['type']
+            elif ht.HttpSpan.TAG_HTTP_METHOD in tags:
+                kwargs['method'] = tags.pop(ht.HttpSpan.TAG_HTTP_METHOD)
+
+            if 'rpc.code' in tags:
+                kwargs['status_code'] = tags.pop('rpc.code')
+            elif ht.HttpSpan.TAG_HTTP_STATUS_CODE in tags:
+                kwargs['status_code'] = tags.pop(
+                    ht.HttpSpan.TAG_HTTP_STATUS_CODE
+                )
+
+        elif amqp is not None and isinstance(
+            span, (amqp.AmqpInSpan, amqp.AmqpOutSpan)
+        ):
+            kwargs['type'] = 'amqp'
+            kwargs['is_out'] = span.kind != amqp.AmqpSpan.KIND_SERVER
+            if kwargs['is_out']:
+                kwargs['type'] += '_out'
+            else:
+                kwargs['type'] += '_in'
+
+            if 'rpc.code' in tags:
+                kwargs['status_code'] = tags.pop('rpc.code')
+
+            if 'rpc.method' in tags:
+                kwargs['method'] = tags.pop('rpc.method')
+                kwargs['type'] = 'rpc_' + kwargs['type']
+            else:
+                exchange: Optional[str] = None
+                routing_key: Optional[str] = None
+                if amqp.AmqpSpan.TAG_EXCHANGE in tags:
+                    exchange = tags.pop(amqp.AmqpSpan.TAG_EXCHANGE)
+                if amqp.AmqpSpan.TAG_ROUTING_KEY in tags:
+                    routing_key = tags.pop(amqp.AmqpSpan.TAG_ROUTING_KEY)
+                if exchange:
+                    kwargs['method'] = 'ex:%s rk:%s' % (
+                        exchange or '',
+                        routing_key or '',
+                    )
+                else:
+                    kwargs['method'] = 'rk:%s' % (routing_key or '')
+                if isinstance(span, amqp.AmqpInSpan):
+                    kwargs['method'] = 'receive: %s' % kwargs['method']
+                else:
+                    kwargs['method'] = 'publish: %s' % kwargs['method']
+
+            if amqp.AmqpSpan.TAG_URL in tags:
+                kwargs['url'] = tags.pop(amqp.AmqpSpan.TAG_URL)
+        else:
+            return
+
+        if Span.TAG_ERROR_MESSAGE in tags:
+            kwargs['error'] = tags.pop(Span.TAG_ERROR_MESSAGE)
+
+        anns = span.get_annotations4adapter(self.name).copy()
 
         for key, ann_name, max_len in self._anns_mapping:
             if ann_name in anns:
@@ -247,6 +384,10 @@ class RequestsAdapter(AbcAdapter):
         ht.HttpSpan.TAG_HTTP_RESPONSE_SIZE in tags and tags.pop(
             ht.HttpSpan.TAG_HTTP_RESPONSE_SIZE
         )
+        if amqp is not None:
+            amqp.AmqpSpan.TAG_CHANNEL_NUMBER in tags and tags.pop(
+                amqp.AmqpSpan.TAG_CHANNEL_NUMBER
+            )
 
         if len(tags) > 0:
             kwargs['tags'] = json.dumps(tags)
