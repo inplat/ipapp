@@ -1,5 +1,3 @@
-import datetime
-import decimal
 import json
 import string
 from contextvars import Token
@@ -11,7 +9,7 @@ from urllib.parse import unquote, urlparse, urlsplit, urlunsplit
 
 from aiohttp import web
 from deepmerge import Merger
-from yarl import URL
+from pydantic.json import pydantic_encoder
 
 import ipapp.app  # noqa
 import ipapp.logger.span  # noqa
@@ -83,29 +81,8 @@ def mask_url_pwd(route: Optional[str]) -> Optional[str]:
     return urlunsplit(parsed)
 
 
-def _json_encoder(obj: Any) -> Any:
-    if isinstance(obj, URL):
-        return str(obj)
-    if isinstance(obj, decimal.Decimal):
-        return float(obj)
-    if isinstance(obj, datetime.datetime):
-        return obj.strftime('%Y-%m-%d %H:%M:%S.%f%z')
-    if isinstance(obj, datetime.date):
-        return obj.strftime('%Y-%m-%d')
-    if isinstance(obj, datetime.time):
-        return obj.strftime('%H:%M:%S.%f%z')
-    if isinstance(obj, datetime.timedelta):
-        return obj.total_seconds()
-    if isinstance(obj, bytes):
-        try:
-            return obj.decode('UTF8')
-        except Exception:
-            return str(obj)
-    return repr(obj)
-
-
 def json_encode(data: Any) -> str:
-    return json.dumps(data, default=_json_encoder)
+    return json.dumps(data, default=pydantic_encoder)
 
 
 def parse_dsn(
