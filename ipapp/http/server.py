@@ -258,7 +258,7 @@ class Server(Component, ClientServerAnnotator):
                         if isinstance(err2, web.Response):
                             resp = err2
                         ts2 = time.time()
-                if not isinstance(resp, web.Response):
+                if not isinstance(resp, (web.Response, web.FileResponse)):
                     raise UserWarning('Invalid response: %s' % resp)
 
                 if 'Server' not in resp.headers:
@@ -268,7 +268,7 @@ class Server(Component, ClientServerAnnotator):
 
                 if self.cfg.log_resp_hdrs:
                     self._span_annotate_resp_hdrs(span, resp.headers, ts=ts2)
-                if self.cfg.log_resp_body:
+                if self.cfg.log_resp_body and isinstance(resp, web.Response):
                     if resp.body is not None:
                         if isinstance(resp.body, Payload):
                             body = (
