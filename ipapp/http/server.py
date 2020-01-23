@@ -208,7 +208,7 @@ class Server(Component, ClientServerAnnotator):
         self,
         request: web.Request,
         handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
-    ) -> web.Response:
+    ) -> Union[web.Response, web.FileResponse]:
         span_token: Optional[Token] = None
         request_token: Optional[Token] = None
         try:
