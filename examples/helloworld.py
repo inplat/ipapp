@@ -2,13 +2,14 @@ import logging
 import os
 import sys
 
-sys.path.append(os.getcwd())
-import ipapp.autoreload
 from aiohttp import web
 
+import ipapp.autoreload
 from ipapp import BaseApplication, BaseConfig, Span, main
 from ipapp.http import HttpSpan
 from ipapp.http.server import Server, ServerConfig, ServerHandler
+
+sys.path.append(os.getcwd())
 
 
 class Config(BaseConfig):

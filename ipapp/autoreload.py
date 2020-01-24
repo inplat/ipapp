@@ -1,53 +1,54 @@
-from typing import Optional
-import os
-import sys
-import signal
 import asyncio
-import subprocess
+import os
+import signal
+import subprocess  # nosec
+import sys
+from typing import List, Optional, Union
 
 try:
+    from watchdog.events import FileSystemEvent
     from watchdog import observers
 except ImportError:
-    observers = None  # type: ignore
+    observers = None
 
 
-_has_execv = sys.platform != 'win32'
-_watched_files = set()
-_reload_hooks = []
-_reload_attempted = False
+_has_execv: bool = sys.platform != 'win32'
+_reload_attempted: bool = False
 
 
 class EventHandler(object):
-    def __init__(self, loop=None):
-        self._loop = loop or asyncio.get_event_loop()
+    def __init__(
+        self, loop: Optional[asyncio.AbstractEventLoop] = None
+    ) -> None:
+        self._loop: asyncio.AbstractEventLoop = (
+            loop or asyncio.get_event_loop()
+        )
 
-    async def on_any_event(self, event):
+    async def on_any_event(self, event: 'FileSystemEvent') -> None:
         _reload()
 
-    def dispatch(self, event):
+    def dispatch(self, event: 'FileSystemEvent') -> None:
         self._loop.call_soon_threadsafe(
             asyncio.create_task, self.on_any_event(event)
         )
 
 
 class Watchdog(object):
-    def __init__(self, path='.'):
+    def __init__(self, path: str = '.') -> None:
         self._observer = observers.Observer()
         self._observer.schedule(EventHandler(), path, True)
 
-    def start(self):
+    def start(self) -> None:
         self._observer.start()
 
-    def stop(self):
+    def stop(self) -> None:
         self._observer.stop()
         self._observer.join()
 
 
-def _reload():
+def _reload() -> None:
     global _reload_attempted
     _reload_attempted = True
-    for fn in _reload_hooks:
-        fn()
     if hasattr(signal, "setitimer"):
         # Clear the alarm signal set by
         # ioloop.set_blocking_log_threshold so it doesn't fire
@@ -66,11 +67,11 @@ def _reload():
         )
 
     if not _has_execv:
-        subprocess.Popen([sys.executable] + sys.argv)
+        subprocess.Popen([sys.executable] + sys.argv)  # nosec
         sys.exit(0)
     else:
         try:
-            os.execv(sys.executable, [sys.executable] + sys.argv)
+            os.execv(sys.executable, [sys.executable] + sys.argv)  # nosec
         except OSError:
             # Mac OS X versions prior to 10.6 do not support execv in
             # a process that contains multiple threads.  Instead of
@@ -83,7 +84,10 @@ def _reload():
             # Unfortunately the errno returned in this case does not
             # appear to be consistent, so we can't easily check for
             # this error specifically.
-            os.spawnv(os.P_NOWAIT, sys.executable, [sys.executable] + sys.argv)
+            args: List[Union[bytes, str]] = ([sys.executable] + sys.argv)  # type: ignore
+            os.spawnv(  # nosec  # type: ignore
+                os.P_NOWAIT, sys.executable, args,
+            )
             # At this point the IOLoop has been closed and finally
             # blocks will experience errors if we allow the stack to
             # unwind, so just exit uncleanly.
