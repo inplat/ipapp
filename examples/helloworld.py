@@ -1,6 +1,9 @@
 import logging
+import os
 import sys
 
+sys.path.append(os.getcwd())
+import ipapp.autoreload
 from aiohttp import web
 
 from ipapp import BaseApplication, BaseConfig, Span, main
@@ -36,4 +39,5 @@ class App(BaseApplication):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
+    ipapp.autoreload.start()
     main(sys.argv, '0.0.1', App, Config)
