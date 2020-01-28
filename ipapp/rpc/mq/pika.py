@@ -1,13 +1,13 @@
 import asyncio
 import json
 import uuid
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from iprpc.executor import MethodExecutor
 
 from ipapp.ctx import span
 from ipapp.logger import Span, wrap2span
-from ipapp.misc import json_encode
+from ipapp.misc import json_encode as default_json_encode
 from ipapp.mq.pika import (
     AmqpOutSpan,
     AmqpSpan,
@@ -53,9 +53,14 @@ class RpcServerChannel(PikaChannel):
     _rpc: MethodExecutor
     _lock: asyncio.Lock
 
-    def __init__(self, api: object, cfg: RpcServerChannelConfig) -> None:
+    def __init__(
+        self,
+        api: object,
+        cfg: RpcServerChannelConfig,
+        json_encode: Callable[[Any], str] = default_json_encode,
+    ) -> None:
         self.api = api
-        super().__init__(cfg)
+        super().__init__(cfg, json_encode=json_encode)
 
     async def prepare(self) -> None:
         await self.queue_declare(
@@ -116,7 +121,7 @@ class RpcServerChannel(PikaChannel):
                     }
 
                 span.tag(SPAN_TAG_RPC_CODE, resp['code'])
-                msg = json_encode(resp).encode(self.cfg.encoding)
+                msg = self._json_encode(resp).encode(self.cfg.encoding)
                 props = Properties()
                 if proprties.correlation_id:
                     props.correlation_id = proprties.correlation_id
@@ -204,7 +209,7 @@ class RpcClientChannel(PikaChannel):
         params: Dict[str, Any],
         timeout: Optional[float] = None,
     ) -> Any:
-        msg = json_encode({"method": method, "params": params}).encode(
+        msg = self._json_encode({"method": method, "params": params}).encode(
             self.cfg.encoding
         )
         correlation_id = str(uuid.uuid4())

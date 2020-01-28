@@ -1,5 +1,4 @@
 import asyncio
-import json
 from collections import deque
 from typing import Any, Deque, Dict, List, Optional, Tuple
 
@@ -10,6 +9,7 @@ import ipapp.http as ht
 import ipapp.logger  # noqa
 
 from ...error import PrepareError
+from ...misc import json_encode as default_json_encode
 from ...misc import mask_url_pwd
 from ..span import Span
 from ._abc import AbcAdapter, AbcConfig, AdapterConfigurationError
@@ -390,7 +390,7 @@ class RequestsAdapter(AbcAdapter):
             )
 
         if len(tags) > 0:
-            kwargs['tags'] = json.dumps(tags)
+            kwargs['tags'] = default_json_encode(tags)
 
         self._queue.append(Request(**kwargs))
 

@@ -23,14 +23,9 @@ from ipapp.component import Component
 from ipapp.error import PrepareError
 from ipapp.logger import wrap2span
 from ipapp.logger.span import Span
-from ipapp.misc import (
-    ctx_span_reset,
-    ctx_span_set,
-    decode_bytes,
-    dict_merge,
-    json_encode,
-    mask_url_pwd,
-)
+from ipapp.misc import ctx_span_reset, ctx_span_set, decode_bytes, dict_merge
+from ipapp.misc import json_encode as default_json_encode
+from ipapp.misc import mask_url_pwd
 
 pika.adapters.utils.selector_ioloop_adapter.LOGGER.level = logging.CRITICAL
 pika.connection.LOGGER.level = logging.CRITICAL
@@ -281,8 +276,13 @@ class PikaChannel(ABC):
     _lock: 'asyncio.Lock'
     _consumer_tag: Optional[str]
 
-    def __init__(self, cfg: PikaChannelConfig) -> None:
+    def __init__(
+        self,
+        cfg: PikaChannelConfig,
+        json_encode: Callable[[Any], str] = default_json_encode,
+    ) -> None:
         self.cfg = cfg
+        self._json_encode = json_encode
 
     def _init(self, amqp: 'Pika', ch: pika.channel.Channel) -> None:
         self.amqp = amqp
@@ -527,7 +527,7 @@ class PikaChannel(ABC):
                         span.annotate4adapter(
                             self.amqp.app.logger.ADAPTER_ZIPKIN,
                             AmqpSpan.ANN_OUT_PROPS,
-                            json_encode(
+                            self._json_encode(
                                 {
                                     "properties": repr(
                                         {
@@ -545,7 +545,7 @@ class PikaChannel(ABC):
                         span.annotate4adapter(
                             self.amqp.app.logger.ADAPTER_ZIPKIN,
                             AmqpSpan.ANN_OUT_BODY,
-                            json_encode({"message": _body}),
+                            self._json_encode({"message": _body}),
                         )
 
                     self._ch.basic_publish(
@@ -667,7 +667,7 @@ class PikaChannel(ABC):
                 span.annotate4adapter(
                     self.amqp.app.logger.ADAPTER_ZIPKIN,
                     AmqpSpan.ANN_IN_PROPS,
-                    json_encode(
+                    self._json_encode(
                         {
                             "properties": repr(
                                 {
@@ -685,7 +685,7 @@ class PikaChannel(ABC):
                 span.annotate4adapter(
                     self.amqp.app.logger.ADAPTER_ZIPKIN,
                     AmqpSpan.ANN_IN_BODY,
-                    json_encode({"message": _body}),
+                    self._json_encode({"message": _body}),
                 )
 
             token = ctx_span_set(span)
@@ -892,6 +892,6 @@ def props2ann(properties: pika.spec.BasicProperties) -> str:
     ):
         attr: Any = getattr(properties, prop)
         if attr is not None:
-            anns.append('%s: %s' % (prop, json_encode(attr)))
+            anns.append('%s: %s' % (prop, default_json_encode(attr)))
 
     return '\n'.join(anns)

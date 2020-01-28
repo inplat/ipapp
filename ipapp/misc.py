@@ -1,20 +1,64 @@
+import datetime
 import json
 import string
 from contextvars import Token
 from copy import deepcopy
+from dataclasses import asdict, is_dataclass
+from decimal import Decimal
+from enum import Enum
 from getpass import getuser
+from ipaddress import (
+    IPv4Address,
+    IPv4Interface,
+    IPv4Network,
+    IPv6Address,
+    IPv6Interface,
+    IPv6Network,
+)
+from pathlib import Path
 from random import SystemRandom
-from typing import Any, List, Optional, Tuple
+from types import GeneratorType
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 from urllib.parse import unquote, urlparse, urlsplit, urlunsplit
+from uuid import UUID
 
 from aiohttp import web
 from deepmerge import Merger
-from pydantic.json import pydantic_encoder
+from pydantic.color import Color
+from pydantic.main import BaseModel
+from pydantic.types import SecretBytes, SecretStr
 
 import ipapp.app  # noqa
 import ipapp.logger.span  # noqa
 
 from .ctx import app, request, span, span_trap
+
+
+def isoformat(o: Union[datetime.date, datetime.time]) -> str:
+    return o.isoformat()
+
+
+ENCODERS_BY_TYPE: Dict[Type[Any], Callable[[Any], Any]] = {
+    Color: str,
+    IPv4Address: str,
+    IPv6Address: str,
+    IPv4Interface: str,
+    IPv6Interface: str,
+    IPv4Network: str,
+    IPv6Network: str,
+    SecretStr: str,
+    SecretBytes: str,
+    UUID: str,
+    datetime.datetime: isoformat,
+    datetime.date: isoformat,
+    datetime.time: isoformat,
+    datetime.timedelta: lambda td: td.total_seconds(),
+    set: list,
+    frozenset: list,
+    GeneratorType: list,
+    bytes: lambda o: o.decode(),
+    Decimal: float,
+}
 
 
 def ctx_app_get() -> Optional['ipapp.app.BaseApplication']:
@@ -81,8 +125,27 @@ def mask_url_pwd(route: Optional[str]) -> Optional[str]:
     return urlunsplit(parsed)
 
 
-def json_encode(data: Any) -> str:
-    return json.dumps(data, default=pydantic_encoder)
+def json_encoder(obj: Any) -> Any:
+    if isinstance(obj, BaseModel):
+        return obj.dict()
+    elif isinstance(obj, Enum):
+        return obj.value
+    elif isinstance(obj, Path):
+        return str(obj)
+    elif is_dataclass(obj):
+        return asdict(obj)
+
+    for cls, encoder in ENCODERS_BY_TYPE.items():
+        if isinstance(obj, cls):
+            return encoder(obj)
+
+    raise TypeError(
+        f"Object of type '{obj.__class__.__name__}' is not JSON serializable"
+    )
+
+
+def json_encode(data: Any, **kwargs: Any) -> str:
+    return json.dumps(data, default=json_encoder, **kwargs)
 
 
 def parse_dsn(

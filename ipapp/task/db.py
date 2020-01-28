@@ -1,5 +1,4 @@
 import asyncio
-import json
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -22,6 +21,7 @@ from ipapp.ctx import span
 from ipapp.db.pg import Postgres
 from ipapp.error import PrepareError
 from ipapp.logger import Span, wrap2span
+from ipapp.misc import json_encode as default_json_encoder
 from ipapp.misc import mask_url_pwd
 
 TaskHandler = Union[Callable, str]
@@ -692,7 +692,7 @@ class Db:
             'VALUES($1,$2,to_timestamp($3),to_timestamp($4),'
             '$5::text::jsonb,$6,$7)'
         ) % self._cfg.db_schema
-        js = json.dumps(result) if result is not None else None
+        js = default_json_encoder(result) if result is not None else None
 
         await self._execute(
             query, task_id, eta, started, finished, js, error, trace, lock=lock

@@ -2,7 +2,7 @@ import logging
 import re
 import time
 from ssl import SSLContext
-from typing import Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from aiohttp import ClientResponse, ClientSession, ClientTimeout
 from aiohttp.typedefs import StrOrURL
@@ -12,6 +12,7 @@ from yarl import URL
 import ipapp
 from ipapp.component import Component
 from ipapp.logger import Span, wrap2span
+from ipapp.misc import json_encode as default_json_encode
 
 from ._base import ClientServerAnnotator, HttpSpan
 
@@ -62,9 +63,14 @@ class Client(Component, ClientServerAnnotator):
 
     cfg = ClientConfig()
 
-    def __init__(self, cfg: Optional[ClientConfig] = None):
+    def __init__(
+        self,
+        cfg: Optional[ClientConfig] = None,
+        json_encode: Callable[[Any], str] = default_json_encode,
+    ):
         if cfg is not None:
             self.cfg = cfg
+        self._json_encode = json_encode
 
     async def prepare(self) -> None:
         pass

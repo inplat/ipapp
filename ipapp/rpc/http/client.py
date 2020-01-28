@@ -1,10 +1,10 @@
-import json
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from aiohttp import ClientTimeout
 
 from ipapp.ctx import app
 from ipapp.http.client import Client, ClientConfig, ClientHttpSpan
+from ipapp.misc import json_encode as default_json_encode
 
 from ..const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
 
@@ -27,14 +27,18 @@ class RpcError(Exception):
 class RpcClient(Client):
     cfg: RpcClientConfig
 
-    def __init__(self, cfg: RpcClientConfig) -> None:
-        super().__init__(cfg)
+    def __init__(
+        self,
+        cfg: RpcClientConfig,
+        json_encode: Callable[[Any], str] = default_json_encode,
+    ) -> None:
+        super().__init__(cfg, json_encode=json_encode)
         self.cfg = cfg
 
     async def call(
         self, method: str, params: Dict[str, Any], timeout: float = 60.0
     ) -> Any:
-        body = json.dumps({"method": method, "params": params}).encode()
+        body = self._json_encode({"method": method, "params": params}).encode()
 
         with app.logger.capture_span(ClientHttpSpan) as trap:
             req_err: Optional[Exception] = None

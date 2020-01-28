@@ -1,4 +1,3 @@
-import json
 import logging
 import time
 from abc import ABCMeta
@@ -25,6 +24,7 @@ from ipapp.misc import (
     ctx_span_reset,
     ctx_span_set,
 )
+from ipapp.misc import json_encode as default_json_encode
 
 from ._base import ClientServerAnnotator
 
@@ -85,14 +85,16 @@ class ServerHandler(object):
 
         if result["is_sick"]:
             raise web.HTTPInternalServerError(
-                text=json.dumps(result, indent=4), headers=headers
+                text=default_json_encode(result, indent=4), headers=headers
             )
         else:
             span = ctx_span_get()
             if span:
                 span.skip()
 
-        return web.Response(text=json.dumps(result, indent=4), headers=headers)
+        return web.Response(
+            text=default_json_encode(result, indent=4), headers=headers
+        )
 
     async def _health_handler_head(self, request: web.Request) -> web.Response:
         result = await self._healthcheck()

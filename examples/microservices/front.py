@@ -1,4 +1,3 @@
-import json
 import logging
 
 from aiohttp import web
@@ -18,6 +17,7 @@ from ipapp.logger.adapters.prometheus import (
 from ipapp.logger.adapters.requests import RequestsAdapter, RequestsConfig
 from ipapp.logger.adapters.sentry import SentryAdapter, SentryConfig
 from ipapp.logger.adapters.zipkin import ZipkinAdapter, ZipkinConfig
+from ipapp.misc import json_encode as default_json_encode
 from ipapp.rpc.http.client import RpcClient, RpcClientConfig
 
 
@@ -40,7 +40,7 @@ class HttpHandler(ServerHandler):
 
         result = await self.app.back.do_something(arg)
 
-        return web.Response(text=json.dumps(result))
+        return web.Response(text=default_json_encode(result))
 
 
 class App(BaseApplication):

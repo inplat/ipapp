@@ -1,4 +1,4 @@
-import json
+from typing import Any, Callable
 
 from aiohttp import web
 from iprpc.executor import BaseError, InternalError, MethodExecutor
@@ -6,6 +6,7 @@ from pydantic.main import BaseModel
 
 from ipapp.ctx import span
 from ipapp.http.server import ServerHandler
+from ipapp.misc import json_encode as default_json_encode
 
 from ..const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
 
@@ -17,10 +18,16 @@ class RpcHandlerConfig(BaseModel):
 
 
 class RpcHandler(ServerHandler):
-    def __init__(self, api: object, cfg: RpcHandlerConfig) -> None:
+    def __init__(
+        self,
+        api: object,
+        cfg: RpcHandlerConfig,
+        json_encode: Callable[[Any], str] = default_json_encode,
+    ) -> None:
         self._cfg = cfg
         self._api = api
         self._rpc = MethodExecutor(api)
+        self._json_encode = json_encode
 
     async def prepare(self) -> None:
         self._setup_healthcheck(self._cfg.healthcheck_path)
@@ -59,14 +66,14 @@ class RpcHandler(ServerHandler):
             span.name = 'rpc::in (%s)' % result.method
             span.set_name4adapter(self.app.logger.ADAPTER_PROMETHEUS, 'rpc_in')
 
-            body = json.dumps(resp).encode()
+            body = self._json_encode(resp).encode()
 
             return web.Response(body=body, content_type='application/json')
         except Exception as err:
             span.error(err)
             self.app.log_err(err)
             return web.Response(
-                body=json.dumps(
+                body=self._json_encode(
                     self._err_resp(InternalError(parent=err))
                 ).encode(),
                 content_type='application/json',

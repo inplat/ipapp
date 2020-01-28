@@ -2,6 +2,7 @@
 line-length = 79
 target_version = ['py37']
 include = '\.pyi?$'
+skip-string-normalization = true
 exclude = '''
 /(
     \.git

@@ -1,4 +1,3 @@
-import json
 import re
 import warnings
 from typing import Optional
@@ -8,6 +7,7 @@ from yarl import URL
 
 import ipapp.app  # noqa
 from ipapp.logger.span import Span
+from ipapp.misc import json_encode as default_json_encode
 
 RE_SECRET_WORDS = re.compile(
     "(pas+wo?r?d|pass(phrase)?|pwd|token|secrete?)", re.IGNORECASE
@@ -106,7 +106,7 @@ class ClientServerAnnotator:
         span.annotate4adapter(
             self.app.logger.ADAPTER_ZIPKIN,
             kind,
-            json.dumps({kind: content}),
+            default_json_encode({kind: content}),
             ts=ts,
         )
 
