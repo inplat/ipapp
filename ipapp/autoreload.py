@@ -25,7 +25,8 @@ class EventHandler(object):
         )
 
     async def on_any_event(self, event: 'FileSystemEvent') -> None:
-        _reload()
+        if event.src_path.lower().endswith('.py'):
+            _reload()
 
     def dispatch(self, event: 'FileSystemEvent') -> None:
         self._loop.call_soon_threadsafe(

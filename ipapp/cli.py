@@ -10,6 +10,7 @@ from .error import ConfigurationError
 
 class Args(NamedTuple):
     version: bool
+    autoreload: bool
     env_prefix: str
     show_config: Optional[str]
     log_level: str
@@ -55,6 +56,14 @@ def _parse_argv(
     )
 
     parser.add_argument(
+        '--autoreload',
+        action="store_true",
+        default=False,
+        help="Automatically restart the service when a source file(s) "
+        "is modified.",
+    )
+
+    parser.add_argument(
         '--log-level',
         dest='log_level',
         type=str,
@@ -72,6 +81,7 @@ def _parse_argv(
         env_prefix=parsed.env_prefix,
         show_config=parsed.show_config,
         version=parsed.version,
+        autoreload=parsed.autoreload,
         log_level=parsed.log_level,
         log_file=parsed.log_file,
     )
@@ -126,6 +136,10 @@ def main(
         if options.version:
             print(version)
             return 0
+        if options.autoreload:
+            import ipapp.autoreload
+
+            ipapp.autoreload.start()
         _setup_logging(options)
         cfg = load_config(options, cfg_cls)
         if options.show_config:

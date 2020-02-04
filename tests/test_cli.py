@@ -42,6 +42,7 @@ def test_cli_setup_logging():
 
         args = Args(
             version=False,
+            autoreload=False,
             env_prefix='APP_',
             show_config=None,
             log_level=level,
@@ -55,6 +56,7 @@ def test_cli_setup_logging():
         level = logging.getLevelName(logging.ERROR)
         args = Args(
             version=False,
+            autoreload=False,
             env_prefix='APP_',
             show_config=None,
             log_level=level,
