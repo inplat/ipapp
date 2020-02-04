@@ -1,5 +1,8 @@
 import logging
+import os
 import sys
+
+sys.path.append(os.getcwd())  # noqa
 
 from aiohttp import web
 
@@ -26,5 +29,8 @@ class App(BaseApplication):
 
 
 if __name__ == "__main__":
+    """
+    python -m examples.autoreload --autoreload
+    """
     logging.basicConfig(level=logging.INFO)
     main(sys.argv, '0.0.1', App, Config)
