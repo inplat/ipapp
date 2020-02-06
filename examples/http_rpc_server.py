@@ -31,7 +31,8 @@ class App(BaseApplication):
 
 if __name__ == "__main__":
     """
-    APP_DB_URL=postgres://own@127.0.0.1:10209/main python3 -m examples.http_rpc_server
+    APP_DB_URL=postgres://ipapp:secretpwd@127.0.0.1:9001/ipapp python3 -m examples.http_rpc_server
+
     """
     logging.basicConfig(level=logging.INFO)
     main(sys.argv, '0.0.1', App, Config)

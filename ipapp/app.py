@@ -72,6 +72,15 @@ class BaseApplication(object):
         if not err:
             return
         if isinstance(err, BaseException):
+            has_tb = (
+                hasattr(err, '__traceback__') and err.__traceback__ is not None
+            )
+            if not has_tb:
+                # for RPC
+                if hasattr(err, 'trace') and isinstance(err.trace, str):  # type: ignore
+                    logging.error(err.trace, *args, **kwargs)  # type: ignore
+                    return
+
             logging.exception(err, *args, **kwargs)
         else:
             logging.error(err, *args, **kwargs)

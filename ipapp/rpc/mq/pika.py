@@ -3,7 +3,7 @@ import json
 import uuid
 from typing import Any, Callable, Dict, Optional, Tuple
 
-from iprpc.executor import MethodExecutor
+from iprpc.executor import MethodExecutor, InternalError
 
 from ipapp.ctx import span
 from ipapp.logger import Span, wrap2span
@@ -96,9 +96,7 @@ class RpcServerChannel(PikaChannel):
             span.name = 'rpc::in (%s)' % result.method
             if result.error is not None:
                 span.error(result.error)
-                if result.error.trace:
-                    self.amqp.app.log_err(result.error.trace)
-                else:
+                if isinstance(result.error, InternalError):
                     self.amqp.app.log_err(result.error)
 
             if proprties.reply_to:

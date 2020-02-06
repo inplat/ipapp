@@ -2,12 +2,12 @@ import logging
 import os
 import sys
 
-sys.path.append(os.getcwd())  # noqa
-
 from aiohttp import web
 
 from ipapp import BaseApplication, BaseConfig, main
 from ipapp.http.server import Server, ServerConfig, ServerHandler
+
+sys.path.append(os.getcwd())  # noqa
 
 
 class Config(BaseConfig):

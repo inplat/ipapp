@@ -103,8 +103,8 @@ async def test_success():
         'error.class': 'Exception',
         'error.message': '',
     }
-    assert len(span2.annotations) == 1
-    assert 'Traceback ' in span2.annotations[0].value
+
+    assert 'raise Exception()' in span2.annotations[0].value
 
 
 async def test_errors():

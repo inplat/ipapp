@@ -256,16 +256,30 @@ class Span:
         self.tag(self.TAG_ERROR_CLASS, err.__class__.__name__)
         self.tag(self.TAG_ERROR_MESSAGE, str(err))
         self._exception = err
-        exc_type, exc_value, exc_traceback = sys.exc_info()
-        if exc_type is not None:
-            self.annotate(
-                self.ANN_TRACEBACK,
-                "".join(
+
+        trace: Optional[str] = None
+        has_tb = (
+            hasattr(err, '__traceback__') and err.__traceback__ is not None
+        )
+        if has_tb:
+            trace = "".join(traceback.format_tb(err.__traceback__))
+        elif hasattr(err, 'trace') and isinstance(err.trace, str):  # type: ignore
+            # RPC err
+            trace = err.trace  # type: ignore
+        else:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            if exc_type is not None:
+                trace = "".join(
                     traceback.format_exception(
                         exc_type, exc_value, exc_traceback
                     )
-                ),
+                )
+
+        if trace is not None:
+            self.annotate(
+                self.ANN_TRACEBACK, trace,
             )
+
         return self
 
     def get_error(self) -> Optional[BaseException]:

@@ -55,6 +55,8 @@ class RpcHandler(ServerHandler):
 
             if result.error is not None:
                 span.error(result.error)
+                if isinstance(result.error, InternalError):
+                    self.app.log_err(result.error)
                 resp = self._err_resp(result.error)
                 if result.result is not None:
                     resp['result'] = result.result
