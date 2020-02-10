@@ -316,17 +316,19 @@ class Span:
         self._finish_stamp = ts or time.time()
         if exception is not None:
             self.error(exception)
+        if self.logger is not None and self.logger.app is not None:
+            self.logger.app.loop.call_soon(self._hasndle_spans)
+        return self
 
+    def _hasndle_spans(self) -> None:
         if self.parent is None or self.parent._is_handled:
             self._handle_children(self)
             if not self._skip and self.logger is not None:
-                # TODO loop.call_soon
                 self.logger.handle_span(self)
             self._is_handled = True
 
         if self.logger is not None:
             self.logger._span_finished(self)  # noqa
-        return self
 
     def move(self, parent: 'Span') -> None:
         if self._is_handled:

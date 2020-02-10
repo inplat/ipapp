@@ -3,7 +3,7 @@ import json
 import uuid
 from typing import Any, Callable, Dict, Optional, Tuple
 
-from iprpc.executor import MethodExecutor, InternalError
+from iprpc.executor import InternalError, MethodExecutor
 
 from ipapp.ctx import span
 from ipapp.logger import Span, wrap2span

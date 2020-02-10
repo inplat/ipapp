@@ -51,7 +51,7 @@ class Logger:
         # wait until all started spans are finished
         if self._started_spans > 0:
             self._waiting_all_spans_finished = True
-            await asyncio.wait(self._fut_all_spans_finished)
+            await asyncio.wait([self._fut_all_spans_finished])
 
         await asyncio.gather(
             *[adapter.stop() for adapter in self.adapters], loop=self.app.loop

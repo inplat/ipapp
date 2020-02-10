@@ -400,9 +400,11 @@ class RequestsAdapter(AbcAdapter):
 
     async def stop(self) -> None:
         self._stopping = True
+
         if self._queue is not None:
-            while len(self._queue) > 0:
-                await self._send()
+            async with self._send_lock:
+                while len(self._queue) > 0:
+                    await self._send()
 
         if self._send_fut is not None:
             self._send_fut.cancel()
@@ -414,7 +416,8 @@ class RequestsAdapter(AbcAdapter):
             )
         while not self._stopping:
             try:
-                await self._send()
+                async with self._send_lock:
+                    await self._send()
             except Exception as err:
                 self.logger.app.log_err(err)
             try:
@@ -428,18 +431,19 @@ class RequestsAdapter(AbcAdapter):
                 self._sleep_fut = None
 
     async def _send(self) -> None:
+        if not self._send_lock.locked():
+            raise UserWarning
         if self._queue is None:
             return
         if len(self._queue) == 0:
             return
         conn = await self.get_conn()
-        async with self._send_lock:
-            cnt = min(self.cfg.max_queue_size, len(self._queue))
-            phs, params = self._build_query(cnt)
-            query = self._query_template.format(
-                table_name=self.cfg.db_table_name, placeholders=','.join(phs)
-            )
-            await conn.execute(query, *params)
+        cnt = min(self.cfg.max_queue_size, len(self._queue))
+        phs, params = self._build_query(cnt)
+        query = self._query_template.format(
+            table_name=self.cfg.db_table_name, placeholders=','.join(phs)
+        )
+        await conn.execute(query, *params)
 
     def _build_query(self, count: int) -> Tuple[List[str], List[Any]]:
         if self._queue is None:  # pragma: no cover

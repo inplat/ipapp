@@ -78,6 +78,7 @@ async def test_success(postgres_url: str):
         ) as span2:
             with span2.new_child(name='nonrequest'):
                 pass
+
     await app.stop()
 
     rows = await get_requests(postgres_url, table_name, span.trace_id)

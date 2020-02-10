@@ -44,14 +44,14 @@ async def test_logger_adapter():
     with lgr.span_new() as span:
         span.tag('tag', 'abc')
 
+    await lgr.stop()
+    assert adapter.stopped
+
     assert len(adapter.handled) == 1
     assert span.start_stamp is not None
     assert span.finish_stamp is not None
     assert 'tag' in span.tags
     assert span.tags['tag'] == 'abc'
-
-    await lgr.stop()
-    assert adapter.stopped
 
 
 async def test_span_to_hdrs_non_skippable():
@@ -292,6 +292,9 @@ async def test_span():
         span.set_tag4adapter(TestAdapter.name, 'tag2', '22')
         span.set_tag4adapter(TestAdapter.name, 'tag3', '33')
 
+    await lgr.stop()
+    assert adapter.stopped
+
     assert len(adapter.handled) == 3
 
     span = adapter.handled[2]
@@ -364,9 +367,6 @@ async def test_span():
     assert 'Span' in str(span)
     assert 'ms' in str(span)
 
-    await lgr.stop()
-    assert adapter.stopped
-
 
 async def test_span_ctx():
     app = BaseApplication(BaseConfig())
@@ -433,11 +433,11 @@ async def test_logger_span_callback():
     with lgr.span_new() as span:
         span.tag('tag', 'abc')
 
+    await lgr.stop()
+    assert adapter.stopped
+
     assert len(adapter.handled) == 1
     assert span.start_stamp is not None
     assert span.finish_stamp is not None
     assert 'tag' in span.tags
     assert span.tags['tag'] == '***'
-
-    await lgr.stop()
-    assert adapter.stopped
