@@ -61,6 +61,27 @@ services:
     ports:
       - '9004:5672'
       - '9005:15672'
+  oracle:  # 25Gb free disk space required!!!
+    container_name: ipapp-oracle
+    image: container-registry.oracle.com/database/standard:12.1.0.2
+    environment:
+      - DB_SID=OraDoc
+      - DB_PASSWD=MyPasswd123
+      - DB_DOMAIN=localdomain
+      - DB_BUNDLE=basic
+    ports:
+      - '9006:1521'
+      - '9007:5500'
+    volumes:
+      - oracle-u01:/u01
+      - oracle-u02:/u02
+      - oracle-u03:/u03
+      - oracle-u04:/u04
+    shm_size: '4gb'
 volumes:
   redis-data:
   pg-data:
+  oracle-u01:
+  oracle-u02:
+  oracle-u03:
+  oracle-u04:

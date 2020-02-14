@@ -1,5 +1,6 @@
 -r requirements.txt
 -r requirements_postgres.txt
+-r requirements_oracle.txt
 -r requirements_rabbitmq.txt
 -r requirements_iprpc.txt
 -r requirements_testing.txt

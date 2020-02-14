@@ -13,6 +13,8 @@ with open('requirements.txt') as requirements_file:
     requirements = requirements_file.read()
 with open('requirements_postgres.txt') as requirements_file:
     requirements_postgres = requirements_file.read()
+with open('requirements_oracle.txt') as requirements_file:
+    requirements_oracle = requirements_file.read()
 with open('requirements_rabbitmq.txt') as requirements_file:
     requirements_rabbit = requirements_file.read()
 with open('requirements_iprpc.txt') as requirements_file:
@@ -46,6 +48,7 @@ setup(
     install_requires=requirements.split('\n'),
     extras_require={
         'postgres': requirements_postgres.split('\n'),
+        'oracle': requirements_oracle.split('\n'),
         'rabbitmq': requirements_rabbit.split('\n'),
         'iprpc': requirements_iprpc.split('\n'),
         'testing': requirements_testing.split('\n'),
