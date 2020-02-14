@@ -41,7 +41,10 @@ class OraSpan(Span):
     NAME_ACQUIRE = 'db::connection'
     NAME_XACT_COMMITED = 'db::xact (commited)'
     NAME_XACT_REVERTED = 'db::xact (reverted)'
+    NAME_CALLPROC = 'db::callproc'
+    NAME_CALLFUNC = 'db::callfunc'
     NAME_EXECUTE = 'db::execute'
+    NAME_FETCH = 'db::fetch'
     NAME_EXECUTEMANY = 'db::executemany'
     NAME_PREPARE = 'db::prepare'
     NAME_EXECUTE_PREPARED = 'db::execute_prepared'
@@ -49,7 +52,10 @@ class OraSpan(Span):
     P8S_NAME_ACQUIRE = 'db_connection'
     P8S_NAME_XACT_COMMITED = 'db_xact_commited'
     P8S_NAME_XACT_REVERTED = 'db_xact_reverted'
+    P8S_NAME_FETCH = 'db_fetch'
     P8S_NAME_EXECUTE = 'db_execute'
+    P8S_NAME_CALLPROC = 'db_callproc'
+    P8S_NAME_CALLFUNC = 'db_callfunc'
     P8S_NAME_EXECUTEMANY = 'db_executemany'
     P8S_NAME_PREPARE = 'db_prepare'
     P8S_NAME_EXECUTE_PREPARED = 'db_execute_prepared'
@@ -58,6 +64,8 @@ class OraSpan(Span):
     TAG_POOL_FREE_COUNT = 'db.pool.free'
 
     TAG_QUERY_NAME = 'db.query'
+    TAG_PROC_NAME = 'db.proc'
+    TAG_FUNC_NAME = 'db.func'
 
     # ANN_PID = 'ora_pid'
     ANN_ACQUIRE = 'ora_conn'
@@ -75,6 +83,10 @@ class OraSpan(Span):
     ) -> 'Span':
         if self.TAG_QUERY_NAME in self._tags:
             self.name += ' (' + str(self._tags.get(self.TAG_QUERY_NAME)) + ')'
+        if self.TAG_FUNC_NAME in self._tags:
+            self.name += ' (' + str(self._tags.get(self.TAG_FUNC_NAME)) + ')'
+        if self.TAG_PROC_NAME in self._tags:
+            self.name += ' (' + str(self._tags.get(self.TAG_PROC_NAME)) + ')'
         return super().finish(ts, exception)
 
 
@@ -221,62 +233,22 @@ class Connection:
         self._conn = conn
         self._lock = asyncio.Lock(loop=db.loop)
 
+    def cursor(self) -> 'CursorContextManager':
+        return CursorContextManager(self)
+
+    def ora_conn(self) -> cx_Oracle.Connection:
+        return self._conn
+
     async def execute(
         self,
         query: str,
         *args: Any,
         timeout: float = None,
         query_name: Optional[str] = None,
-    ) -> str:
-        with wrap2span(
-            name=OraSpan.NAME_EXECUTE,
-            kind=OraSpan.KIND_CLIENT,
-            cls=OraSpan,
-            app=self._db.app,
-        ) as span:
-            span.set_name4adapter(
-                self._db.app.logger.ADAPTER_PROMETHEUS,
-                OraSpan.P8S_NAME_EXECUTE,
-            )
-            if query_name is not None:
-                span.tag(OraSpan.TAG_QUERY_NAME, query_name)
-            async with self._lock:
-                if self._db.cfg.log_query:
-                    span.annotate(OraSpan.ANN_QUERY, query)
-                    span.annotate4adapter(
-                        self._db.app.logger.ADAPTER_ZIPKIN,
-                        OraSpan.ANN_QUERY,
-                        json_encode({'query': str(query)}),
-                    )
-                    span.annotate(OraSpan.ANN_PARAMS, repr(args))
-                    span.annotate4adapter(
-                        self._db.app.logger.ADAPTER_ZIPKIN,
-                        OraSpan.ANN_PARAMS,
-                        json_encode({'query_params': str(args)}),
-                    )
-
-                # todo timeout
-                cur = await self._db.loop.run_in_executor(
-                    None, self._conn.cursor
-                )
-                try:
-                    res = await self._db.loop.run_in_executor(
-                        None, cur.execute, query, *args
-                    )
-                    rowcount = res.rowcount
-                finally:
-                    await self._db.loop.run_in_executor(None, cur.close)
-
-                if self._db.cfg.log_result:
-                    span.annotate(OraSpan.ANN_RESULT, str(rowcount))
-                    span.annotate4adapter(
-                        self._db.app.logger.ADAPTER_ZIPKIN,
-                        OraSpan.ANN_RESULT,
-                        json_encode(
-                            {'result': 'rowcount: %s' % str(rowcount)}
-                        ),
-                    )
-                return rowcount
+    ) -> Optional[int]:
+        async with self.cursor() as curs:
+            return await curs.execute(query, *args, query_name=query_name)
+        return None  # mypy fix
 
     async def query_one(
         self,
@@ -286,68 +258,12 @@ class Connection:
         query_name: Optional[str] = None,
         model_cls: Optional[Type[BaseModel]] = None,
     ) -> Optional[Union[dict, BaseModel]]:
-        with wrap2span(
-            name=OraSpan.NAME_EXECUTE,
-            kind=OraSpan.KIND_CLIENT,
-            cls=OraSpan,
-            app=self._db.app,
-        ) as span:
-            span.set_name4adapter(
-                self._db.app.logger.ADAPTER_PROMETHEUS,
-                OraSpan.P8S_NAME_EXECUTE,
+        async with self.cursor() as curs:
+            await curs.execute(query, *args, query_name=query_name)
+            return await curs.fetchone(
+                model_cls=model_cls, query_name=query_name
             )
-            if query_name is not None:
-                span.tag(OraSpan.TAG_QUERY_NAME, query_name)
-            async with self._lock:
-
-                if self._db.cfg.log_query:
-                    span.annotate(OraSpan.ANN_QUERY, query)
-                    span.annotate4adapter(
-                        self._db.app.logger.ADAPTER_ZIPKIN,
-                        OraSpan.ANN_QUERY,
-                        json_encode({'query': str(query)}),
-                    )
-                    span.annotate(OraSpan.ANN_PARAMS, repr(args))
-                    span.annotate4adapter(
-                        self._db.app.logger.ADAPTER_ZIPKIN,
-                        OraSpan.ANN_PARAMS,
-                        json_encode({'query_params': str(args)}),
-                    )
-
-                cur = await self._db.loop.run_in_executor(
-                    None, self._conn.cursor
-                )
-                try:
-                    await self._db.loop.run_in_executor(
-                        None, cur.execute, query, args
-                    )
-                    row = await self._db.loop.run_in_executor(
-                        None, cur.fetchone
-                    )
-
-                    if row is not None:
-                        column_names = [d[0].lower() for d in cur.description]
-                        res: Optional[dict] = dict(zip(column_names, row))
-                    else:
-                        res = None
-
-                finally:
-                    await self._db.loop.run_in_executor(None, cur.close)
-
-                if self._db.cfg.log_result:
-                    _res = dict(res) if res is not None else None
-                    span.annotate(OraSpan.ANN_RESULT, json_encode(_res))
-                    span.annotate4adapter(
-                        self._db.app.logger.ADAPTER_ZIPKIN,
-                        OraSpan.ANN_RESULT,
-                        json_encode({'result': repr(_res)}),
-                    )
-                if res is None:
-                    return None
-                if model_cls is not None:
-                    return model_cls(**(dict(res)))
-                else:
-                    return res
+        return None  # mypy fix
 
     async def query_all(
         self,
@@ -357,63 +273,251 @@ class Connection:
         query_name: Optional[str] = None,
         model_cls: Optional[Type[BaseModel]] = None,
     ) -> List[Union[dict, BaseModel]]:
+        async with self.cursor() as curs:
+            await curs.execute(query, *args, query_name=query_name)
+            return await curs.fetchall(
+                model_cls=model_cls, query_name=query_name
+            )
+        return []  # mypy fix
+
+
+class CursorContextManager:
+    def __init__(self, conn: Connection) -> None:
+        self._conn = conn
+        self._db = conn._db
+        self._ora_conn = conn.ora_conn()
+        self._cursor: Optional[cx_Oracle.Cursor] = None
+
+    async def __aenter__(self) -> 'Cursor':
+        if self._conn is None:  # noqa
+            raise UserWarning
+
+        self._cursor = await self._db.loop.run_in_executor(
+            None, self._ora_conn.cursor
+        )
+        return Cursor(self._conn, self._cursor)
+
+    async def __aexit__(
+        self, exc_type: type, exc: BaseException, tb: type
+    ) -> bool:
+        if self._cursor is None:
+            raise UserWarning
+
+        await self._db.loop.run_in_executor(None, self._cursor.close)
+        return False
+
+
+class Cursor:
+    def __init__(self, conn: Connection, ora_cur: cx_Oracle.Cursor) -> None:
+        self._conn = conn
+        self._loop = conn._db.loop  # noqa
+        self._ora_cur = ora_cur
+        self._lock = asyncio.Lock(loop=self._loop)
+
+    def ora_cur(self) -> cx_Oracle.Cursor:
+        return self._ora_cur
+
+    async def execute(
+        self, query: str, *args: Any, query_name: Optional[str] = None
+    ) -> Optional[int]:
         with wrap2span(
             name=OraSpan.NAME_EXECUTE,
             kind=OraSpan.KIND_CLIENT,
             cls=OraSpan,
-            app=self._db.app,
+            app=self._conn._db.app,
         ) as span:
             span.set_name4adapter(
-                self._db.app.logger.ADAPTER_PROMETHEUS,
+                self._conn._db.app.logger.ADAPTER_PROMETHEUS,
                 OraSpan.P8S_NAME_EXECUTE,
             )
             if query_name is not None:
                 span.tag(OraSpan.TAG_QUERY_NAME, query_name)
             async with self._lock:
-
-                if self._db.cfg.log_query:
+                if self._conn._db.cfg.log_query:
                     span.annotate(OraSpan.ANN_QUERY, query)
                     span.annotate4adapter(
-                        self._db.app.logger.ADAPTER_ZIPKIN,
+                        self._conn._db.app.logger.ADAPTER_ZIPKIN,
                         OraSpan.ANN_QUERY,
                         json_encode({'query': str(query)}),
                     )
-                    span.annotate(OraSpan.ANN_PARAMS, repr(args))
+                    span.annotate(OraSpan.ANN_PARAMS, str(args))
                     span.annotate4adapter(
-                        self._db.app.logger.ADAPTER_ZIPKIN,
+                        self._conn._db.app.logger.ADAPTER_ZIPKIN,
                         OraSpan.ANN_PARAMS,
                         json_encode({'query_params': str(args)}),
                     )
 
-                cur = await self._db.loop.run_in_executor(
-                    None, self._conn.cursor
+                await self._loop.run_in_executor(
+                    None, self._ora_cur.execute, query, args
                 )
-                try:
-                    await self._db.loop.run_in_executor(
-                        None, cur.execute, query, args
-                    )
-                    rows = await self._db.loop.run_in_executor(
-                        None, cur.fetchall
-                    )
+                return self._ora_cur.rowcount
 
-                    column_names = [d[0].lower() for d in cur.description]
-                    res: List[Union[dict, BaseModel]] = []
-                    for row in rows:
-                        res.append(dict(zip(column_names, row)))
+    async def fetchall(
+        self,
+        *,
+        model_cls: Optional[Type[BaseModel]] = None,
+        query_name: Optional[str] = None,
+    ) -> List[Union[dict, BaseModel]]:
+        with wrap2span(
+            name=OraSpan.NAME_FETCH,
+            kind=OraSpan.KIND_CLIENT,
+            cls=OraSpan,
+            app=self._conn._db.app,
+        ) as span:
+            span.set_name4adapter(
+                self._conn._db.app.logger.ADAPTER_PROMETHEUS,
+                OraSpan.P8S_NAME_FETCH,
+            )
+            if query_name is not None:
+                span.tag(OraSpan.TAG_QUERY_NAME, query_name)
+            async with self._lock:
+                rows = await self._loop.run_in_executor(
+                    None, self._ora_cur.fetchall
+                )
+                column_names = [
+                    d[0].lower() for d in self._ora_cur.description
+                ]
+                res: List[Union[dict, BaseModel]] = []
+                for row in rows:
+                    res.append(dict(zip(column_names, row)))
 
-                finally:
-                    await self._db.loop.run_in_executor(None, cur.close)
-
-                if self._db.cfg.log_result:
-                    res_dict = [dict(row) for row in res]
-                    span.annotate(OraSpan.ANN_RESULT, json_encode(res_dict))
+                if self._conn._db.cfg.log_result:
+                    span.annotate(OraSpan.ANN_RESULT, json_encode(res))
                     span.annotate4adapter(
-                        self._db.app.logger.ADAPTER_ZIPKIN,
+                        self._conn._db.app.logger.ADAPTER_ZIPKIN,
                         OraSpan.ANN_RESULT,
-                        json_encode({'result': repr(res_dict)}),
+                        json_encode({'result': str(res)}),
                     )
 
                 if model_cls is not None:
-                    return [model_cls(**(dict(row))) for row in res]
+                    return [model_cls(**dict(row)) for row in res]
                 else:
                     return res
+
+    async def fetchone(
+        self,
+        *,
+        model_cls: Optional[Type[BaseModel]] = None,
+        query_name: Optional[str] = None,
+    ) -> Optional[Union[dict, BaseModel]]:
+        with wrap2span(
+            name=OraSpan.NAME_FETCH,
+            kind=OraSpan.KIND_CLIENT,
+            cls=OraSpan,
+            app=self._conn._db.app,
+        ) as span:
+            span.set_name4adapter(
+                self._conn._db.app.logger.ADAPTER_PROMETHEUS,
+                OraSpan.P8S_NAME_FETCH,
+            )
+            if query_name is not None:
+                span.tag(OraSpan.TAG_QUERY_NAME, query_name)
+            async with self._lock:
+                row = await self._loop.run_in_executor(
+                    None, self._ora_cur.fetchone
+                )
+                res: Optional[Union[dict, BaseModel]] = None
+                if row is not None:
+                    column_names = [
+                        d[0].lower() for d in self._ora_cur.description
+                    ]
+                    res = dict(zip(column_names, row))
+
+                if self._conn._db.cfg.log_result:
+                    span.annotate(OraSpan.ANN_RESULT, json_encode(res))
+                    span.annotate4adapter(
+                        self._conn._db.app.logger.ADAPTER_ZIPKIN,
+                        OraSpan.ANN_RESULT,
+                        json_encode({'result': str(res)}),
+                    )
+
+                if model_cls is not None:
+                    return model_cls(**res)  # type: ignore
+                else:
+                    return res
+
+    async def callfunc(self, name: str, return_type: Type, args: list) -> Any:
+        with wrap2span(
+            name=OraSpan.NAME_CALLFUNC,
+            kind=OraSpan.KIND_CLIENT,
+            cls=OraSpan,
+            app=self._conn._db.app,
+        ) as span:
+            span.set_name4adapter(
+                self._conn._db.app.logger.ADAPTER_PROMETHEUS,
+                OraSpan.P8S_NAME_CALLFUNC,
+            )
+            span.tag(OraSpan.TAG_FUNC_NAME, name)
+            async with self._lock:
+                if self._conn._db.cfg.log_query:
+                    span.annotate(
+                        OraSpan.ANN_QUERY, '%s:%r' % (name, return_type)
+                    )
+                    span.annotate4adapter(
+                        self._conn._db.app.logger.ADAPTER_ZIPKIN,
+                        OraSpan.ANN_QUERY,
+                        json_encode({'proc': '%s:%r' % (name, return_type)}),
+                    )
+                    span.annotate(OraSpan.ANN_PARAMS, str(args))
+                    span.annotate4adapter(
+                        self._conn._db.app.logger.ADAPTER_ZIPKIN,
+                        OraSpan.ANN_PARAMS,
+                        json_encode({'params': str(args)}),
+                    )
+
+                # todo timeout
+                res = await self._conn._db.loop.run_in_executor(
+                    None, self._ora_cur.callfunc, name, return_type, args
+                )
+
+                if self._conn._db.cfg.log_result:
+                    span.annotate(OraSpan.ANN_RESULT, str(res))
+                    span.annotate4adapter(
+                        self._conn._db.app.logger.ADAPTER_ZIPKIN,
+                        OraSpan.ANN_RESULT,
+                        json_encode({'result': str(res), 'args': str(args)}),
+                    )
+
+                return res
+
+    async def callproc(self, name: str, args: list) -> list:
+        with wrap2span(
+            name=OraSpan.NAME_CALLFUNC,
+            kind=OraSpan.KIND_CLIENT,
+            cls=OraSpan,
+            app=self._conn._db.app,
+        ) as span:
+            span.set_name4adapter(
+                self._conn._db.app.logger.ADAPTER_PROMETHEUS,
+                OraSpan.P8S_NAME_CALLFUNC,
+            )
+            span.tag(OraSpan.TAG_FUNC_NAME, name)
+            async with self._lock:
+                if self._conn._db.cfg.log_query:
+                    span.annotate(OraSpan.ANN_QUERY, name)
+                    span.annotate4adapter(
+                        self._conn._db.app.logger.ADAPTER_ZIPKIN,
+                        OraSpan.ANN_QUERY,
+                        json_encode({'proc': name}),
+                    )
+                    span.annotate(OraSpan.ANN_PARAMS, str(args))
+                    span.annotate4adapter(
+                        self._conn._db.app.logger.ADAPTER_ZIPKIN,
+                        OraSpan.ANN_PARAMS,
+                        json_encode({'params': str(args)}),
+                    )
+
+                # todo timeout
+                res = await self._conn._db.loop.run_in_executor(
+                    None, self._ora_cur.callproc, name, args
+                )
+
+                if self._conn._db.cfg.log_result:
+                    span.annotate(OraSpan.ANN_RESULT, str(res))
+                    span.annotate4adapter(
+                        self._conn._db.app.logger.ADAPTER_ZIPKIN,
+                        OraSpan.ANN_RESULT,
+                        json_encode({'args': str(args)}),
+                    )
+
+                return res

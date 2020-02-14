@@ -11,6 +11,7 @@ Inplat application framework
    http_server
    http_client
    db_postgres
+   db_oracle
    pika
    task_db
    rpc_http

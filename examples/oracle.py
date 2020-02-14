@@ -44,20 +44,41 @@ class App(BaseApplication):
     async def start(self) -> None:
         await super().start()
         async with self.db.connection() as conn:
-            async with self.db.connection() as conn2:
-                print(conn._conn)
-                print(
-                    await conn.query_one(
-                        "select sleep(:1) as result from dual", 2
-                    )
+            print('--- conn.execute ---')
+            print(
+                await conn.execute(
+                    'SELECT :1 FROM DUAL', 123, query_name='conn.execute'
                 )
-                print(
-                    await conn2.query_all(
-                        'SELECT 1 as item FROM dual '
-                        'UNION '
-                        'SELECT 2 as item FROM dual'
-                    )
+            )
+            print('--- conn.query_one ---')
+            print(
+                await conn.query_one(
+                    'SELECT :1 FROM DUAL', 234, query_name='conn.query_one'
                 )
+            )
+            print('--- conn.query_all ---')
+            print(
+                await conn.query_all(
+                    'SELECT :1 FROM DUAL', 345, query_name='conn.query_all'
+                )
+            )
+
+            async with conn.cursor() as curs:
+                print('--- curs.execute ---')
+                print(await curs.execute('select 1 from dual'))
+                print('--- curs.fetchone ---')
+                print(await curs.fetchone())
+
+                print('--- curs.callproc ---')
+                ret = curs.ora_cur().var(int)
+                print(await curs.callproc('ORABUS.myproc', [123, ret]))
+                print(ret.getvalue())
+
+                print('--- curs.callfunc ---')
+                ret = curs.ora_cur().var(int)
+                print(await curs.callfunc('ORABUS.myfunc', int, [123, ret]))
+                print(ret.getvalue())
+
         raise GracefulExit
 
     @property
@@ -67,9 +88,9 @@ class App(BaseApplication):
 
 if __name__ == '__main__':
     """
-    APP_DB_DSN=localhost:9006/OraDoc.localdomain \
-    APP_DB_USER=hr \
-    APP_DB_PASSWORD=hr \
+    APP_DB_DSN=localhost:20402/Orabus.localdomain \
+    APP_DB_USER=orabus \
+    APP_DB_PASSWORD=orabuspwd \
     APP_DB_LOG_QUERY=On \
     APP_DB_LOG_RESULT=On \
     APP_LOG_ZIPKIN_ENABLED=1 \

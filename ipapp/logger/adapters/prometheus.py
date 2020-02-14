@@ -52,12 +52,27 @@ DEFAULT_HISTOGRAM_LABELS: LabelsCfg = {  # {name: {label: tag}, }
         'error': 'error.class',
         'query': 'db.query',
     },
+    'db_callproc': {
+        'le': DEFAULT_LE,  # le mapping to quantiles
+        'error': 'error.class',
+        'query': 'db.proc',
+    },
+    'db_callfunc': {
+        'le': DEFAULT_LE,  # le mapping to quantiles
+        'error': 'error.class',
+        'query': 'db.func',
+    },
     'db_prepare': {
         'le': DEFAULT_LE,  # le mapping to quantiles
         'error': 'error.class',
         'query': 'db.query',
     },
     'db_execute_prepared': {
+        'le': DEFAULT_LE,  # le mapping to quantiles
+        'error': 'error.class',
+        'query': 'db.query',
+    },
+    'db_fetch': {
         'le': DEFAULT_LE,  # le mapping to quantiles
         'error': 'error.class',
         'query': 'db.query',
