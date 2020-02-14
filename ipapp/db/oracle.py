@@ -7,7 +7,7 @@ https://container-registry.oracle.com/pls/apex/f?p=113:4:103772846430850::NO:::
 """
 import asyncio
 from contextvars import Token
-from typing import Any, List, Optional, Type, Union
+from typing import Any, Callable, List, Optional, Type, Union
 
 import cx_Oracle
 from pydantic.main import BaseModel
@@ -16,6 +16,8 @@ from ipapp.component import Component
 from ipapp.error import PrepareError
 from ipapp.logger import Span, wrap2span
 from ipapp.misc import ctx_span_get, ctx_span_reset, ctx_span_set, json_encode
+
+ConnFactory = Callable[['Oracle', cx_Oracle.Connection], 'Connection']
 
 
 class OracleConfig(BaseModel):
@@ -77,9 +79,24 @@ class OraSpan(Span):
 
 
 class Oracle(Component):
-    def __init__(self, cfg: OracleConfig):
+    def __init__(
+        self,
+        cfg: OracleConfig,
+        *,
+        connection_factory: Optional[ConnFactory] = None,
+    ):
         self.cfg = cfg
         self._pool: Optional[cx_Oracle.SessionPool] = None
+
+        if connection_factory is None:
+            connection_factory = self._def_conn_factory
+
+        self._connection_factory: ConnFactory = connection_factory
+
+    def _def_conn_factory(
+        self, pg: 'Oracle', conn: 'cx_Oracle.Connection'
+    ) -> 'Connection':
+        return Connection(pg, conn)
 
     async def prepare(self) -> None:
         if self.app is None:  # pragma: no cover
@@ -181,7 +198,7 @@ class ConnectionContextManager:
             ctx_span_reset(self._ctx_token)
             raise
         else:
-            return Connection(self._db, self._conn)
+            return self._db._connection_factory(self._db, self._conn)
 
     async def __aexit__(
         self, exc_type: type, exc: BaseException, tb: type
