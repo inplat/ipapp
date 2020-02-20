@@ -168,6 +168,10 @@ class Oracle(Component):
     ) -> 'ConnectionContextManager':
         return ConnectionContextManager(self, acquire_timeout=acquire_timeout)
 
+    async def health(self) -> None:
+        async with self.connection() as conn:
+            await conn.execute('SELECT 1 FROM DUAL', query_name='health')
+
 
 class ConnectionContextManager:
     def __init__(
