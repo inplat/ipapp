@@ -435,7 +435,7 @@ class Cursor:
                         json_encode({'result': str(res)}),
                     )
 
-                if model_cls is not None:
+                if model_cls is not None and res is not None:
                     return model_cls(**res)  # type: ignore
                 else:
                     return res
