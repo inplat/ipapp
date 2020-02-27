@@ -10,6 +10,7 @@
 =======
 
 * исправлен fetch для oracle
+* обновлены sentry-sdk idna mock Sphinx tox watchdog
 
 .. 0.0.25:
 
