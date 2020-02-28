@@ -21,6 +21,8 @@ with open('requirements_iprpc.txt') as requirements_file:
     requirements_iprpc = requirements_file.read()
 with open('requirements_testing.txt') as requirements_file:
     requirements_testing = requirements_file.read()
+with open('requirements_s3.txt') as requirements_file:
+    requirements_s3 = requirements_file.read()
 
 
 setup(
@@ -52,5 +54,6 @@ setup(
         'rabbitmq': requirements_rabbit.split('\n'),
         'iprpc': requirements_iprpc.split('\n'),
         'testing': requirements_testing.split('\n'),
+        's3': requirements_s3.split('\n'),
     },
 )

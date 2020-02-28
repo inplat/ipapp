@@ -4,3 +4,4 @@
 -r requirements_rabbitmq.txt
 -r requirements_iprpc.txt
 -r requirements_testing.txt
+-r requirements_s3.txt
