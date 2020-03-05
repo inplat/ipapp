@@ -112,7 +112,14 @@ def load_config(options: Args, cfg_cls: Type[BaseConfig]) -> BaseConfig:
 
 def _show_config(options: Args, cfg: BaseConfig) -> None:
     if options.show_config == 'env':
-        print("\n".join(['%s=%s' % (k, v) for k, v in cfg.to_env()]))
+        print(
+            "\n".join(
+                [
+                    '%s%s=%s' % (options.env_prefix, k, v)
+                    for k, v in cfg.to_env().items()
+                ]
+            )
+        )
     elif options.show_config == 'json':
         cfg.to_json(sys.stdout)
     elif options.show_config == 'yaml':

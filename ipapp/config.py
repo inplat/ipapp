@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import os
 import sys
+from collections import OrderedDict
+from decimal import Decimal
 from io import BufferedIOBase, RawIOBase, TextIOBase
 from typing import (
     IO,
@@ -10,6 +12,7 @@ from typing import (
     Callable,
     Dict,
     Generic,
+    List,
     Mapping,
     Optional,
     Type,
@@ -73,7 +76,45 @@ class BaseConfig(BaseModel, Generic[T]):
         return cls(**d)
 
     def to_env(self) -> Dict[str, str]:
-        raise NotImplementedError
+        return self._dict_to_env(self.to_dict(), [])
+
+    @classmethod
+    def _dict_to_env(cls, val: dict, path: List[str]) -> Dict[str, str]:
+        res = OrderedDict()
+        for cname, cmodel in val.items():
+            _path = list(path) + [cname]
+            env_name: str
+            if isinstance(cmodel, dict):
+                for subname, submodel in cmodel.items():
+                    if isinstance(submodel, dict):
+                        pass
+                    else:
+                        _sub_path = _path + [subname]
+                        env_name = cls._to_env_name(*_sub_path)
+                        res[env_name] = cls._to_env_val(submodel, _sub_path)
+            else:
+                env_name = cls._to_env_name(cname)
+                res[env_name] = cls._to_env_val(cmodel, _path)
+        return res
+
+    @classmethod
+    def _to_env_val(cls, val: Any, path: List[str]) -> str:
+        if val is None:
+            return ''
+        if not isinstance(val, (bool, int, float, str, Decimal)):
+            raise NotImplementedError(
+                'configuration value must be scalar in %s. %s'
+                % ('.'.join(path), type(val))
+            )
+
+        if isinstance(val, bool):
+            return '1' if val else '0'
+        else:
+            return str(val)
+
+    @staticmethod
+    def _to_env_name(*path: str) -> str:
+        return '_'.join([v.upper() for v in path])
 
     @classmethod
     def from_dict(cls: Type[T], input_dict: Dict[str, Any]) -> T:
