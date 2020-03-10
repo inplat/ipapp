@@ -16,6 +16,7 @@ Inplat application framework
    task_db
    rpc_http
    rpc_amqp
+   openapi
    release-notes
 
 Indices and tables

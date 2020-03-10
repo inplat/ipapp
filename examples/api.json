@@ -1,0 +1,70 @@
+{
+  "components": {
+    "schemas": {
+      "Request": {
+        "title": "Request",
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "title": "Customer Id",
+            "description": "Customer UUID",
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "title": "Username",
+            "description": "Username",
+            "type": "string",
+            "example": "ivan.ivanov"
+          },
+          "first_name": {
+            "title": "First Name",
+            "description": "First name",
+            "type": "string",
+            "example": "Иван"
+          },
+          "last_name": {
+            "title": "Last Name",
+            "description": "Last name",
+            "type": "string",
+            "example": "Иванов"
+          },
+          "birth_date": {
+            "title": "Birth Date",
+            "description": "Date of birth",
+            "type": "string",
+            "format": "date"
+          },
+          "gender": {
+            "title": "Gender",
+            "description": "Gender",
+            "enum": [
+              "MALE",
+              "FEMALE"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "customer_id",
+          "username"
+        ]
+      },
+      "Response": {
+        "title": "Response",
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "title": "Customer Id",
+            "description": "Customer UUID",
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "customer_id"
+        ]
+      }
+    }
+  }
+}

@@ -12,11 +12,12 @@
 #
 import os
 import sys
+
 sys.path.insert(0, os.path.abspath('../..'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'myproject'
+project = 'IPAPP'
 copyright = '2019, InPlat'
 author = 'InPlat'
 
@@ -26,9 +27,7 @@ author = 'InPlat'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = [
-    'sphinx.ext.todo', 'sphinx.ext.viewcode', 'sphinx.ext.autodoc'
-]
+extensions = ['sphinx.ext.todo', 'sphinx.ext.viewcode', 'sphinx.ext.autodoc']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -58,7 +57,8 @@ html_theme = 'sphinx_rtd_theme'
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
-html_context = {'css_files': [
+html_context = {
+    'css_files': [
         '_static/theme_overrides.css',  # override wide tables in RTD theme
     ],
 }

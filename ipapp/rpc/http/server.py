@@ -1,20 +1,64 @@
-from typing import Any, Callable
+import inspect
+import json
+from functools import wraps
+from pathlib import Path
+from typing import Any, Callable, Coroutine, Dict, List, Optional
 
 from aiohttp import web
 from iprpc.executor import BaseError, InternalError, MethodExecutor
-from pydantic.main import BaseModel
+from pydantic import AnyUrl, BaseModel
+from pydantic.schema import get_model_name_map
 
 from ipapp.ctx import span
 from ipapp.http.server import ServerHandler
 from ipapp.misc import json_encode as default_json_encode
-
-from ..const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
+from ipapp.openapi.misc import (
+    get_errors_from_func,
+    get_model_definitions,
+    get_models_from_rpc_methods,
+    get_summary_description_from_func,
+    make_dev_server,
+    make_rpc_path,
+    snake_to_camel,
+)
+from ipapp.openapi.models import (
+    Components,
+    Contact,
+    Example,
+    ExternalDocumentation,
+    Info,
+    License,
+)
+from ipapp.openapi.models import OpenAPI as OpenAPIModel
+from ipapp.openapi.models import Tag
+from ipapp.openapi.templates import render_redoc_html, render_swagger_ui_html
+from ipapp.rpc.const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
 
 
 class RpcHandlerConfig(BaseModel):
     path: str = '/'
     healthcheck_path: str = '/health'
     debug: bool = False
+
+
+class OpenApiRpcHandlerConfig(RpcHandlerConfig):
+    title: str = "Application API"
+    description: Optional[str] = None
+    terms_of_service: Optional[str] = None
+    contact_name: Optional[str] = None
+    contact_url: Optional[AnyUrl] = None
+    contact_email: Optional[str] = None
+    license_name: str = ""
+    license_url: Optional[AnyUrl] = None
+    version: str = "1.0.0"
+    servers: Optional[List[Dict[str, str]]] = None
+    external_docs_url: Optional[str] = None
+    external_docs_description: Optional[str] = None
+    openapi_url: str = "/openapi.json"
+    openapi_prefix: str = ""
+    openapi_schemas: List[str] = []
+    docs_url: str = "/docs"
+    redoc_url: str = "/redoc"
 
 
 class RpcHandler(ServerHandler):
@@ -80,3 +124,222 @@ class RpcHandler(ServerHandler):
                 ).encode(),
                 content_type='application/json',
             )
+
+
+class OpenApiRpcHandler(RpcHandler):
+    def __init__(
+        self,
+        api: object,
+        cfg: OpenApiRpcHandlerConfig,
+        json_encode: Callable[[Any], str] = default_json_encode,
+    ) -> None:
+        super().__init__(api=api, cfg=cfg, json_encode=json_encode)
+        self._cfg: OpenApiRpcHandlerConfig = cfg  # for mypy
+        self.openapi = OpenAPIModel(
+            openapi="3.0.3",
+            info=Info(
+                title=self._cfg.title,
+                description=self._cfg.description,
+                termsOfService=self._cfg.terms_of_service,
+                contact=Contact(
+                    name=self._cfg.contact_name,
+                    url=self._cfg.contact_url,
+                    email=self._cfg.contact_email,
+                ),
+                license=License(
+                    name=self._cfg.license_name, url=self._cfg.license_url,
+                ),
+                version=self._cfg.version,
+            ),
+            tags=[
+                Tag(
+                    name=self.name,
+                    description=inspect.getdoc(self._api) or "",
+                )
+            ],
+            components=Components(examples={}),
+            paths={},
+        )
+
+        if self._cfg.external_docs_url:
+            self.openapi.externalDocs = ExternalDocumentation(
+                url=self._cfg.external_docs_url,
+                description=self._cfg.external_docs_description,
+            )
+
+    @property
+    def name(self) -> str:
+        return self._api.__class__.__name__
+
+    @property
+    def docs_url(self) -> str:
+        return f"{self._cfg.path.rstrip('/')}{self._cfg.docs_url}"
+
+    @property
+    def redoc_url(self) -> str:
+        return f"{self._cfg.path.rstrip('/')}{self._cfg.redoc_url}"
+
+    @property
+    def openapi_prefix(self) -> str:
+        return self._cfg.openapi_prefix.rstrip("/") or self._cfg.path.rstrip(
+            "/"
+        )
+
+    @property
+    def openapi_url(self) -> str:
+        return f"{self.openapi_prefix}{self._cfg.openapi_url}"
+
+    def file_factory(
+        self, filepath: str
+    ) -> Callable[[web.Request], Coroutine[Any, Any, web.FileResponse]]:
+        async def file_handler(request: web.Request) -> web.FileResponse:
+            return web.FileResponse(filepath)
+
+        return file_handler
+
+    async def openapi_handler(self, request: web.Request) -> web.Response:
+        return web.Response(
+            body=json.dumps(
+                self.openapi.dict(by_alias=True, exclude_none=True),
+                indent=4,
+                sort_keys=True,
+            ),
+            headers={"Content-Type": "application/json"},
+        )
+
+    async def docs_handler(self, request: web.Request) -> web.Response:
+        return render_swagger_ui_html(
+            openapi_url=self.openapi_url, title=self._cfg.title
+        )
+
+    async def redoc_handler(self, request: web.Request) -> web.Response:
+        return render_redoc_html(
+            openapi_url=self.openapi_url, title=self._cfg.title
+        )
+
+    async def prepare(self) -> None:
+        await super().prepare()
+
+        models = get_models_from_rpc_methods(self._rpc._methods)
+        model_name_map = get_model_name_map(models)
+        definitions = get_model_definitions(
+            models=models, model_name_map=model_name_map
+        )
+
+        for func in self._rpc._methods.values():
+            sig = inspect.signature(func)
+            errors = get_errors_from_func(func)
+            summary, description = get_summary_description_from_func(func)
+
+            method = getattr(func, "__rpc_name__", func.__name__)
+            deprecated = getattr(func, "__rpc_deprecated__", False)
+            request_model = getattr(func, "__rpc_request_model__", None)
+            # response_model = getattr(
+            #     func, "__rpc_response_model__", None
+            # )
+            request_ref = getattr(func, "__rpc_request_ref__", None)
+            response_ref = getattr(func, "__rpc_response_ref__", None)
+
+            camel_method = snake_to_camel(method)
+            request_model_name = f"{camel_method}Request"
+            response_model_name = f"{camel_method}Response"
+
+            if request_model or request_ref:
+                definitions.pop(f"{request_model_name}Params", None)
+
+            if request_ref:
+                definitions[request_model_name]["properties"]["params"] = {
+                    "$ref": request_ref,
+                }
+
+            if response_ref:
+                definitions[response_model_name]["properties"]["result"] = {
+                    "$ref": response_ref,
+                }
+
+            path = make_rpc_path(
+                method=method,
+                parameters=sig.parameters,
+                errors=errors,
+                summary=summary,
+                description=description,
+                deprecated=deprecated,
+                tags=[self.name],
+            )
+            self.openapi.paths.update(path)
+
+            for error in errors:
+                if (
+                    self.openapi.components is not None
+                    and self.openapi.components.examples is not None
+                ):
+                    self.openapi.components.examples[error.__name__] = Example(
+                        value={"code": error.code, "message": error.message}
+                    )
+
+        if self.openapi.components and definitions:
+            self.openapi.components.schemas = {
+                x: definitions[x] for x in sorted(definitions)
+            }
+
+        self.server.web_app.router.add_get(
+            self.openapi_url, self.openapi_handler,
+        )
+
+        self.server.web_app.router.add_get(
+            self.docs_url, self.docs_handler,
+        )
+
+        self.server.web_app.router.add_get(
+            self.redoc_url, self.redoc_handler,
+        )
+
+        for schema in self._cfg.openapi_schemas:
+            self.server.web_app.router.add_get(
+                f"{self.openapi_prefix}/{Path(schema).name}",
+                self.file_factory(schema),
+            )
+
+        self.openapi.servers = [make_dev_server(self.server, self._cfg.path)]
+
+
+def method(
+    *,
+    name: Optional[str] = None,
+    errors: Optional[List[BaseError]] = None,
+    deprecated: Optional[bool] = False,
+    summary: str = "",
+    description: str = "",
+    request_model: Optional[Any] = None,
+    response_model: Optional[Any] = None,
+    request_ref: Optional[str] = None,
+    response_ref: Optional[str] = None,
+    validators: Optional[Dict[str, dict]] = None,
+) -> Callable:
+    def decorator(func: Callable) -> Callable:
+        setattr(func, "__rpc_name__", name or func.__name__)
+        setattr(func, "__rpc_errors__", errors or [])
+        setattr(func, "__rpc_deprecated__", deprecated)
+        setattr(func, "__rpc_summary__", summary)
+        setattr(func, "__rpc_description__", description)
+        setattr(func, "__rpc_request_model__", request_model)
+        setattr(func, "__rpc_response_model__", response_model)
+        setattr(func, "__rpc_request_ref__", request_ref)
+        setattr(func, "__rpc_response_ref__", response_ref)
+
+        if validators is not None:
+            setattr(func, "__validators__", validators)
+            unknown = set(validators.keys()) - set(func.__code__.co_varnames)
+            if unknown:
+                raise UserWarning(
+                    "Found validator(s) for nonexistent argument(s): "
+                    ", ".join(unknown)
+                )
+
+        @wraps(func)
+        def wrapper(*args: Any, **kwrags: Any) -> Callable:
+            return func(*args, **kwrags)
+
+        return wrapper
+
+    return decorator
