@@ -7,14 +7,15 @@ from typing import Any, Callable, Coroutine, Dict, List, Optional
 from aiohttp import web
 from iprpc.executor import BaseError, InternalError, MethodExecutor
 from pydantic import AnyUrl, BaseModel
-from pydantic.schema import get_model_name_map
 
 from ipapp.ctx import span
 from ipapp.http.server import ServerHandler
 from ipapp.misc import json_encode as default_json_encode
 from ipapp.openapi.misc import (
+    REF_PREFIX,
     get_errors_from_func,
     get_model_definitions,
+    get_model_name_map,
     get_models_from_rpc_methods,
     get_summary_description_from_func,
     make_dev_server,
@@ -28,9 +29,17 @@ from ipapp.openapi.models import (
     ExternalDocumentation,
     Info,
     License,
+    MediaType,
 )
 from ipapp.openapi.models import OpenAPI as OpenAPIModel
-from ipapp.openapi.models import Tag
+from ipapp.openapi.models import (
+    Operation,
+    PathItem,
+    Reference,
+    Response,
+    Server,
+    Tag,
+)
 from ipapp.openapi.templates import render_redoc_html, render_swagger_ui_html
 from ipapp.rpc.const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
 
@@ -48,10 +57,10 @@ class OpenApiRpcHandlerConfig(RpcHandlerConfig):
     contact_name: Optional[str] = None
     contact_url: Optional[AnyUrl] = None
     contact_email: Optional[str] = None
-    license_name: str = ""
+    license_name: Optional[str] = None
     license_url: Optional[AnyUrl] = None
     version: str = "1.0.0"
-    servers: Optional[List[Dict[str, str]]] = None
+    servers: List[Server] = []
     external_docs_url: Optional[str] = None
     external_docs_description: Optional[str] = None
     openapi_url: str = "/openapi.json"
@@ -146,9 +155,6 @@ class OpenApiRpcHandler(RpcHandler):
                     url=self._cfg.contact_url,
                     email=self._cfg.contact_email,
                 ),
-                license=License(
-                    name=self._cfg.license_name, url=self._cfg.license_url,
-                ),
                 version=self._cfg.version,
             ),
             tags=[
@@ -158,8 +164,35 @@ class OpenApiRpcHandler(RpcHandler):
                 )
             ],
             components=Components(examples={}),
-            paths={},
+            paths={
+                self._cfg.healthcheck_path: PathItem(
+                    get=Operation(
+                        tags=[self.name],
+                        summary="Health Check",
+                        operationId="health",
+                        description="",
+                        responses={
+                            "200": Response(
+                                description="Successful operation",
+                                content={
+                                    "application/json": MediaType(
+                                        schema_=Reference(
+                                            ref=f"{REF_PREFIX}Health"
+                                        ),
+                                    ),
+                                },
+                            ),
+                            "default": Response(description="Error"),
+                        },
+                    ),
+                )
+            },
         )
+
+        if self._cfg.license_name:
+            self.openapi.info.license = License(
+                name=self._cfg.license_name, url=self._cfg.license_url,
+            )
 
         if self._cfg.external_docs_url:
             self.openapi.externalDocs = ExternalDocumentation(
@@ -217,9 +250,7 @@ class OpenApiRpcHandler(RpcHandler):
             openapi_url=self.openapi_url, title=self._cfg.title
         )
 
-    async def prepare(self) -> None:
-        await super().prepare()
-
+    async def openapi_prepare(self) -> None:
         models = get_models_from_rpc_methods(self._rpc._methods)
         model_name_map = get_model_name_map(models)
         definitions = get_model_definitions(
@@ -231,34 +262,29 @@ class OpenApiRpcHandler(RpcHandler):
             errors = get_errors_from_func(func)
             summary, description = get_summary_description_from_func(func)
 
-            method = getattr(func, "__rpc_name__", func.__name__)
+            method_name = getattr(func, "__rpc_name__", func.__name__)
             deprecated = getattr(func, "__rpc_deprecated__", False)
-            request_model = getattr(func, "__rpc_request_model__", None)
-            # response_model = getattr(
-            #     func, "__rpc_response_model__", None
-            # )
             request_ref = getattr(func, "__rpc_request_ref__", None)
             response_ref = getattr(func, "__rpc_response_ref__", None)
 
-            camel_method = snake_to_camel(method)
-            request_model_name = f"{camel_method}Request"
-            response_model_name = f"{camel_method}Response"
-
-            if request_model or request_ref:
-                definitions.pop(f"{request_model_name}Params", None)
+            camel_method_name = snake_to_camel(method_name)
+            request_model_name = f"{camel_method_name}Request"
+            response_model_name = f"{camel_method_name}Response"
 
             if request_ref:
+                definitions.pop(f"{request_model_name}Params", None)
                 definitions[request_model_name]["properties"]["params"] = {
                     "$ref": request_ref,
                 }
 
             if response_ref:
+                definitions.pop(f"{response_model_name}Result", None)
                 definitions[response_model_name]["properties"]["result"] = {
                     "$ref": response_ref,
                 }
 
             path = make_rpc_path(
-                method=method,
+                method=method_name,
                 parameters=sig.parameters,
                 errors=errors,
                 summary=summary,
@@ -301,6 +327,14 @@ class OpenApiRpcHandler(RpcHandler):
             )
 
         self.openapi.servers = [make_dev_server(self.server, self._cfg.path)]
+        self.openapi.servers.extend(self._cfg.servers)
+
+    async def prepare(self) -> None:
+        await super().prepare()
+        try:
+            await self.openapi_prepare()
+        except Exception as exc:
+            self.app.log_err(f"Cannot initialize openapi: {exc}")
 
 
 def method(

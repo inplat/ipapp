@@ -1,4 +1,6 @@
 import inspect
+import re
+from datetime import datetime
 from typing import (
     Any,
     Callable,
@@ -19,8 +21,8 @@ from iprpc import (
     InvalidRequest,
     MethodNotFound,
 )
-from pydantic import BaseConfig, BaseModel, create_model
-from pydantic.schema import model_process_schema
+from pydantic import BaseModel, Field, create_model
+from pydantic.schema import get_flat_models_from_models, model_process_schema
 
 from ipapp.http.server import Server as HttpServer
 from ipapp.openapi.models import (
@@ -74,77 +76,114 @@ def get_summary_description_from_func(func: Callable) -> Tuple[str, str]:
     return (summary or doc_summary, description or doc_description)
 
 
+def get_field_definitions(
+    parameters: Mapping[str, inspect.Parameter]
+) -> Dict[str, Any]:
+    return {
+        k: (v.annotation, ... if v.default is v.empty else v.default)
+        for k, v in parameters.items()
+        if v.kind is not v.VAR_KEYWORD and v.kind is not v.VAR_POSITIONAL
+    }
+
+
 def get_models_from_rpc_methods(
     methods: Dict[str, Callable]
 ) -> Set[Type[BaseModel]]:
-    models: Set[Type[BaseModel]] = set()
+    clean_models: List[Type[BaseModel]] = [
+        create_model(
+            "Health",
+            is_sick=(bool, False),
+            checks=(Dict[str, str], Field(..., example={"srv": "ok"})),
+            version=(str, Field(..., example="1.0.0")),
+            start_time=(datetime, ...),
+            up_time=(str, Field(..., example="0:00:12.850850")),
+        )
+    ]
 
     for method, func in methods.items():
         sig = inspect.signature(func)
 
-        method = getattr(func, "__rpc_name__", method)
-        request_model = getattr(func, "__rpc_request_model__", None)
-        response_model = getattr(func, "__rpc_response_model__", None)
+        method_name = getattr(func, "__rpc_name__", method)
+        request_params_model = getattr(func, "__rpc_request_model__", None)
+        response_result_model = getattr(func, "__rpc_response_model__", None)
 
-        camel_method = snake_to_camel(method)
+        camel_method_name = snake_to_camel(method_name)
 
-        for param in sig.parameters.values():
-            origin_name = getattr(param.annotation, "__origin__", None)
-            origin_args = getattr(param.annotation, "__args__", [])
-            if param.kind is param.VAR_KEYWORD:
-                pass
-            elif param.kind is param.VAR_POSITIONAL:
-                pass
-            elif isinstance(param.annotation, type(BaseModel)):
-                models.add(param.annotation)
-            elif origin_name and origin_name._name == "Union":
-                for arg in origin_args:
-                    if isinstance(arg, type(BaseModel)):
-                        models.add(arg)
+        request_model_name = f"{camel_method_name}Request"
+        request_params_model_name = f"{camel_method_name}RequestParams"
+        response_model_name = f"{camel_method_name}Response"
+        response_result_model_name = f"{camel_method_name}ResponseResult"
 
-        class RequestParamsConfig(BaseConfig):
-            arbitrary_types_allowed = True
-
-        RequestParamsModel = create_model(
-            f"{camel_method}RequestParams",
-            __config__=RequestParamsConfig,
-            **{  # type: ignore
-                k: (v.annotation, ... if v.default is v.empty else v.default)
-                for k, v in sig.parameters.items()
-                if v.kind is not v.VAR_KEYWORD
-                and param.kind is not param.VAR_POSITIONAL
-            },
+        RequestParamsModel = request_params_model or create_model(
+            request_params_model_name, **get_field_definitions(sig.parameters),
         )
 
-        class RequestConfig(BaseConfig):
-            arbitrary_types_allowed = True
-            schema_extra = {"examples": [{"method": method}]}
+        if getattr(RequestParamsModel, "__name__", "") == request_model_name:
+            fix_model_name(RequestParamsModel, request_params_model_name)
 
         RequestModel = create_model(
-            f"{camel_method}Request",
-            __config__=RequestConfig,
-            method=(str, ...),
-            params=(request_model or RequestParamsModel, ...),
+            request_model_name,
+            method=(str, Field(..., example=method_name)),
+            params=(RequestParamsModel, ...),
         )
 
-        class ResponseConfig(BaseConfig):
-            arbitrary_types_allowed = True
-            schema_extra = {"examples": [{"code": 0, "message": "OK"}]}
-
-        resp = dict(code=(int, ...), message=(str, ...))
-        if response_model or sig.return_annotation is not None:
-            resp["result"] = (response_model or sig.return_annotation, None)  # type: ignore
-
-        ResponseModel = create_model(
-            f"{camel_method}Response", __config__=ResponseConfig, **resp,  # type: ignore
+        response: Dict[str, Any] = dict(
+            code=(int, Field(..., example=0)),
+            message=(str, Field(..., example="OK")),
         )
 
-        models.update({RequestParamsModel, RequestModel, ResponseModel})
+        ResponseResultModel = response_result_model or sig.return_annotation
+        if ResponseResultModel is not None:
+            if (
+                getattr(ResponseResultModel, "__name__", "")
+                == response_model_name
+            ):
+                fix_model_name(ResponseResultModel, response_result_model_name)
 
-        if isinstance(sig.return_annotation, type(BaseModel)):
-            models.add(sig.return_annotation)
+            response["result"] = (ResponseResultModel, None)
 
-    return models
+        ResponseModel = create_model(response_model_name, **response)
+
+        clean_models.extend([RequestParamsModel, RequestModel, ResponseModel])
+
+    flat_models = get_flat_models_from_models(clean_models)
+
+    return flat_models
+
+
+def fix_model_name(model: Type[BaseModel], name: str) -> None:
+    if isinstance(model, type(BaseModel)):
+        setattr(model.__config__, "title", name)
+    else:
+        # TODO: warning
+        setattr(model, "__name__", name)
+
+
+def get_long_model_name(model: Type[BaseModel]) -> str:
+    return f"{model.__module__}__{model.__name__}".replace(".", "__")
+
+
+def get_model_name_map(
+    unique_models: Set[Type[BaseModel]],
+) -> Dict[Type[BaseModel], str]:
+    name_model_map = {}
+    conflicting_names: Set[str] = set()
+    for model in unique_models:
+        model_name = model.__config__.title or model.__name__
+        model_name = re.sub(r"[^a-zA-Z0-9.\-_]", "_", model_name)
+        if model_name in conflicting_names:
+            model_name = get_long_model_name(model)
+            name_model_map[model_name] = model
+        elif model_name in name_model_map:
+            conflicting_names.add(model_name)
+            conflicting_model = name_model_map.pop(model_name)
+            name_model_map[
+                get_long_model_name(conflicting_model)
+            ] = conflicting_model
+            name_model_map[get_long_model_name(model)] = model
+        else:
+            name_model_map[model_name] = model
+    return {v: k for k, v in name_model_map.items()}
 
 
 def get_model_definitions(
@@ -161,14 +200,6 @@ def get_model_definitions(
         definitions.update(model_definitions)
         model_name = model_name_map[model]
         definitions[model_name] = model_schema
-
-    for model_name, model_definition in definitions.items():
-        for example in model_definition.pop("examples", []):
-            for key, value in example.items():
-                if key in definitions[model_name]["properties"]:
-                    definitions[model_name]["properties"][key][
-                        "example"
-                    ] = value
 
     return definitions
 
@@ -219,7 +250,7 @@ def make_rpc_path(
                     },
                 ),
             },
-        )
+        ),
     )
 
     for error in errors:

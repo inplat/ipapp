@@ -47,7 +47,7 @@
                         "type": "string"
                     },
                     "params": {
-                        "$ref": "#/components/schemas/Customer"
+                        "$ref": "#/components/schemas/CreateCustomerRequestParams"
                     }
                 },
                 "required": [
@@ -55,6 +55,68 @@
                     "params"
                 ],
                 "title": "CreateCustomerRequest",
+                "type": "object"
+            },
+            "CreateCustomerRequestParams": {
+                "properties": {
+                    "birth_date": {
+                        "description": "Date of birth",
+                        "format": "date",
+                        "title": "Birth Date",
+                        "type": "string"
+                    },
+                    "customer_id": {
+                        "description": "Customer UUID",
+                        "format": "uuid",
+                        "title": "Customer Id",
+                        "type": "string"
+                    },
+                    "first_name": {
+                        "example": "Ivan",
+                        "title": "First Name",
+                        "type": "string"
+                    },
+                    "gender": {
+                        "description": "Gender",
+                        "enum": [
+                            "MALE",
+                            "FEMALE"
+                        ],
+                        "title": "Gender",
+                        "type": "string"
+                    },
+                    "is_active": {
+                        "default": false,
+                        "deprecated": true,
+                        "title": "Is Active",
+                        "type": "boolean"
+                    },
+                    "last_name": {
+                        "example": "Ivanov",
+                        "title": "Last Name",
+                        "type": "string"
+                    },
+                    "passport": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Passport"
+                            }
+                        ],
+                        "description": "Passport",
+                        "title": "Passport"
+                    },
+                    "username": {
+                        "description": "Username",
+                        "example": "ivan.ivanov",
+                        "title": "Username",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "customer_id",
+                    "username"
+                ],
+                "title": "CreateCustomerRequestParams",
                 "type": "object"
             },
             "CreateCustomerResponse": {
@@ -70,7 +132,7 @@
                         "type": "string"
                     },
                     "result": {
-                        "$ref": "#/components/schemas/Customer"
+                        "$ref": "#/components/schemas/CreateCustomerResponseResult"
                     }
                 },
                 "required": [
@@ -78,6 +140,68 @@
                     "message"
                 ],
                 "title": "CreateCustomerResponse",
+                "type": "object"
+            },
+            "CreateCustomerResponseResult": {
+                "properties": {
+                    "birth_date": {
+                        "description": "Date of birth",
+                        "format": "date",
+                        "title": "Birth Date",
+                        "type": "string"
+                    },
+                    "customer_id": {
+                        "description": "Customer UUID",
+                        "format": "uuid",
+                        "title": "Customer Id",
+                        "type": "string"
+                    },
+                    "first_name": {
+                        "example": "Ivan",
+                        "title": "First Name",
+                        "type": "string"
+                    },
+                    "gender": {
+                        "description": "Gender",
+                        "enum": [
+                            "MALE",
+                            "FEMALE"
+                        ],
+                        "title": "Gender",
+                        "type": "string"
+                    },
+                    "is_active": {
+                        "default": false,
+                        "deprecated": true,
+                        "title": "Is Active",
+                        "type": "boolean"
+                    },
+                    "last_name": {
+                        "example": "Ivanov",
+                        "title": "Last Name",
+                        "type": "string"
+                    },
+                    "passport": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Passport"
+                            }
+                        ],
+                        "description": "Passport",
+                        "title": "Passport"
+                    },
+                    "username": {
+                        "description": "Username",
+                        "example": "ivan.ivanov",
+                        "title": "Username",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "customer_id",
+                    "username"
+                ],
+                "title": "CreateCustomerResponseResult",
                 "type": "object"
             },
             "Customer": {
@@ -95,7 +219,6 @@
                         "type": "string"
                     },
                     "first_name": {
-                        "description": "First name",
                         "example": "Ivan",
                         "title": "First Name",
                         "type": "string"
@@ -111,11 +234,11 @@
                     },
                     "is_active": {
                         "default": false,
+                        "deprecated": true,
                         "title": "Is Active",
                         "type": "boolean"
                     },
                     "last_name": {
-                        "description": "Last name",
                         "example": "Ivanov",
                         "title": "Last Name",
                         "type": "string"
@@ -186,6 +309,11 @@
                         "example": "OK",
                         "title": "Message",
                         "type": "string"
+                    },
+                    "result": {
+                        "format": "uuid",
+                        "title": "Result",
+                        "type": "string"
                     }
                 },
                 "required": [
@@ -236,39 +364,41 @@
                 "title": "FindCustomerResponse",
                 "type": "object"
             },
-            "GetCustomerRequest": {
+            "GetCustomersRequest": {
                 "properties": {
                     "method": {
-                        "example": "get_customer",
+                        "example": "get_customers",
                         "title": "Method",
                         "type": "string"
                     },
                     "params": {
-                        "$ref": "#/components/schemas/GetCustomerRequestParams"
+                        "$ref": "#/components/schemas/GetCustomersRequestParams"
                     }
                 },
                 "required": [
                     "method",
                     "params"
                 ],
-                "title": "GetCustomerRequest",
+                "title": "GetCustomersRequest",
                 "type": "object"
             },
-            "GetCustomerRequestParams": {
+            "GetCustomersRequestParams": {
                 "properties": {
-                    "customer_id": {
-                        "format": "uuid",
-                        "title": "Customer Id",
-                        "type": "string"
+                    "customers": {
+                        "items": {
+                            "$ref": "#/components/schemas/Customer"
+                        },
+                        "title": "Customers",
+                        "type": "array"
                     }
                 },
                 "required": [
-                    "customer_id"
+                    "customers"
                 ],
-                "title": "GetCustomerRequestParams",
+                "title": "GetCustomersRequestParams",
                 "type": "object"
             },
-            "GetCustomerResponse": {
+            "GetCustomersResponse": {
                 "properties": {
                     "code": {
                         "example": 0,
@@ -281,27 +411,71 @@
                         "type": "string"
                     },
                     "result": {
-                        "$ref": "#/components/schemas/Customer"
+                        "items": {
+                            "$ref": "#/components/schemas/Customer"
+                        },
+                        "title": "Result",
+                        "type": "array"
                     }
                 },
                 "required": [
                     "code",
                     "message"
                 ],
-                "title": "GetCustomerResponse",
+                "title": "GetCustomersResponse",
+                "type": "object"
+            },
+            "Health": {
+                "properties": {
+                    "checks": {
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "example": {
+                            "srv": "ok"
+                        },
+                        "title": "Checks",
+                        "type": "object"
+                    },
+                    "is_sick": {
+                        "default": false,
+                        "title": "Is Sick",
+                        "type": "boolean"
+                    },
+                    "start_time": {
+                        "format": "date-time",
+                        "title": "Start Time",
+                        "type": "string"
+                    },
+                    "up_time": {
+                        "example": "0:00:12.850850",
+                        "title": "Up Time",
+                        "type": "string"
+                    },
+                    "version": {
+                        "example": "1.0.0",
+                        "title": "Version",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "checks",
+                    "version",
+                    "start_time",
+                    "up_time"
+                ],
+                "title": "Health",
                 "type": "object"
             },
             "Passport": {
                 "properties": {
                     "number": {
-                        "description": "Passport number",
                         "example": "567890",
                         "pattern": "^\\d{6}$",
                         "title": "Number",
                         "type": "string"
                     },
                     "series": {
-                        "description": "Passport series",
                         "example": "1234",
                         "pattern": "^\\d{4}$",
                         "title": "Series",
@@ -341,8 +515,13 @@
                         "title": "Birth Date",
                         "type": "string"
                     },
+                    "customer_id": {
+                        "format": "uuid",
+                        "title": "Customer Id",
+                        "type": "string"
+                    },
                     "first_name": {
-                        "description": "First name",
+                        "example": "Ivan",
                         "title": "First Name",
                         "type": "string"
                     },
@@ -357,11 +536,12 @@
                     },
                     "is_active": {
                         "default": false,
+                        "deprecated": true,
                         "title": "Is Active",
                         "type": "boolean"
                     },
                     "last_name": {
-                        "description": "Last name",
+                        "example": "Ivanov",
                         "title": "Last Name",
                         "type": "string"
                     },
@@ -375,12 +555,13 @@
                         "title": "Passport"
                     },
                     "username": {
-                        "description": "First name",
+                        "example": "ivan.ivanov",
                         "title": "Username",
                         "type": "string"
                     }
                 },
                 "required": [
+                    "customer_id",
                     "username"
                 ],
                 "title": "UpdateCustomerRequestParams",
@@ -399,9 +580,7 @@
                         "type": "string"
                     },
                     "result": {
-                        "format": "uuid",
-                        "title": "Result",
-                        "type": "string"
+                        "$ref": "#/components/schemas/UpdateCustomerResponseResult"
                     }
                 },
                 "required": [
@@ -410,17 +589,77 @@
                 ],
                 "title": "UpdateCustomerResponse",
                 "type": "object"
+            },
+            "UpdateCustomerResponseResult": {
+                "properties": {
+                    "birth_date": {
+                        "description": "Date of birth",
+                        "format": "date",
+                        "title": "Birth Date",
+                        "type": "string"
+                    },
+                    "customer_id": {
+                        "description": "Customer UUID",
+                        "format": "uuid",
+                        "title": "Customer Id",
+                        "type": "string"
+                    },
+                    "first_name": {
+                        "example": "Ivan",
+                        "title": "First Name",
+                        "type": "string"
+                    },
+                    "gender": {
+                        "description": "Gender",
+                        "enum": [
+                            "MALE",
+                            "FEMALE"
+                        ],
+                        "title": "Gender",
+                        "type": "string"
+                    },
+                    "is_active": {
+                        "default": false,
+                        "deprecated": true,
+                        "title": "Is Active",
+                        "type": "boolean"
+                    },
+                    "last_name": {
+                        "example": "Ivanov",
+                        "title": "Last Name",
+                        "type": "string"
+                    },
+                    "passport": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Passport"
+                            }
+                        ],
+                        "description": "Passport",
+                        "title": "Passport"
+                    },
+                    "username": {
+                        "description": "Username",
+                        "example": "ivan.ivanov",
+                        "title": "Username",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "customer_id",
+                    "username"
+                ],
+                "title": "UpdateCustomerResponseResult",
+                "type": "object"
             }
         }
     },
     "info": {
         "contact": {
+            "email": "ivan.ivanov@acme.inc",
             "name": "Ivan Ivanov"
         },
         "description": "Customer service description",
-        "license": {
-            "name": "Acme License 1.0"
-        },
         "title": "Customer API",
         "version": "1.0.0"
     },
@@ -516,9 +755,6 @@
                         "content": {
                             "application/json": {
                                 "examples": {
-                                    "CustomerNotFound": {
-                                        "$ref": "#/components/examples/CustomerNotFound"
-                                    },
                                     "DeserializeError": {
                                         "$ref": "#/components/examples/DeserializeError"
                                     },
@@ -609,16 +845,16 @@
                 ]
             }
         },
-        "/#get_customer": {
+        "/#get_customers": {
             "post": {
                 "deprecated": false,
-                "description": "Get customer description",
-                "operationId": "get_customer",
+                "description": "Get customers description",
+                "operationId": "get_customers",
                 "requestBody": {
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/GetCustomerRequest"
+                                "$ref": "#/components/schemas/GetCustomersRequest"
                             }
                         }
                     },
@@ -629,7 +865,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/GetCustomerResponse"
+                                    "$ref": "#/components/schemas/GetCustomersResponse"
                                 }
                             }
                         },
@@ -656,14 +892,14 @@
                                     }
                                 },
                                 "schema": {
-                                    "$ref": "#/components/schemas/GetCustomerResponse"
+                                    "$ref": "#/components/schemas/GetCustomersResponse"
                                 }
                             }
                         },
                         "description": "Failed operation"
                     }
                 },
-                "summary": "Get Customer",
+                "summary": "Get Customers",
                 "tags": [
                     "Api"
                 ]
@@ -699,6 +935,9 @@
                         "content": {
                             "application/json": {
                                 "examples": {
+                                    "CustomerNotFound": {
+                                        "$ref": "#/components/examples/CustomerNotFound"
+                                    },
                                     "DeserializeError": {
                                         "$ref": "#/components/examples/DeserializeError"
                                     },
@@ -724,6 +963,31 @@
                     }
                 },
                 "summary": "Update Customer",
+                "tags": [
+                    "Api"
+                ]
+            }
+        },
+        "/health": {
+            "get": {
+                "description": "",
+                "operationId": "health",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Health"
+                                }
+                            }
+                        },
+                        "description": "Successful operation"
+                    },
+                    "default": {
+                        "description": "Error"
+                    }
+                },
+                "summary": "Health Check",
                 "tags": [
                     "Api"
                 ]
