@@ -2,7 +2,6 @@ from typing import Any, Callable, Dict, Optional
 
 from aiohttp import ClientTimeout
 
-from ipapp.ctx import app
 from ipapp.http.client import Client, ClientConfig, ClientHttpSpan
 from ipapp.misc import json_encode as default_json_encode
 
@@ -40,7 +39,7 @@ class RpcClient(Client):
     ) -> Any:
         body = self._json_encode({"method": method, "params": params}).encode()
 
-        with app.logger.capture_span(ClientHttpSpan) as trap:
+        with self.app.logger.capture_span(ClientHttpSpan) as trap:
             req_err: Optional[Exception] = None
             try:
                 tout = timeout or self.cfg.timeout
@@ -55,7 +54,7 @@ class RpcClient(Client):
             if trap.is_captured:
                 trap.span.name = 'rpc::out (%s)' % method
                 trap.span.set_name4adapter(
-                    app.logger.ADAPTER_PROMETHEUS, 'rpc_out'
+                    self.app.logger.ADAPTER_PROMETHEUS, 'rpc_out'
                 )
                 trap.span.tag(SPAN_TAG_RPC_METHOD, method)
 
