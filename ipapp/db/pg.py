@@ -2,6 +2,7 @@ import asyncio
 import json
 import time
 from contextvars import Token
+from textwrap import dedent
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 import asyncpg
@@ -9,13 +10,12 @@ import asyncpg.pool
 import asyncpg.prepared_stmt
 import asyncpg.protocol
 import asyncpg.transaction
-from pydantic.main import BaseModel
-
 from ipapp.component import Component
 from ipapp.error import PrepareError
 from ipapp.logger import Span, wrap2span
 from ipapp.misc import json_encode as default_json_encode
 from ipapp.misc import mask_url_pwd
+from pydantic.main import BaseModel
 
 from ..misc import ctx_span_get, ctx_span_reset, ctx_span_set
 
@@ -43,16 +43,22 @@ class PgSpan(Span):
     NAME_XACT_REVERTED = 'db::xact (reverted)'
     NAME_EXECUTE = 'db::execute'
     NAME_EXECUTEMANY = 'db::executemany'
+    NAME_QUERY_ONE = 'db::query_one'
+    NAME_QUERY_ALL = 'db::query_all'
     NAME_PREPARE = 'db::prepare'
-    NAME_EXECUTE_PREPARED = 'db::execute_prepared'
+    NAME_QUERY_ONE_PREPARED = 'db::execute_query_one'
+    NAME_QUERY_ALL_PREPARED = 'db::execute_query_all'
 
     P8S_NAME_ACQUIRE = 'db_connection'
     P8S_NAME_XACT_COMMITED = 'db_xact_commited'
     P8S_NAME_XACT_REVERTED = 'db_xact_reverted'
     P8S_NAME_EXECUTE = 'db_execute'
     P8S_NAME_EXECUTEMANY = 'db_executemany'
+    P8S_NAME_QUERY_ONE = 'db::query_one'
+    P8S_NAME_QUERY_ALL = 'db::query_all'
     P8S_NAME_PREPARE = 'db_prepare'
-    P8S_NAME_EXECUTE_PREPARED = 'db_execute_prepared'
+    P8S_NAME_QUERY_ONE_PREPARED = 'db_execute_query_one'
+    P8S_NAME_QUERY_ALL_PREPARED = 'db_execute_query_all'
 
     TAG_POOL_MAX_SIZE = 'db.pool.size'
     TAG_POOL_FREE_COUNT = 'db.pool.free'
@@ -481,14 +487,14 @@ class PreparedStatement:
         self, *args: Any, timeout: float = None
     ) -> asyncpg.Record:
         with wrap2span(
-            name=PgSpan.NAME_EXECUTE_PREPARED,
+            name=PgSpan.NAME_QUERY_ONE_PREPARED,
             kind=PgSpan.KIND_CLIENT,
             cls=PgSpan,
             app=self._conn._db.app,
         ) as span:
             span.set_name4adapter(
                 self._conn._db.app.logger.ADAPTER_PROMETHEUS,
-                PgSpan.P8S_NAME_EXECUTE_PREPARED,
+                PgSpan.P8S_NAME_QUERY_ONE_PREPARED,
             )
             span.annotate(PgSpan.ANN_PID, self._conn.pid)
             span.annotate4adapter(
@@ -506,22 +512,24 @@ class PreparedStatement:
                 span.tag(PgSpan.TAG_QUERY_NAME, self._query_name)
             with await self._conn._lock:
                 if self._conn._db.cfg.log_query:
-                    span.annotate(PgSpan.ANN_PARAMS, repr(args))
+                    args_enc = self._json_encode(args)
+                    span.annotate(PgSpan.ANN_PARAMS, args_enc)
                     span.annotate4adapter(
                         self._conn._db.app.logger.ADAPTER_ZIPKIN,
                         PgSpan.ANN_PARAMS,
-                        self._json_encode({'query_params': str(args)}),
+                        self._json_encode({'query_params': args_enc}),
                     )
 
                 res = await self._pg_stmt.fetchrow(*args, timeout=timeout)
 
                 if self._conn._db.cfg.log_result:
                     _res = dict(res) if res is not None else None
-                    span.annotate(PgSpan.ANN_RESULT, self._json_encode(_res))
+                    res_enc = self._json_encode(_res)
+                    span.annotate(PgSpan.ANN_RESULT, res_enc)
                     span.annotate4adapter(
                         self._conn._db.app.logger.ADAPTER_ZIPKIN,
                         PgSpan.ANN_RESULT,
-                        self._json_encode({'result': repr(_res)}),
+                        self._json_encode({'result': res_enc}),
                     )
 
                 return res
@@ -530,14 +538,14 @@ class PreparedStatement:
         self, *args: Any, timeout: float = None
     ) -> List[asyncpg.Record]:
         with wrap2span(
-            name=PgSpan.NAME_EXECUTE_PREPARED,
+            name=PgSpan.NAME_QUERY_ALL_PREPARED,
             kind=PgSpan.KIND_CLIENT,
             cls=PgSpan,
             app=self._conn._db.app,
         ) as span:
             span.set_name4adapter(
                 self._conn._db.app.logger.ADAPTER_PROMETHEUS,
-                PgSpan.P8S_NAME_EXECUTE_PREPARED,
+                PgSpan.P8S_NAME_QUERY_ALL_PREPARED,
             )
             span.annotate(PgSpan.ANN_PID, self._conn.pid)
             span.annotate4adapter(
@@ -555,24 +563,24 @@ class PreparedStatement:
                 span.tag(PgSpan.TAG_QUERY_NAME, self._query_name)
             with await self._conn._lock:
                 if self._conn._db.cfg.log_query:
-                    span.annotate(PgSpan.ANN_PARAMS, repr(args))
+                    args_enc = self._json_encode(args)
+                    span.annotate(PgSpan.ANN_PARAMS, args_enc)
                     span.annotate4adapter(
                         self._conn._db.app.logger.ADAPTER_ZIPKIN,
                         PgSpan.ANN_PARAMS,
-                        self._json_encode({'query_params': str(args)}),
+                        self._json_encode({'query_params': args_enc}),
                     )
 
                 res = await self._pg_stmt.fetch(*args, timeout=timeout)
 
                 if self._conn._db.cfg.log_result:
                     res_dict = [dict(row) for row in res]
-                    span.annotate(
-                        PgSpan.ANN_RESULT, self._json_encode(res_dict)
-                    )
+                    res_enc = self._json_encode(res_dict)
+                    span.annotate(PgSpan.ANN_RESULT, res_enc)
                     span.annotate4adapter(
                         self._conn._db.app.logger.ADAPTER_ZIPKIN,
                         PgSpan.ANN_RESULT,
-                        self._json_encode({'result': repr(res_dict)}),
+                        self._json_encode({'result': res_enc}),
                     )
 
                 return res
@@ -641,13 +649,14 @@ class Connection:
                     span.annotate4adapter(
                         self._db.app.logger.ADAPTER_ZIPKIN,
                         PgSpan.ANN_QUERY,
-                        self._json_encode({'query': str(query)}),
+                        self._json_encode({'query': dedent(query).strip()}),
                     )
-                    span.annotate(PgSpan.ANN_PARAMS, repr(args))
+                    args_enc = self._json_encode(args)
+                    span.annotate(PgSpan.ANN_PARAMS, args_enc)
                     span.annotate4adapter(
                         self._db.app.logger.ADAPTER_ZIPKIN,
                         PgSpan.ANN_PARAMS,
-                        self._json_encode({'query_params': str(args)}),
+                        self._json_encode({'query_params': args_enc}),
                     )
                 res = await self._conn.execute(query, *args, timeout=timeout)
                 if self._db.cfg.log_result:
@@ -691,13 +700,14 @@ class Connection:
                     span.annotate4adapter(
                         self._db.app.logger.ADAPTER_ZIPKIN,
                         PgSpan.ANN_QUERY,
-                        self._json_encode({'query': str(query)}),
+                        self._json_encode({'query': dedent(query).strip()}),
                     )
-                    span.annotate(PgSpan.ANN_PARAMS, repr(args))
+                    args_enc = self._json_encode(args)
+                    span.annotate(PgSpan.ANN_PARAMS, args_enc)
                     span.annotate4adapter(
                         self._db.app.logger.ADAPTER_ZIPKIN,
                         PgSpan.ANN_PARAMS,
-                        self._json_encode({'query_params': str(args)}),
+                        self._json_encode({'query_params': args_enc}),
                     )
                 res = await self._conn.executemany(
                     query, args, timeout=timeout
@@ -720,13 +730,14 @@ class Connection:
         model_cls: Optional[Type[BaseModel]] = None,
     ) -> Optional[Union[asyncpg.Record, BaseModel]]:
         with wrap2span(
-            name=PgSpan.NAME_EXECUTE,
+            name=PgSpan.NAME_QUERY_ONE,
             kind=PgSpan.KIND_CLIENT,
             cls=PgSpan,
             app=self._db.app,
         ) as span:
             span.set_name4adapter(
-                self._db.app.logger.ADAPTER_PROMETHEUS, PgSpan.P8S_NAME_EXECUTE
+                self._db.app.logger.ADAPTER_PROMETHEUS,
+                PgSpan.P8S_NAME_QUERY_ONE,
             )
             if query_name is not None:
                 span.tag(PgSpan.TAG_QUERY_NAME, query_name)
@@ -742,22 +753,24 @@ class Connection:
                     span.annotate4adapter(
                         self._db.app.logger.ADAPTER_ZIPKIN,
                         PgSpan.ANN_QUERY,
-                        self._json_encode({'query': str(query)}),
+                        self._json_encode({'query': dedent(query).strip()}),
                     )
-                    span.annotate(PgSpan.ANN_PARAMS, repr(args))
+                    args_enc = self._json_encode(args)
+                    span.annotate(PgSpan.ANN_PARAMS, args_enc)
                     span.annotate4adapter(
                         self._db.app.logger.ADAPTER_ZIPKIN,
                         PgSpan.ANN_PARAMS,
-                        self._json_encode({'query_params': str(args)}),
+                        self._json_encode({'query_params': args_enc}),
                     )
                 res = await self._conn.fetchrow(query, *args, timeout=timeout)
                 if self._db.cfg.log_result:
                     _res = dict(res) if res is not None else None
-                    span.annotate(PgSpan.ANN_RESULT, self._json_encode(_res))
+                    res_enc = self._json_encode(_res)
+                    span.annotate(PgSpan.ANN_RESULT, res_enc)
                     span.annotate4adapter(
                         self._db.app.logger.ADAPTER_ZIPKIN,
                         PgSpan.ANN_RESULT,
-                        self._json_encode({'result': repr(_res)}),
+                        self._json_encode({'result': res_enc}),
                     )
                 if res is None:
                     return None
@@ -775,13 +788,14 @@ class Connection:
         model_cls: Optional[Type[BaseModel]] = None,
     ) -> List[Union[asyncpg.Record, BaseModel]]:
         with wrap2span(
-            name=PgSpan.NAME_EXECUTE,
+            name=PgSpan.NAME_QUERY_ALL,
             kind=PgSpan.KIND_CLIENT,
             cls=PgSpan,
             app=self._db.app,
         ) as span:
             span.set_name4adapter(
-                self._db.app.logger.ADAPTER_PROMETHEUS, PgSpan.P8S_NAME_EXECUTE
+                self._db.app.logger.ADAPTER_PROMETHEUS,
+                PgSpan.P8S_NAME_QUERY_ALL,
             )
             if query_name is not None:
                 span.tag(PgSpan.TAG_QUERY_NAME, query_name)
@@ -798,24 +812,24 @@ class Connection:
                     span.annotate4adapter(
                         self._db.app.logger.ADAPTER_ZIPKIN,
                         PgSpan.ANN_QUERY,
-                        self._json_encode({'query': str(query)}),
+                        self._json_encode({'query': dedent(query).strip()}),
                     )
-                    span.annotate(PgSpan.ANN_PARAMS, repr(args))
+                    args_enc = self._json_encode(args)
+                    span.annotate(PgSpan.ANN_PARAMS, args_enc)
                     span.annotate4adapter(
                         self._db.app.logger.ADAPTER_ZIPKIN,
                         PgSpan.ANN_PARAMS,
-                        self._json_encode({'query_params': str(args)}),
+                        self._json_encode({'query_params': args_enc}),
                     )
                 res = await self._conn.fetch(query, *args, timeout=timeout)
                 if self._db.cfg.log_result:
                     res_dict = [dict(row) for row in res]
-                    span.annotate(
-                        PgSpan.ANN_RESULT, self._json_encode(res_dict)
-                    )
+                    res_enc = self._json_encode(res_dict)
+                    span.annotate(PgSpan.ANN_RESULT, res_enc)
                     span.annotate4adapter(
                         self._db.app.logger.ADAPTER_ZIPKIN,
                         PgSpan.ANN_RESULT,
-                        self._json_encode({'result': repr(res_dict)}),
+                        self._json_encode({'result': res_enc}),
                     )
 
                 if model_cls is not None:
@@ -852,7 +866,7 @@ class Connection:
                     span.annotate4adapter(
                         self._db.app.logger.ADAPTER_ZIPKIN,
                         PgSpan.ANN_QUERY,
-                        self._json_encode({'query': str(query)}),
+                        self._json_encode({'query': dedent(query).strip()}),
                     )
                 pg_stmt = await self._conn.prepare(query, timeout=timeout)
                 stmt_name = pg_stmt._state.name
