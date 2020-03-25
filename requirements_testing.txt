@@ -22,3 +22,4 @@ async-generator==1.10
 async_timeout==3.0.1
 docker-compose==1.25.4
 watchdog==0.10.2
+requests==2.23.0

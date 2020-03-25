@@ -28,7 +28,7 @@ with open('requirements_s3.txt') as requirements_file:
 setup(
     name='ipapp',
     version=str(version),
-    description='InPlan application framework',
+    description='InPlat application framework',
     classifiers=[
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
@@ -56,4 +56,5 @@ setup(
         'testing': requirements_testing.split('\n'),
         's3': requirements_s3.split('\n'),
     },
+    entry_points={'pytest11': ['pytest_qase = ipapp.pytest.qase.plugin']},
 )

@@ -4,8 +4,9 @@ variables:
   DOCKER_HOST: tcp://127.0.0.1:2375
 
 services:
-- alias: ololo
-  name: docker:18.09.7-dind
+  - alias: ololo
+    name: docker:18.09.7-dind
+    command: ["--insecure-registry=registry.app.ipl"]
 
 stages:
   - venv
@@ -19,7 +20,7 @@ venv:
     - make venv
   artifacts:
     paths:
-    - .venv/
+      - .venv/
     expire_in: 1 day
   tags:
     - kube-test
@@ -75,6 +76,9 @@ test:
     paths:
       - coverage
     expire_in: 1 day
+  before_script:
+    - chmod +x /usr/local/bin/docker-compose # TODO: fix it dind:python37
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
   script:
     - make test
   coverage: /\d+\%\s*$/

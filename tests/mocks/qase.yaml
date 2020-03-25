@@ -1,0 +1,64 @@
+mocks:
+  - request:
+      method: GET
+      path: /v1/run/1
+      headers:
+        Content-Type: application/json
+        Token: secret
+    response:
+      json:
+        result:
+          entities:
+            - id: 33
+              title: exists_title
+              status: 0
+  - request:
+      method: POST
+      path: /v1/run/1
+      headers:
+        Content-Type: application/json
+        Token: secret
+      json:
+        title: not_exists_title
+        description: null
+        environment_id: null
+        cases:
+          - 2
+    response:
+      json:
+        result:
+          id: 44
+  - request:
+      method: POST
+      path: /v1/result/1/33
+      headers:
+        Content-Type: application/json
+        Token: secret
+      json:
+        case_id: 1
+        time: 0
+        status: passed
+        member_id: "7"
+        comment: ""
+        defect: false
+        steps: []
+  - request:
+      method: POST
+      path: /v1/result/1/44
+      headers:
+        Content-Type: application/json
+        Token: secret
+      json:
+        case_id: 2
+        time: 0
+        status: failed
+        member_id: "7"
+        comment: |
+          @pytest.mark.case_id(2)
+              def test_true_is_false():
+                >       assert True is False
+                E       assert True is False
+
+                test_run_not_exists.py:5: AssertionError
+        defect: true
+        steps: []

@@ -28,3 +28,10 @@ services:
       interval: 30s
       timeout: 20s
       retries: 3
+  mockiato:
+    container_name: ipapp-test-mockiato
+    image: registry.app.ipl/cred/mockiato/test:32
+    ports:
+      - '58974:8080'
+    volumes:
+      - ./mocks:/app/mocks
