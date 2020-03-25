@@ -18,7 +18,7 @@ def test_run_exists(testdir: '_pytest.pytester.Testdir') -> None:
     result = testdir.runpytest(
         "-v",
         "--qase",
-        f"--qase-url=http://localhost:58974",
+        "--qase-url=http://localhost:58974",
         "--qase-project-id=1",
         "--qase-token=secret",
         "--qase-member-id=7",
@@ -45,7 +45,7 @@ def test_run_not_exists(testdir: '_pytest.pytester.Testdir') -> None:
     result = testdir.runpytest(
         "-v",
         "--qase",
-        f"--qase-url=http://localhost:58974",
+        "--qase-url=http://localhost:58974",
         "--qase-project-id=1",
         "--qase-token=secret",
         "--qase-member-id=7",

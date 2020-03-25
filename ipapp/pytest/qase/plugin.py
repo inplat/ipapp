@@ -84,7 +84,7 @@ def pytest_terminal_summary(
     member_id = config.option.qase_member_id
     run_title = config.option.qase_run_title
 
-    if qase_enabled is None:
+    if not qase_enabled:
         return
 
     if project_id is None:
@@ -104,40 +104,45 @@ def pytest_terminal_summary(
         return
 
     run_id = None
-    passed = []
-    failed = []
-    skipped = []  # TODO
+    tests = {}
 
+    error_stats = terminalreporter.stats.get("error", [])
     passed_stats = terminalreporter.stats.get("passed", [])
     failed_stats = terminalreporter.stats.get("failed", [])
     skipped_stats = terminalreporter.stats.get("skipped", [])
-    stats = passed_stats + failed_stats + skipped_stats
 
-    for stat in stats:
-        case_id = None
-        for prop in stat.user_properties:
-            if prop[0] == "case_id":
-                case_id = prop[1]
-
+    for stat in passed_stats + failed_stats + skipped_stats:
+        case_id = dict(stat.user_properties).get("case_id")
         if case_id is None:
             continue
 
-        result = {
+        tests[case_id] = {
+            "case_id": case_id,
+            "time": int(stat.duration),
+            "status": "blocked" if stat.outcome == "skipped" else stat.outcome,
+            "member_id": member_id,
+            "comment": stat.longreprtext,
+            "defect": True if stat.outcome == "failed" else False,
+            "steps": [],
+        }
+
+    for stat in error_stats:
+        case_id = dict(stat.user_properties).get("case_id")
+        if case_id is None:
+            continue
+
+        if stat.outcome == "passed":
+            continue
+
+        tests[case_id] = {
             "case_id": case_id,
             "time": int(stat.duration),
             "status": stat.outcome,
             "member_id": member_id,
             "comment": stat.longreprtext,
-            "defect": True if stat.failed else False,
+            "defect": True,
             "steps": [],
         }
-
-        if stat.passed:
-            passed.append(result)
-        elif stat.failed:
-            failed.append(result)
-        elif stat.skipped:
-            skipped.append(result)
 
     send_result(
         qase_url=qase_url,
@@ -145,7 +150,7 @@ def pytest_terminal_summary(
         project_id=project_id,
         run_id=run_id,
         run_title=run_title,
-        tests=passed + failed,
+        tests=tests,
     )
 
 
@@ -155,7 +160,7 @@ def send_result(
     token: str,
     project_id: str,
     run_title: str,
-    tests: List[Dict[str, Any]],
+    tests: Dict[str, Any],
     run_id: Optional[str] = None,
 ) -> None:
     headers = {
@@ -168,12 +173,21 @@ def send_result(
         f"{qase_url}/v1/run/{project_id}", headers=headers,
     )
 
-    test_runs = response.json()
+    if not response.ok:
+        logging.error("Error receiving test run: %s", response.status_code)
+        return
+
+    body = response.json()
+
+    if body.get("status") is False:
+        logging.error("Error receiving test run: %s", body.get("errorMessage"))
+        return
 
     # ищем test run по его имени и активному статусу
-    for entity in test_runs.get("result", {}).get("entities", []):
+    for entity in body.get("result", {}).get("entities", []):
         if entity.get("title") == run_title and entity.get("status") == 0:
             run_id = entity.get("id")
+            logging.info("Received test run: %s", run_id)
 
     # если не нашли test run, то создаем его
     if run_id is None:
@@ -184,16 +198,45 @@ def send_result(
                 "title": run_title,
                 "description": None,
                 "environment_id": None,
-                "cases": [test["case_id"] for test in tests],
+                "cases": list(tests.keys()),
             },
         )
-        data = response.json()
-        run_id = data.get("result", {}).get("id")
+
+        if not response.ok:
+            logging.error("Error creating test run: %s", response.status_code)
+            return
+
+        body = response.json()
+
+        if body.get("status") is False:
+            logging.error(
+                "Error creating test run: %s", body.get("errorMessage")
+            )
+            return
+
+        run_id = body.get("result", {}).get("id")
+
+        logging.info("Сreated test run: %s", run_id)
 
     # отправляем результаты по всем тестам
-    for test in tests:
-        requests.post(
+    for test in tests.values():
+        response = requests.post(
             f"{qase_url}/v1/result/{project_id}/{run_id}",
             headers=headers,
             json=test,
         )
+
+        if not response.ok:
+            logging.error(
+                "Error sending test result: %s", response.status_code
+            )
+            continue
+
+        body = response.json()
+
+        if body.get("status") is False:
+            logging.error(
+                "Error sending test result: %s", body.get("errorMessage")
+            )
+
+        logging.info("Sent test result with case_id: %s", test.get("case_id"))
