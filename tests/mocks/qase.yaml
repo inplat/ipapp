@@ -7,6 +7,7 @@ mocks:
         Token: secret
     response:
       json:
+        status: true
         result:
           entities:
             - id: 33
@@ -26,6 +27,7 @@ mocks:
           - 2
     response:
       json:
+        status: true
         result:
           id: 44
   - request:
@@ -42,6 +44,9 @@ mocks:
         comment: ""
         defect: false
         steps: []
+    response:
+      json:
+        status: true
   - request:
       method: POST
       path: /v1/result/1/44
@@ -62,3 +67,6 @@ mocks:
                 test_run_not_exists.py:5: AssertionError
         defect: true
         steps: []
+    response:
+      json:
+        status: true
