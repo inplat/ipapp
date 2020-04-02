@@ -100,7 +100,7 @@ async def test_success(postgres_url):
     await app.start()
     tm: TaskManager = app.get('tm')  # type: ignore
 
-    await tm.schedule(Api.test, {'arg': 123}, eta=time.time() + 1)
+    await tm.schedule(Api.test, {'arg': 123}, eta=time.time() + 3)
     tasks = await get_tasks_pending(postgres_url, test_schema_name)
     assert len(tasks) == 1
     assert tasks[0]['name'] == 'test'
