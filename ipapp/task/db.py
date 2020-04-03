@@ -514,9 +514,9 @@ class Db:
     ) -> List[asyncpg.Record]:
         conn = await self.get_conn(can_reconnect=lock)
         if lock:
-            if conn.is_in_transaction():  # pragma: no cover
-                raise UserWarning
             async with self._lock:
+                if conn.is_in_transaction():  # pragma: no cover
+                    raise UserWarning
                 return await conn.fetch(query, *args, timeout=timeout)
         else:
             return await conn.fetch(query, *args, timeout=timeout)
@@ -530,9 +530,9 @@ class Db:
     ) -> Optional[asyncpg.Record]:
         conn = await self.get_conn(can_reconnect=lock)
         if lock:
-            if conn.is_in_transaction():  # pragma: no cover
-                raise UserWarning
             async with self._lock:
+                if conn.is_in_transaction():  # pragma: no cover
+                    raise UserWarning
                 return await conn.fetchrow(query, *args, timeout=timeout)
         else:
             return await conn.fetchrow(query, *args, timeout=timeout)
@@ -546,9 +546,9 @@ class Db:
     ) -> None:
         conn = await self.get_conn(can_reconnect=lock)
         if lock:
-            if conn.is_in_transaction():  # pragma: no cover
-                raise UserWarning
             async with self._lock:
+                if conn.is_in_transaction():  # pragma: no cover
+                    raise UserWarning
                 await conn.execute(query, *args, timeout=timeout)
         else:
             await conn.execute(query, *args, timeout=timeout)
