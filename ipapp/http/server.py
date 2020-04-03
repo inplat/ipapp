@@ -11,7 +11,7 @@ from aiohttp.payload import Payload
 from aiohttp.web_log import AccessLogger
 from aiohttp.web_runner import AppRunner, BaseSite, TCPSite
 from aiohttp.web_urldispatcher import AbstractResource, AbstractRoute
-from pydantic.main import BaseModel
+from pydantic import BaseModel, Field
 
 import ipapp.app  # noqa
 from ipapp.component import Component
@@ -38,29 +38,40 @@ class ServerConfig(BaseModel):
     Конфигурация HTTP сервера
     """
 
-    #: HOST to listen on
-    host: str = '0.0.0.0'  # nosec
-
-    #: PORT to listen on
-    port: int = 8080
-
-    #: максимально время ожидания завершения обработки входящих запросов
-    #: перед остановкой сервиса
-    shutdown_timeout: float = 60.0
-
-    #: максимально количество соединений
-    backlog: int = 128
-
-    #: SO_REUSEADDR
-    reuse_address: Optional[bool] = None
-
-    #: SO_REUSEPORT
-    reuse_port: Optional[bool] = None
-
-    log_req_hdrs: bool = True
-    log_req_body: bool = True
-    log_resp_hdrs: bool = True
-    log_resp_body: bool = True
+    host: str = Field("0.0.0.0", description="Адрес HTTP сервера")  # nosec
+    port: int = Field(8080, ge=1, le=65535, description="Порт HTTP сервера")
+    shutdown_timeout: float = Field(
+        60.0,
+        description=(
+            "Максимальное время ожидания завершения обработки "
+            "входящих запросов перед остановкой сервиса"
+        ),
+    )
+    backlog: int = Field(128, description="Максимально количество соединений")
+    reuse_address: Optional[bool] = Field(
+        None,
+        description=(
+            "Повторное использование TIME-WAIT сокетов (SO_REUSEADDR)"
+        ),
+        example=False,
+    )
+    reuse_port: Optional[bool] = Field(
+        None,
+        description=("Повторное использование порта (SO_REUSEPORT)"),
+        example=False,
+    )
+    log_req_hdrs: bool = Field(
+        True, description="Логирование заголовков запросов HTTP сервера"
+    )
+    log_req_body: bool = Field(
+        True, description="Логирование тела запросов HTTP сервера"
+    )
+    log_resp_hdrs: bool = Field(
+        True, description="Логирование заголовков ответов HTTP сервера"
+    )
+    log_resp_body: bool = Field(
+        True, description="Логирование тела ответов HTTP сервера"
+    )
 
 
 class ServerHandler(object):

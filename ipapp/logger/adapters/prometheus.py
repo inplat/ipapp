@@ -2,6 +2,7 @@ import re
 from typing import Dict
 
 from prometheus_client import Histogram, start_http_server
+from pydantic import Field
 
 import ipapp.logger  # noqa
 
@@ -97,8 +98,10 @@ DEFAULT_HISTOGRAM_DOCS = {
 
 
 class PrometheusConfig(AbcConfig):
-    addr: str = '0.0.0.0'  # nosec
-    port: int = 9213
+    addr: str = Field(
+        "0.0.0.0", description="Адрес публикации Prometheus метрик",  # nosec
+    )
+    port: int = Field(9213, description="Порт публикации Prometheus метрик")
     hist_labels: LabelsCfg = {}
     hist_docs: Dict[str, str] = {}
 

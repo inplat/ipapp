@@ -6,7 +6,7 @@ from typing import Any, Callable, Coroutine, Dict, List, Optional
 
 from aiohttp import web
 from iprpc.executor import BaseError, InternalError, MethodExecutor
-from pydantic import AnyUrl, BaseModel
+from pydantic import AnyUrl, BaseModel, Field
 
 from ipapp.ctx import span
 from ipapp.http.server import ServerHandler
@@ -45,29 +45,71 @@ from ipapp.rpc.const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
 
 
 class RpcHandlerConfig(BaseModel):
-    path: str = '/'
-    healthcheck_path: str = '/health'
-    debug: bool = False
+    path: str = Field("/", description="Путь RPC сервера")
+    healthcheck_path: str = Field(
+        "/health", description="Путь health check RPC сервера"
+    )
+    debug: bool = Field(
+        False, description="Возвращать в RPC ошибках стектрейсы"
+    )
 
 
 class OpenApiRpcHandlerConfig(RpcHandlerConfig):
-    title: str = "Application API"
-    description: Optional[str] = None
-    terms_of_service: Optional[str] = None
-    contact_name: Optional[str] = None
-    contact_url: Optional[AnyUrl] = None
-    contact_email: Optional[str] = None
-    license_name: Optional[str] = None
-    license_url: Optional[AnyUrl] = None
-    version: str = "1.0.0"
+    title: str = Field(
+        "Application API", description="Заголовок OpenAPI спецификации"
+    )
+    description: Optional[str] = Field(
+        None,
+        description="Описание OpenAPI спецификации",
+        example="Application description",
+    )
+    terms_of_service: Optional[str] = Field(
+        None,
+        description="Ссылка на условия обслуживания",
+        example="https://acme.inc/tos",
+    )
+    contact_name: Optional[str] = Field(
+        None, description="Имя контакта", example="Ivan Ivanov"
+    )
+    contact_url: Optional[AnyUrl] = Field(
+        None, description="URL контакта", example="https://acme.inc"
+    )
+    contact_email: Optional[str] = Field(
+        None, description="Email контакта", example="ivan.ivanov@acme.inc"
+    )
+    license_name: Optional[str] = Field(
+        None, description="Название лицензии", example="Apache License 2.0"
+    )
+    license_url: Optional[AnyUrl] = Field(
+        None,
+        description="Ссылка на лицензию",
+        example="https://spdx.org/licenses/Apache-2.0.html",
+    )
+    version: str = Field("1.0.0", description="Версия API")
     servers: List[Server] = []
-    external_docs_url: Optional[str] = None
-    external_docs_description: Optional[str] = None
-    openapi_url: str = "/openapi.json"
-    openapi_prefix: str = ""
+    external_docs_url: Optional[str] = Field(
+        None,
+        description="Ссылка на внешнюю документацию",
+        example="https://acme.inc/docs",
+    )
+    external_docs_description: Optional[str] = Field(
+        None, description="Описание внешней документации", example="Acme docs"
+    )
+    openapi_url: str = Field(
+        "/openapi.json", description="Путь публикации OpenAPI спецификации"
+    )
+    openapi_prefix: str = Field(
+        "",
+        description="Префикс пути публикации OpenAPI спецификации",
+        example="/api/v1",
+    )
     openapi_schemas: List[str] = []
-    docs_url: str = "/docs"
-    redoc_url: str = "/redoc"
+    docs_url: str = Field(
+        "/docs", description="Путь публикации Swagger документации"
+    )
+    redoc_url: str = Field(
+        "/redoc", description="Путь публикации ReDoc документации"
+    )
 
 
 class RpcHandler(ServerHandler):

@@ -10,12 +10,13 @@ import asyncpg.pool
 import asyncpg.prepared_stmt
 import asyncpg.protocol
 import asyncpg.transaction
+from pydantic import BaseModel, Field
+
 from ipapp.component import Component
 from ipapp.error import PrepareError
 from ipapp.logger import Span, wrap2span
 from ipapp.misc import json_encode as default_json_encode
 from ipapp.misc import mask_url_pwd
-from pydantic.main import BaseModel
 
 from ..misc import ctx_span_get, ctx_span_reset, ctx_span_set
 
@@ -24,15 +25,51 @@ ConnFactory = Callable[['Postgres', asyncpg.Connection], 'Connection']
 
 
 class PostgresConfig(BaseModel):
-    url: Optional[str]
-    pool_min_size: int = 4
-    pool_max_size: int = 12
-    pool_max_queries: int = 50000
-    pool_max_inactive_connection_lifetime: float = 300.0
-    connect_max_attempts: int = 10
-    connect_retry_delay: float = 1.0
-    log_query: bool = False
-    log_result: bool = False
+    url: Optional[str] = Field(
+        None,
+        description="Строка подключения к базе данных",
+        example="postgresql://own@localhost:5432/main",
+    )
+    pool_min_size: int = Field(
+        4, description="Минимальное количество соединений в пуле"
+    )
+    pool_max_size: int = Field(
+        12, description="Максимальное количество соединений в пуле"
+    )
+    pool_max_queries: int = Field(
+        50000,
+        description=(
+            "Количество запросов после выполнения которых, "
+            "соединение закрывается и заменяется новым"
+        ),
+    )
+    pool_max_inactive_connection_lifetime: float = Field(
+        300.0,
+        description=(
+            "Количество секунд, после которых неактивные соединения "
+            "в пуле будут закрыты. Установите значение 0, если "
+            "необходимо отключить этот механизм"
+        ),
+    )
+    connect_max_attempts: int = Field(
+        10,
+        description=(
+            "Максимальное количество попыток подключения к базе данных"
+        ),
+    )
+    connect_retry_delay: float = Field(
+        1.0,
+        description=(
+            "Задержка перед повторной попыткой подключения к базе данных"
+        ),
+    )
+    log_query: bool = Field(
+        False, description="Логирование запросов в базу данных"
+    )
+    log_result: bool = Field(
+        False,
+        description="Логирование результата выполнения запросов в базу данных",
+    )
 
 
 class PgSpan(Span):

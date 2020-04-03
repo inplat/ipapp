@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from pydantic.main import BaseModel
+from pydantic import BaseModel, Field
 
 import ipapp.logger  # noqa
 
@@ -14,7 +14,7 @@ class AdapterConfigurationError(ConfigurationError):
 
 
 class AbcConfig(BaseModel):
-    enabled: bool = False
+    enabled: bool = Field(False, description="Включение логгера")
 
 
 class AbcAdapter(ABC):

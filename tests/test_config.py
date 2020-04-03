@@ -1,9 +1,11 @@
 import io
 import os
+from enum import Enum
+from ipaddress import IPv4Address
 from tempfile import NamedTemporaryFile
-from typing import Any
+from typing import Any, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import UUID4, BaseModel, Field
 from pytest import raises
 
 from ipapp.config import BaseConfig
@@ -192,3 +194,161 @@ def test_deprecated_field(capsys: Any) -> None:
 
     captured = capsys.readouterr()
     assert captured.err == "WARNING: db1 field is deprecated\n"
+
+
+def test_to_env_schema() -> None:
+    class Level(str, Enum):
+        INFO = "INFO"
+        WARN = "WARN"
+        CRIT = "CRIT"
+
+    class ServerConfig(BaseModel):
+        host: IPv4Address = IPv4Address("127.0.0.1")
+        port: int = Field(
+            8080, ge=1, le=65535, description="TCP/IP port", example="9090"
+        )
+        path: str = Field("/", deprecated=True)
+        timeout: float = 60.0
+
+    class BaseLoggerConfig(BaseModel):
+        enabled: bool = False
+        level: Level = Level.INFO
+
+    class LoggerConfig(BaseLoggerConfig):
+        enabled: bool = True
+        tags: List[str] = ["dev"]
+
+    class Config(BaseConfig):
+        uuid: UUID4
+        name: str = Field(..., regex=r"\w+")
+        description: Optional[str] = None
+        server: ServerConfig
+        logger: LoggerConfig
+
+    config = Config.to_env_schema(prefix="app_")
+
+    assert config == {
+        "APP_DESCRIPTION": {
+            "default": "",
+            "deprecated": False,
+            "example": "",
+            "ge": None,
+            "gt": None,
+            "le": None,
+            "lt": None,
+            "regex": None,
+            "required": False,
+            "type": "string",
+        },
+        "APP_LOGGER_ENABLED": {
+            "default": 1,
+            "deprecated": False,
+            "example": 1,
+            "ge": None,
+            "gt": None,
+            "le": None,
+            "lt": None,
+            "regex": None,
+            "required": False,
+            "type": "boolean",
+        },
+        "APP_LOGGER_LEVEL": {
+            "default": "INFO",
+            "deprecated": False,
+            "enum": ["INFO", "WARN", "CRIT"],
+            "example": "INFO",
+            "ge": None,
+            "gt": None,
+            "le": None,
+            "lt": None,
+            "regex": None,
+            "required": False,
+            "type": "string",
+        },
+        "APP_NAME": {
+            "deprecated": False,
+            "example": "",
+            "ge": None,
+            "gt": None,
+            "le": None,
+            "lt": None,
+            "regex": r"\w+",
+            "required": True,
+            "type": "string",
+        },
+        "APP_SERVER_HOST": {
+            "default": "127.0.0.1",
+            "deprecated": False,
+            "example": "127.0.0.1",
+            "format": "ipv4",
+            "ge": None,
+            "gt": None,
+            "le": None,
+            "lt": None,
+            "regex": None,
+            "required": False,
+            "type": "string",
+        },
+        "APP_SERVER_PATH": {
+            "default": "/",
+            "deprecated": True,
+            "example": "/",
+            "ge": None,
+            "gt": None,
+            "le": None,
+            "lt": None,
+            "regex": None,
+            "required": False,
+            "type": "string",
+        },
+        "APP_SERVER_PORT": {
+            "default": 8080,
+            "deprecated": False,
+            "description": "TCP/IP port",
+            "example": "9090",
+            "ge": 1,
+            "gt": None,
+            "le": 65535,
+            "lt": None,
+            "regex": None,
+            "required": False,
+            "type": "integer",
+        },
+        "APP_SERVER_TIMEOUT": {
+            "default": 60.0,
+            "deprecated": False,
+            "example": 60.0,
+            "ge": None,
+            "gt": None,
+            "le": None,
+            "lt": None,
+            "regex": None,
+            "required": False,
+            "type": "number",
+        },
+        "APP_UUID": {
+            "deprecated": False,
+            "example": "6eca48d9-3abf-46f8-876a-96cb29e0862b",
+            "format": "uuid",
+            "ge": None,
+            "gt": None,
+            "le": None,
+            "lt": None,
+            "regex": None,
+            "required": True,
+            "type": "string",
+        },
+    }
+
+
+def test_to_env() -> None:
+    config = Config.from_env(prefix="app_")
+    assert dict(config.to_env()) == {
+        "DB_URL": "postgres://user:pass@localhost:5432/db",
+        "DB1_URL": "postgres://user:pass@localhost:8001/db",
+        "DB2_URL": "postgres://user:pass@localhost:9002/db",
+        "ZIPKIN_LEVEL": "INFO",
+        "ZIPKIN_URL": "http://jaeger:9411",
+        "PROMETHEUS_LEVEL": "DEBUG",
+        "PROMETHEUS_URL": "http://prometheus:9213",
+    }

@@ -1,11 +1,11 @@
 from datetime import datetime
-from typing import Any, List, NamedTuple, Optional, IO
+from typing import IO, Any, List, NamedTuple, Optional
 from urllib.parse import ParseResult, urlparse
 
 import aiobotocore
 import magic
 from aiobotocore.response import StreamingBody
-from pydantic.main import BaseModel
+from pydantic import BaseModel, Field
 
 from ipapp.component import Component
 from ipapp.s3.exceptions import FileTypeNotAllowedError
@@ -29,12 +29,31 @@ class Object(NamedTuple):
 
 
 class S3Config(BaseModel):
-    endpoint_url: Optional[str]
-    region_name: Optional[str]
-    aws_access_key_id: Optional[str]
-    aws_secret_access_key: Optional[str]
-    bucket_name: str = 'bucket'
-    allowed_types: str = 'pdf,jpeg,png,gif'
+    endpoint_url: Optional[str] = Field(
+        None,
+        description="Адрес для подключения к S3",
+        example="https://s3.amazonaws.com",
+    )
+    region_name: Optional[str] = Field(
+        None, description="Название региона S3", example="us-east-1"
+    )
+    aws_access_key_id: Optional[str] = Field(
+        None,
+        description="ID ключа доступа к S3",
+        example="AKIAIOSFODNN7EXAMPLE",
+    )
+    aws_secret_access_key: Optional[str] = Field(
+        None,
+        description="Ключ доступа к S3",
+        example="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+    )
+    bucket_name: str = Field(
+        "bucket", description="Название бакета в S3", example="books"
+    )
+    allowed_types: str = Field(
+        "pdf,jpeg,png,gif",
+        description="Разрешенные для сохранения типы данных",
+    )
 
 
 class S3(Component):

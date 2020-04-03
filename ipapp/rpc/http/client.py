@@ -1,6 +1,7 @@
 from typing import Any, Callable, Dict, Optional
 
 from aiohttp import ClientTimeout
+from pydantic import Field
 
 from ipapp.http.client import Client, ClientConfig, ClientHttpSpan
 from ipapp.misc import json_encode as default_json_encode
@@ -9,8 +10,8 @@ from ..const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
 
 
 class RpcClientConfig(ClientConfig):
-    url: str = 'http://0:8080/'
-    timeout: float = 60.0
+    url: str = Field("http://0:8080/", description="Адрес RPC сервера")
+    timeout: float = Field(60.0, description="Таймаут RPC вызова")
 
 
 class RpcError(Exception):

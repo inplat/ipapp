@@ -17,7 +17,7 @@ import pika.exceptions
 import pika.frame
 from async_timeout import timeout
 from pika.adapters.asyncio_connection import AsyncioConnection
-from pydantic.main import BaseModel
+from pydantic import BaseModel, Field
 
 from ipapp.component import Component
 from ipapp.error import PrepareError
@@ -78,19 +78,50 @@ class AmqpOutSpan(AmqpSpan):
 
 
 class PikaConfig(BaseModel):
-    url: str = 'amqp://guest:guest@localhost:5672/'
-    connect_timeout: float = 60.0
-    channel_open_timeout: float = 60.0
-    exchange_declare_timeout: float = 60.0
-    queue_declare_timeout: float = 60.0
-    bind_timeout: float = 60.0
-    publish_timeout: float = 60.0
-    connect_max_attempts: int = 10
-    connect_retry_delay: float = 1.0
-    log_in_props: bool = True
-    log_in_body: bool = True
-    log_out_props: bool = True
-    log_out_body: bool = True
+    url: str = Field(
+        "amqp://guest:guest@localhost:5672/",
+        description="Строка подключения к брокеру сообщений",
+    )
+    connect_timeout: float = Field(
+        60.0, description="Таймаут подключения к брокеру сообщений"
+    )
+    channel_open_timeout: float = Field(
+        60.0, description="Таймаут открытия канала"
+    )
+    exchange_declare_timeout: float = Field(
+        60.0, description="Таймаут объявления exchange"
+    )
+    queue_declare_timeout: float = Field(
+        60.0, description="Таймаут объявления очереди"
+    )
+    bind_timeout: float = Field(60.0, description="Таймаут привязки очереди")
+    publish_timeout: float = Field(
+        60.0, description="Таймаут публикации сообщения"
+    )
+    connect_max_attempts: int = Field(
+        10,
+        description=(
+            "Максимальное количество попыток подключения к брокеру сообщений"
+        ),
+    )
+    connect_retry_delay: float = Field(
+        1.0,
+        description=(
+            "Задержка перед повторной попыткой подключения к брокеру сообщений"
+        ),
+    )
+    log_in_props: bool = Field(
+        True, description="Логирование входящих свойств сообщения"
+    )
+    log_in_body: bool = Field(
+        True, description="Логирование входящего тела сообщения"
+    )
+    log_out_props: bool = Field(
+        True, description="Логирование исходящих свойств сообщения"
+    )
+    log_out_body: bool = Field(
+        True, description="Логирование исходящего тела сообщения"
+    )
 
 
 class PikaChannelConfig(BaseModel):

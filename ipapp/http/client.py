@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict, Optional
 
 from aiohttp import ClientResponse, ClientSession, ClientTimeout
 from aiohttp.typedefs import StrOrURL
-from pydantic.main import BaseModel
+from pydantic import BaseModel, Field
 from yarl import URL
 
 import ipapp
@@ -27,10 +27,18 @@ RE_SECRET_WORDS = re.compile(
 
 
 class ClientConfig(BaseModel):
-    log_req_hdrs: bool = True
-    log_req_body: bool = True
-    log_resp_hdrs: bool = True
-    log_resp_body: bool = True
+    log_req_hdrs: bool = Field(
+        True, description="Логирование заголовков запросов HTTP клиента"
+    )
+    log_req_body: bool = Field(
+        True, description="Логирование тела запросов HTTP клиента"
+    )
+    log_resp_hdrs: bool = Field(
+        True, description="Логирование заголовков ответов HTTP клиента"
+    )
+    log_resp_body: bool = Field(
+        True, description="Логирование тела ответов HTTP клиента"
+    )
 
 
 class ClientHttpSpan(HttpSpan):

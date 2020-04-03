@@ -4,6 +4,7 @@ import uuid
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from iprpc.executor import InternalError, MethodExecutor
+from pydantic import Field
 
 from ipapp.ctx import span
 from ipapp.logger import Span, wrap2span
@@ -31,21 +32,34 @@ class RpcError(Exception):
 
 
 class RpcServerChannelConfig(PikaChannelConfig):
-    queue: str = 'rpc'
-    prefetch_count: int = 1
-    queue_durable: bool = True
-    queue_auto_delete: bool = False
-    queue_arguments: Optional[dict] = None
-    debug: bool = False
-    encoding: str = 'UTF-8'
-    propagate_trace: bool = True
+    queue: str = Field("rpc", description="Название очереди")
+    prefetch_count: int = Field(
+        1, description="Количество сообщений, получаемых из очереди"
+    )
+    queue_durable: bool = Field(True, description="Устойчивая очередь")
+    queue_auto_delete: bool = Field(
+        False,
+        description="Удалять очередь, если потребитель отменился или отключился",
+    )
+    queue_arguments: Optional[dict] = Field(
+        None, description="Настройки очереди"
+    )
+    debug: bool = Field(
+        False, description="Возвращать в RPC ошибках стектрейсы"
+    )
+    encoding: str = Field("UTF-8", description="Кодировка")
+    propagate_trace: bool = Field(
+        True, description="Передавать заголовки спанов в заголовках сообщений"
+    )
 
 
 class RpcClientChannelConfig(PikaChannelConfig):
-    queue: str = 'rpc'
-    timeout: float = 60.0
-    encoding: str = 'UTF-8'
-    propagate_trace: bool = True
+    queue: str = Field("rpc", description="Название очереди")
+    timeout: float = Field(60.0, description="Таймаут RPC вызова")
+    encoding: str = Field("UTF-8", description="Кодировка")
+    propagate_trace: bool = Field(
+        True, description="Передавать заголовки спанов в заголовках сообщений"
+    )
 
 
 class RpcServerChannel(PikaChannel):

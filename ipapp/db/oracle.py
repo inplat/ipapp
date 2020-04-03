@@ -10,7 +10,7 @@ from contextvars import Token
 from typing import Any, Callable, List, Optional, Type, Union
 
 import cx_Oracle
-from pydantic.main import BaseModel
+from pydantic import BaseModel, Field
 
 from ipapp.component import Component
 from ipapp.error import PrepareError
@@ -21,18 +21,58 @@ ConnFactory = Callable[['Oracle', cx_Oracle.Connection], 'Connection']
 
 
 class OracleConfig(BaseModel):
-    user: Optional[str]
-    password: Optional[str]
-    dsn: Optional[str]
-    pool_min_size: int = 1
-    pool_max_size: int = 10
-    pool_increment: int = 1
-    pool_max_lifetime_session: int = 0
-    encoding: str = 'utf-8'
-    connect_max_attempts: int = 10
-    connect_retry_delay: float = 1.0
-    log_query: bool = False
-    log_result: bool = False
+    user: Optional[str] = Field(
+        None,
+        description=(
+            "Имя пользователя, который устанавливает соединение с базой данных"
+        ),
+        example="username",
+    )
+    password: Optional[str] = Field(
+        None, description="Пароль", example="password",
+    )
+    dsn: Optional[str] = Field(
+        None,
+        description="Строка подключения к базе данных",
+        example="localhost:1521/database",
+    )
+    pool_min_size: int = Field(
+        1, description="Минимальное количество соединений в пуле"
+    )
+    pool_max_size: int = Field(
+        10, description="Максимальное количество соединений в пуле"
+    )
+    pool_increment: int = Field(
+        1,
+        description=(
+            "Количество соединений, которое будет установлено при "
+            "необходимости создания дополнительных соединений"
+        ),
+    )
+    pool_max_lifetime_session: int = Field(
+        0,
+        description=(
+            "Количество секунд, после которых неактивные соединения "
+            "в пуле будут закрыты. Установите значение 0, если "
+            "необходимо отключить этот механизм"
+        ),
+    )
+    encoding: str = Field("utf-8", description="Кодировка")
+    connect_max_attempts: int = Field(
+        10,
+        description="Максимальное количество попыток подключения к базе данных",
+    )
+    connect_retry_delay: float = Field(
+        1.0,
+        description="Задержка перед повторной попыткой подключения к базе данных",
+    )
+    log_query: bool = Field(
+        False, description="Логирование запросов в базу данных"
+    )
+    log_result: bool = Field(
+        False,
+        description="Логирование результата выполнения запросов в базу данных",
+    )
 
 
 class OraSpan(Span):

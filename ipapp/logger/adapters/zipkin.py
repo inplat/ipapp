@@ -3,6 +3,7 @@ from typing import Optional
 import aiozipkin as az
 import aiozipkin.helpers as azh
 import aiozipkin.transport as azt
+from pydantic import Field
 
 import ipapp.logger  # noqa
 
@@ -11,12 +12,24 @@ from ._abc import AbcAdapter, AbcConfig, AdapterConfigurationError
 
 
 class ZipkinConfig(AbcConfig):
-    name: str = 'ipapp'
-    addr: str = 'http://127.0.0.1:9411/api/v2/spans'
-    sample_rate: float = 0.01
-    send_interval: float = 5
-    default_sampled: bool = True
-    default_debug: bool = False
+    name: str = Field("ipapp", description="Название сервиса в Zipkin")
+    addr: str = Field(
+        "http://localhost:9411/api/v2/spans",
+        description="Адрес для подключения к Zipkin",
+    )
+    sample_rate: float = Field(
+        0.01,
+        description="Процент сохраняемых трассировок. 1.0 - 100%, 0.5 - 50%",
+    )
+    send_interval: float = Field(
+        5, description="Интервал отправки данных в Zipkin"
+    )
+    default_sampled: bool = Field(
+        True, description="Sampled в Span по умолчанию", deprecated=True
+    )
+    default_debug: bool = Field(
+        False, description="Debug в Span по умолчанию", deprecated=True
+    )
 
 
 class ZipkinAdapter(AbcAdapter):

@@ -1,5 +1,6 @@
 from typing import Optional
 
+from pydantic import Field
 from sentry_sdk.api import capture_exception
 from sentry_sdk.client import Client
 from sentry_sdk.hub import Hub
@@ -11,7 +12,11 @@ from ._abc import AbcAdapter, AbcConfig, AdapterConfigurationError
 
 
 class SentryConfig(AbcConfig):
-    dsn: Optional[str] = None
+    dsn: Optional[str] = Field(
+        None,
+        description="Строка подключения к Sentry",
+        example="https://key@sentry.io/project",
+    )
 
 
 class SentryAdapter(AbcAdapter):

@@ -14,7 +14,7 @@ from typing import (
 
 import asyncpg
 from iprpc import MethodExecutor
-from pydantic.main import BaseModel
+from pydantic import BaseModel, Field
 
 from ipapp import Component
 from ipapp.ctx import span
@@ -166,13 +166,33 @@ class Retry(Exception):
 
 
 class TaskManagerConfig(BaseModel):
-    db_url: Optional[str] = None
-    db_schema: str = 'main'
-    db_connect_max_attempts: int = 10
-    db_connect_retry_delay: float = 1.0
-    batch_size: int = 1
-    max_scan_interval: float = 60.0
-    idle: bool = False
+    db_url: Optional[str] = Field(
+        None,
+        description="Строка подключения к базе данных",
+        example="postgresql://own@localhost:5432/main",
+    )
+    db_schema: str = Field("main", description="Название схемы в базе данных")
+    db_connect_max_attempts: int = Field(
+        10,
+        description=(
+            "Максимальное количество попыток подключения к базе данных"
+        ),
+    )
+    db_connect_retry_delay: float = Field(
+        1.0,
+        description=(
+            "Задержка перед повторной попыткой подключения к базе данных"
+        ),
+    )
+    batch_size: int = Field(
+        1, description="Количество задач, которое берется в работу за раз"
+    )
+    max_scan_interval: float = Field(
+        60.0, description="Максимальный интервал для поиска новых задач"
+    )
+    idle: bool = Field(
+        False, description="Пока включено задачи не берутся в работу"
+    )
 
 
 class TaskManager(Component):

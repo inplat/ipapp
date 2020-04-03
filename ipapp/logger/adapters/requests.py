@@ -3,7 +3,7 @@ from collections import deque
 from typing import Any, Deque, Dict, List, Optional, Tuple
 
 import asyncpg
-from pydantic.main import BaseModel
+from pydantic import BaseModel, Field
 
 import ipapp.http as ht
 import ipapp.logger  # noqa
@@ -122,16 +122,59 @@ class Request(BaseModel):
 
 
 class RequestsConfig(AbcConfig):
-    dsn: Optional[str] = None
-    name: Optional[str] = None
-    db_table_name: str = 'log.request'
-    send_interval: float = 5.0  # 5 seconds
-    send_max_count: int = 10  # 10 requests
-    max_hdrs_length: int = 64 * 1024  # 64kB
-    max_body_length: int = 64 * 1024  # 64kB
-    max_queue_size: int = 2 * 1024
-    connect_max_attempts: int = 10
-    connect_retry_delay: float = 1.0
+    dsn: Optional[str] = Field(
+        None,
+        description="Строка подключения к базе данных",
+        example="postgresql://own@localhost:5432/main",
+    )
+    name: Optional[str] = Field(
+        None, description="Название сервиса в базе данных", example="orders"
+    )
+    db_table_name: str = Field(
+        "log.request",
+        description="Название таблицы в базе данных с логами запросов",
+    )
+    send_interval: float = Field(
+        5.0, description="Интервал записи запросов в базу данных (в секундах)"
+    )
+    send_max_count: int = Field(
+        10,
+        description=(
+            "Максимальное количество запросов для записи в базу данных"
+        ),
+    )
+    max_hdrs_length: int = Field(
+        64 * 1024,
+        description=(
+            "Максимальный размер заголовков запросов, которые будут "
+            "записаны в базу данных (в байтах)"
+        ),
+    )
+    max_body_length: int = Field(
+        64 * 1024,
+        description=(
+            "Максимальный размер тела запросов, которые будут "
+            "записаны в базу данных (в байтах)"
+        ),
+    )
+    max_queue_size: int = Field(
+        2 * 1024,
+        description=(
+            "Максимальный размер очереди запросов на запись в базу данных"
+        ),
+    )
+    connect_max_attempts: int = Field(
+        10,
+        description=(
+            "Максимальное количество попыток подключения к базе данных"
+        ),
+    )
+    connect_retry_delay: float = Field(
+        1.0,
+        description=(
+            "Задержка перед повторной попыткой подключения к базе данных"
+        ),
+    )
 
 
 class RequestsAdapter(AbcAdapter):
