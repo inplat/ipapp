@@ -293,7 +293,7 @@ async def test_tasks_by_ref(postgres_url):
     ref = str(uuid.uuid4())
 
     await tm.schedule(
-        Api.test, {'arg': 123}, eta=time.time() + 1, reference=ref
+        Api.test, {'arg': 123}, eta=time.time() + 3, reference=ref
     )
     tasks = await get_tasks_by_reference(postgres_url, test_schema_name, ref)
     assert len(tasks) == 1
