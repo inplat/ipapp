@@ -94,7 +94,7 @@ build:
     - sed -i -E 's/^(__build_stamp__\s*=\s*)[0-9]+$/\1'`date +%s`'/' ipapp/__init__.py
     - make build
     - mkdir -p /pip/ipapp/
-    - twine upload -u __token__ -p $PYPI_TOKEN dist/*
+    - .venv/bin/twine upload -u __token__ -p $PYPI_TOKEN dist/*
     - cp dist/* /pip/ipapp/
   dependencies:
     - venv
