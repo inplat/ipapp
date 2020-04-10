@@ -93,8 +93,8 @@ build:
     - sed -i -E 's/^(__version__\s*=\s*)['"'"'"].*?+['"'"'"](.*)$/\1'"'"${CI_COMMIT_TAG:-$CI_COMMIT_REF_SLUG}"'"'\2/' ipapp/__init__.py
     - sed -i -E 's/^(__build_stamp__\s*=\s*)[0-9]+$/\1'`date +%s`'/' ipapp/__init__.py
     - make build
+    - .venv/bin/twine upload -u __token__ -p "$PYPI_TOKEN" dist/*
     - mkdir -p /pip/ipapp/
-    - .venv/bin/twine upload -u __token__ -p $PYPI_TOKEN dist/*
     - cp dist/* /pip/ipapp/
   dependencies:
     - venv
@@ -106,6 +106,24 @@ build:
     - build
   only:
     - tags
+
+build-master:
+  stage: build
+  script:
+    - sed -i -E 's/^(__version__\s*=\s*)['"'"'"].*?+['"'"'"](.*)$/\1'"'"${CI_COMMIT_TAG:-$CI_COMMIT_REF_SLUG}"'"'\2/' ipapp/__init__.py
+    - sed -i -E 's/^(__build_stamp__\s*=\s*)[0-9]+$/\1'`date +%s`'/' ipapp/__init__.py
+    - make build
+    - mkdir -p /pip/ipapp/
+    - cp dist/* /pip/ipapp/
+  dependencies:
+    - venv
+  artifacts:
+    paths:
+      - .venv/
+    expire_in: 1 day
+  tags:
+    - build
+  only:
     - master
 
 pages:
