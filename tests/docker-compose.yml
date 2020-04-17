@@ -35,3 +35,11 @@ services:
       - '58974:8080'
     volumes:
       - ./mocks:/app/mocks
+  sftp:
+    container_name: ipapp-test-sftp
+    image: atmoz/sftp:alpine-3.7
+    environment:
+      - SFTP_USERS=user:password:::upload
+    restart: on-failure
+    ports:
+        - "2222:22"

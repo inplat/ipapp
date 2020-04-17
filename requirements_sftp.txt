@@ -1,0 +1,1 @@
+asyncssh[pyOpenSSL]==2.2.0
