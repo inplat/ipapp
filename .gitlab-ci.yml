@@ -112,7 +112,7 @@ build-master:
     - sed -i -E 's/^(__version__\s*=\s*)['"'"'"].*?+['"'"'"](.*)$/\1'"'"${CI_COMMIT_TAG:-$CI_COMMIT_REF_SLUG}"'"'\2/' ipapp/__init__.py
     - sed -i -E 's/^(__build_stamp__\s*=\s*)[0-9]+$/\1'`date +%s`'/' ipapp/__init__.py
     - make build
-    - .venv/bin/twine upload -u pypi_ipapp -p "$PYPI_TOKEN_IPL" --repository-url "https://pip.sys.ipl" dist/*
+    - .venv/bin/twine upload --verbose -u pypi_ipapp -p "$PYPI_TOKEN_IPL" --repository-url "https://pip.sys.ipl" dist/*
   dependencies:
     - venv
   artifacts:
