@@ -21,29 +21,29 @@
 
 Библиотеку можно установить через пакетный менеджер::
 
-    pip install --extra-index-url http://pip.sys.ipl --trusted-host pip.sys.ipl ipapp
+    pip install --extra-index-url https://pip.sys.ipl/simple --trusted-host pip.sys.ipl ipapp
 
 Вы также можете установить дополнительные зависимости, если планируете использовать:
 
 1. СУБД PostgreSQl::
 
-    pip install --extra-index-url http://pip.sys.ipl --trusted-host pip.sys.ipl ipapp[postgres]
+    pip install --extra-index-url https://pip.sys.ipl/simple --trusted-host pip.sys.ipl ipapp[postgres]
 
 2. Брокер очередей RabbitMq::
 
-    pip install --extra-index-url http://pip.sys.ipl --trusted-host pip.sys.ipl ipapp[rabbitmq]
+    pip install --extra-index-url https://pip.sys.ipl/simple --trusted-host pip.sys.ipl ipapp[rabbitmq]
 
 3. RPC::
 
-    pip install --extra-index-url http://pip.sys.ipl --trusted-host pip.sys.ipl ipapp[iprpc]
+    pip install --extra-index-url https://pip.sys.ipl/simple --trusted-host pip.sys.ipl ipapp[iprpc]
 
 4. Инструменты для тестирования::
 
-    pip install --extra-index-url http://pip.sys.ipl --trusted-host pip.sys.ipl ipapp[testing]
+    pip install --extra-index-url https://pip.sys.ipl/simple --trusted-host pip.sys.ipl ipapp[testing]
 
 Или все вышеперечисленное сразу::
 
-    pip install --extra-index-url http://pip.sys.ipl --trusted-host pip.sys.ipl ipapp[postgres,rabbitmq,iprpc,testing]
+    pip install --extra-index-url https://pip.sys.ipl/simple --trusted-host pip.sys.ipl ipapp[postgres,rabbitmq,iprpc,testing]
 
 
 Начало работы

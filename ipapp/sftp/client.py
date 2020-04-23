@@ -105,6 +105,9 @@ class SftpClientConfig(BaseModel):
             "Задержка перед повторной попыткой подключения к SFTP серверу"
         ),
     )
+    connect_timeout: float = Field(
+        60.0, description="Таймаут подключения к SFTP серверу"
+    )
     asyncssh_log_level: LogLevel = Field(
         LogLevel.CRITICAL, description="Уровень логирования asyncssh"
     )
@@ -186,7 +189,14 @@ class SftpClient(Component):
                 self.app.log_info(
                     "Connecting %sto %s", counter, self.masked_url,
                 )
-                await self._connect()
+                await asyncio.wait_for(
+                    self._connect(), timeout=self.cfg.connect_timeout
+                )
+            except asyncio.TimeoutError as exc:
+                self.app.log_err(
+                    "Timeout connection to %s: %s", self.masked_url, exc
+                )
+                await asyncio.sleep(self.cfg.connect_retry_delay)
             except Exception as exc:
                 self.app.log_err(
                     "Could not connect to %s: %s", self.masked_url, exc
