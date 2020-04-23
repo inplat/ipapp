@@ -1,17 +1,21 @@
 import asyncio
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any, AsyncGenerator, Awaitable, Callable, Optional
 
 import asyncpg
 import pika
 import pytest
+from _pytest.config.argparsing import Parser
+from _pytest.fixtures import FixtureRequest
 from async_timeout import timeout as async_timeout
 
 TIMEOUT = 60
 COMPOSE_POSTGRES_URL = 'postgres://ipapp:secretpwd@127.0.0.1:58971/ipapp'
 COMPOSE_RABBITMQ_URL = 'amqp://guest:guest@127.0.0.1:58972/'
 
+pytest_plugins = ["pytester"]
 
-def pytest_addoption(parser):
+
+def pytest_addoption(parser: Parser) -> None:
     parser.addoption(
         "--postgres-url",
         dest="postgres_url",
@@ -47,7 +51,7 @@ async def wait_service(
 
 
 @pytest.fixture
-async def postgres_url(request) -> str:
+async def postgres_url(request: FixtureRequest) -> AsyncGenerator[str, None]:
     url = request.config.getoption('postgres_url')
     if not url:
         url = COMPOSE_POSTGRES_URL
@@ -61,8 +65,8 @@ async def postgres_url(request) -> str:
 
 
 @pytest.fixture
-async def rabbitmq_url(request) -> str:
-    async def check(url):
+async def rabbitmq_url(request: FixtureRequest) -> AsyncGenerator[str, None]:
+    async def check(url: str) -> None:
         await asyncio.get_event_loop().run_in_executor(
             None, pika.BlockingConnection, pika.URLParameters(url)
         )

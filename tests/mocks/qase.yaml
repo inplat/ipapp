@@ -21,7 +21,7 @@ mocks:
         Token: secret
       json:
         title: not_exists_title
-        description: null
+        description: "[Jaeger traces](http://localhost:16686/search?service=ipapp&tags=%7B%22qase.project_id%22%3A%221%22%2C%22qase.run_title%22%3A%22not_exists_title%22%7D)"
         environment_id: null
         cases:
           - 2
@@ -58,13 +58,7 @@ mocks:
         time: 0
         status: failed
         member_id: "7"
-        comment: |
-          @pytest.mark.case_id(2)
-              def test_true_is_false():
-                >       assert True is False
-                E       assert True is False
-
-                test_run_not_exists.py:5: AssertionError
+        comment: "@pytest.mark.case_id(2)\n    def test_true_is_false():\n>       assert True is False\nE       assert True is False\n\ntest_run_not_exists.py:5: AssertionError"
         defect: true
         steps: []
     response:

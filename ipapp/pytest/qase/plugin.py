@@ -1,5 +1,6 @@
-from typing import Any, Dict, List, Optional
 import logging
+import warnings
+from typing import Any, Dict, List, Optional
 
 import requests
 from _pytest.config import Config
@@ -7,6 +8,8 @@ from _pytest.config.argparsing import Parser
 from _pytest.main import ExitCode, Session
 from _pytest.nodes import Item
 from _pytest.terminal import TerminalReporter
+
+from .warnings import QaseWarning, QaseConfigWarning
 
 
 def pytest_addoption(parser: Parser) -> None:
@@ -60,6 +63,24 @@ def pytest_addoption(parser: Parser) -> None:
         help="Qase run title.",
     )
 
+    group.addoption(
+        "--qase-jaeger-url",
+        action="store",
+        dest="qase_jaeger_url",
+        default="http://localhost:16686",
+        metavar='URL',
+        help="Qase jaeger URL. Default: http://localhost:16686",
+    )
+
+    group.addoption(
+        "--qase-jaeger-service",
+        action="store",
+        dest="qase_jaeger_service",
+        default="ipapp",
+        metavar='SERVICE',
+        help="Qase jaeger service. Default: ipapp",
+    )
+
 
 def pytest_configure(config: Config) -> None:
     config.addinivalue_line("markers", "case_id(id): marks test case id")
@@ -83,24 +104,26 @@ def pytest_terminal_summary(
     token = config.option.qase_token
     member_id = config.option.qase_member_id
     run_title = config.option.qase_run_title
+    jaeger_url = config.option.qase_jaeger_url
+    jaeger_service = config.option.qase_jaeger_service
 
     if not qase_enabled:
         return
 
     if project_id is None:
-        logging.warning("Undefined --qase-project-id")
+        warnings.warn(QaseConfigWarning("Undefined --qase-project-id"))
         return
 
     if token is None:
-        logging.warning("Undefined --qase-token")
+        warnings.warn(QaseConfigWarning("Undefined --qase-token"))
         return
 
     if member_id is None:
-        logging.warning("Undefined --qase-member-id")
+        warnings.warn(QaseConfigWarning("Undefined --qase-member-id"))
         return
 
     if run_title is None:
-        logging.warning("Undefined --qase-run-title")
+        warnings.warn(QaseConfigWarning("Undefined --qase-run-title"))
         return
 
     run_id = None
@@ -151,6 +174,8 @@ def pytest_terminal_summary(
         run_id=run_id,
         run_title=run_title,
         tests=tests,
+        jaeger_url=jaeger_url,
+        jaeger_service=jaeger_service,
     )
 
 
@@ -161,6 +186,8 @@ def send_result(
     project_id: str,
     run_title: str,
     tests: Dict[str, Any],
+    jaeger_url: str,
+    jaeger_service: str,
     run_id: Optional[str] = None,
 ) -> None:
     headers = {
@@ -174,13 +201,19 @@ def send_result(
     )
 
     if not response.ok:
-        logging.error("Error receiving test run: %s", response.status_code)
+        warnings.warn(
+            QaseWarning(f"Error receiving test run: {response.status_code}")
+        )
         return
 
     body = response.json()
 
     if body.get("status") is False:
-        logging.error("Error receiving test run: %s", body.get("errorMessage"))
+        warnings.warn(
+            QaseWarning(
+                f"Error receiving test run: {body.get('errorMessage')}"
+            )
+        )
         return
 
     # ищем test run по его имени и активному статусу
@@ -196,21 +229,28 @@ def send_result(
             headers=headers,
             json={
                 "title": run_title,
-                "description": None,
+                "description": (
+                    f"[Jaeger traces]({jaeger_url}/search?service={jaeger_service}"
+                    f"&tags=%7B%22qase.project_id%22%3A%22{project_id}%22%2C%22qase.run_title%22%3A%22{run_title}%22%7D)"
+                ),
                 "environment_id": None,
                 "cases": list(tests.keys()),
             },
         )
 
         if not response.ok:
-            logging.error("Error creating test run: %s", response.status_code)
+            warnings.warn(
+                QaseWarning(f"Error creating test run: {response.status_code}")
+            )
             return
 
         body = response.json()
 
         if body.get("status") is False:
-            logging.error(
-                "Error creating test run: %s", body.get("errorMessage")
+            warnings.warn(
+                QaseWarning(
+                    f"Error creating test run: {body.get('errorMessage')}"
+                )
             )
             return
 
@@ -227,16 +267,20 @@ def send_result(
         )
 
         if not response.ok:
-            logging.error(
-                "Error sending test result: %s", response.status_code
+            warnings.warn(
+                QaseWarning(
+                    f"Error sending test result: {response.status_code}"
+                )
             )
             continue
 
         body = response.json()
 
         if body.get("status") is False:
-            logging.error(
-                "Error sending test result: %s", body.get("errorMessage")
+            warnings.warn(
+                QaseWarning(
+                    f"Error sending test result: {body.get('errorMessage')}"
+                )
             )
 
         logging.info("Sent test result with case_id: %s", test.get("case_id"))

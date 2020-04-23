@@ -1,10 +1,16 @@
 import _pytest
-import ipapp.pytest.qase.plugin as qase
+from _pytest.fixtures import FixtureRequest
+from _pytest.main import ExitCode
 
-pytest_plugins = ["pytester"]
+CONFTEST = '''
+pytest_plugins = ["ipapp.pytest.qase.plugin"]
+'''
 
 
-def test_run_exists(testdir: '_pytest.pytester.Testdir') -> None:
+def test_run_exists(
+    testdir: '_pytest.pytester.Testdir', request: FixtureRequest
+) -> None:
+    testdir.makeconftest(CONFTEST)
     testdir.makepyfile(
         """
         import pytest
@@ -16,22 +22,30 @@ def test_run_exists(testdir: '_pytest.pytester.Testdir') -> None:
     )
 
     result = testdir.runpytest(
-        "-v",
+        "--verbose",
+        "-p",
+        "no:pytest_qase",
+        "--assert=plain",
         "--qase",
         "--qase-url=http://localhost:58974",
         "--qase-project-id=1",
         "--qase-token=secret",
         "--qase-member-id=7",
         "--qase-run-title=exists_title",
-        plugins=(qase,),
+        "--qase-jaeger-url=http://localhost:16686",
+        "--qase-jaeger-service=ipapp",
     )
 
+    result.stdout.no_fnmatch_line("*QaseWarning*")
     result.stdout.fnmatch_lines(["*::test_true_is_true PASSED*"])
 
-    assert result.ret == 0
+    assert result.ret == ExitCode.OK
 
 
-def test_run_not_exists(testdir: '_pytest.pytester.Testdir') -> None:
+def test_run_not_exists(
+    testdir: '_pytest.pytester.Testdir', request: FixtureRequest
+) -> None:
+    testdir.makeconftest(CONFTEST)
     testdir.makepyfile(
         """
         import pytest
@@ -43,16 +57,21 @@ def test_run_not_exists(testdir: '_pytest.pytester.Testdir') -> None:
     )
 
     result = testdir.runpytest(
-        "-v",
+        "--verbose",
+        "-p",
+        "no:pytest_qase",
+        "--assert=plain",
         "--qase",
         "--qase-url=http://localhost:58974",
         "--qase-project-id=1",
         "--qase-token=secret",
         "--qase-member-id=7",
         "--qase-run-title=not_exists_title",
-        plugins=(qase,),
+        "--qase-jaeger-url=http://localhost:16686",
+        "--qase-jaeger-service=ipapp",
     )
 
+    result.stdout.no_fnmatch_line("*QaseWarning*")
     result.stdout.fnmatch_lines(["*::test_true_is_false FAILED*"])
 
-    assert result.ret == 1
+    assert result.ret == ExitCode.TESTS_FAILED
