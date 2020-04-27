@@ -25,7 +25,6 @@ async def wait_for(fn: Callable, timeout=60) -> Any:
                     else:
                         res = fn()
 
-                    print(res)
                     if not res:
                         raise Exception('Not ready')
                     return res

@@ -8,7 +8,7 @@ pytest_plugins = ["ipapp.pytest.qase.plugin"]
 
 
 def test_run_exists(
-    testdir: '_pytest.pytester.Testdir', request: FixtureRequest
+    testdir: '_pytest.pytester.Testdir', request: FixtureRequest, capsys
 ) -> None:
     testdir.makeconftest(CONFTEST)
     testdir.makepyfile(
@@ -41,9 +41,12 @@ def test_run_exists(
 
     assert result.ret == ExitCode.OK
 
+    capsys.readouterr()  # hide stdout
 
+
+# olga
 def test_run_not_exists(
-    testdir: '_pytest.pytester.Testdir', request: FixtureRequest
+    testdir: '_pytest.pytester.Testdir', request: FixtureRequest, capsys
 ) -> None:
     testdir.makeconftest(CONFTEST)
     testdir.makepyfile(
@@ -75,3 +78,5 @@ def test_run_not_exists(
     result.stdout.fnmatch_lines(["*::test_true_is_false FAILED*"])
 
     assert result.ret == ExitCode.TESTS_FAILED
+
+    capsys.readouterr()  # hide stdout

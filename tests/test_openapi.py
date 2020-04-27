@@ -1,6 +1,5 @@
-from ipapp.http.client import Client
-
 from examples.openapi import App, Config
+from ipapp.http.client import Client
 
 
 async def test_openapi(unused_tcp_port: int) -> None:

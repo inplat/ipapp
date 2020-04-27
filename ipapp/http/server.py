@@ -150,6 +150,9 @@ class ServerHandler(object):
     async def prepare(self) -> None:
         pass
 
+    async def stop(self) -> None:
+        pass
+
     async def error_handler(
         self, request: web.Request, err: Exception
     ) -> web.Response:
@@ -423,6 +426,7 @@ class Server(Component, ClientServerAnnotator):
     async def stop(self) -> None:
         self.app.log_info("Stopping HTTP server")
         await self.runner.cleanup()
+        await self.handler.stop()
 
     async def health(self) -> None:
         pass

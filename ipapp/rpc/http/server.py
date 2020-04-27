@@ -1,8 +1,8 @@
 import inspect
 import json
-from functools import wraps
+import warnings
 from pathlib import Path
-from typing import Any, Callable, Coroutine, Dict, List, Optional
+from typing import Any, Callable, Coroutine, List, Optional
 
 from aiohttp import web
 from iprpc.executor import BaseError, InternalError, MethodExecutor
@@ -42,6 +42,10 @@ from ipapp.openapi.models import (
 )
 from ipapp.openapi.templates import render_redoc_html, render_swagger_ui_html
 from ipapp.rpc.const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
+
+from ..main import method
+
+warnings.warn("module is deprecated", DeprecationWarning, stacklevel=2)
 
 
 class RpcHandlerConfig(BaseModel):
@@ -132,7 +136,7 @@ class RpcHandler(ServerHandler):
         resp = {
             "code": err.code,
             "message": err.message,
-            "details": str(err.parent),
+            "details": str(err.parent) if err.parent is not None else None,
         }
 
         if self._cfg.debug:
@@ -379,43 +383,15 @@ class OpenApiRpcHandler(RpcHandler):
             self.app.log_err(f"Cannot initialize openapi: {exc}")
 
 
-def method(
-    *,
-    name: Optional[str] = None,
-    errors: Optional[List[BaseError]] = None,
-    deprecated: Optional[bool] = False,
-    summary: str = "",
-    description: str = "",
-    request_model: Optional[Any] = None,
-    response_model: Optional[Any] = None,
-    request_ref: Optional[str] = None,
-    response_ref: Optional[str] = None,
-    validators: Optional[Dict[str, dict]] = None,
-) -> Callable:
-    def decorator(func: Callable) -> Callable:
-        setattr(func, "__rpc_name__", name or func.__name__)
-        setattr(func, "__rpc_errors__", errors or [])
-        setattr(func, "__rpc_deprecated__", deprecated)
-        setattr(func, "__rpc_summary__", summary)
-        setattr(func, "__rpc_description__", description)
-        setattr(func, "__rpc_request_model__", request_model)
-        setattr(func, "__rpc_response_model__", response_model)
-        setattr(func, "__rpc_request_ref__", request_ref)
-        setattr(func, "__rpc_response_ref__", response_ref)
+class JsonRpcHandler(RpcHandler):
+    pass
 
-        if validators is not None:
-            setattr(func, "__validators__", validators)
-            unknown = set(validators.keys()) - set(func.__code__.co_varnames)
-            if unknown:
-                raise UserWarning(
-                    "Found validator(s) for nonexistent argument(s): "
-                    ", ".join(unknown)
-                )
 
-        @wraps(func)
-        def wrapper(*args: Any, **kwrags: Any) -> Callable:
-            return func(*args, **kwrags)
-
-        return wrapper
-
-    return decorator
+__all__ = [
+    'RpcHandlerConfig',
+    'OpenApiRpcHandlerConfig',
+    'RpcHandler',
+    'OpenApiRpcHandler',
+    'JsonRpcHandler',
+    'method',
+]

@@ -45,7 +45,7 @@ def validate(config: Any) -> None:
     assert config.db2.url == "postgres://user:pass@localhost:9002/db"
 
 
-def test_from_env() -> None:
+def test_from_env(capsys) -> None:
     os.environ["APP_ZIPKIN_LEVEL"] = "INFO"
     os.environ["APP_ZIPKIN_URL"] = "http://jaeger:9411"
     os.environ["APP_PROMETHEUS_URL"] = "http://prometheus:9213"
@@ -54,6 +54,8 @@ def test_from_env() -> None:
 
     config: Config = Config.from_env(prefix="app_")
     validate(config)
+
+    capsys.readouterr()  # hide stdout
 
 
 def test_from_dict() -> None:
@@ -68,7 +70,7 @@ def test_from_dict() -> None:
     validate(config)
 
 
-def test_to_dict() -> None:
+def test_to_dict(capsys) -> None:
     config: Config = Config.from_env(prefix="app_")
     dictionary = config.to_dict()
     assert dictionary == {
@@ -78,6 +80,7 @@ def test_to_dict() -> None:
         "prometheus": {"level": "DEBUG", "url": "http://prometheus:9213"},
         "zipkin": {"level": "INFO", "url": "http://jaeger:9411"},
     }
+    capsys.readouterr()  # hide stdout
 
 
 def test_from_json_stream() -> None:
@@ -113,7 +116,7 @@ def test_from_json_file() -> None:
         Config.from_json(b"")  # type: ignore
 
 
-def test_to_json_stream() -> None:
+def test_to_json_stream(capsys) -> None:
     config: Config = Config.from_env(prefix="app_")
     stream = io.StringIO()
     config.to_json(stream)
@@ -125,8 +128,10 @@ def test_to_json_stream() -> None:
     temp_conf = Config.from_json(stream)
     validate(temp_conf)
 
+    capsys.readouterr()  # hide stdout
 
-def test_to_json_file() -> None:
+
+def test_to_json_file(capsys) -> None:
     config: Config = Config.from_env(prefix="app_")
     try:
         temp = NamedTemporaryFile()
@@ -136,8 +141,10 @@ def test_to_json_file() -> None:
     finally:
         temp.close()
 
+    capsys.readouterr()  # hide stdout
 
-def test_from_yaml_stream() -> None:
+
+def test_from_yaml_stream(capsys) -> None:
     stream = io.StringIO(
         """
     zipkin:
@@ -155,16 +162,20 @@ def test_from_yaml_stream() -> None:
     config: Config = Config.from_yaml(stream)
     validate(config)
 
+    capsys.readouterr()  # hide stdout
 
-def test_from_yaml_file() -> None:
+
+def test_from_yaml_file(capsys) -> None:
     config: Config = Config.from_yaml("tests/config.yaml")
     validate(config)
 
     with raises(ValueError):
         Config.from_yaml(b"")  # type: ignore
 
+    capsys.readouterr()  # hide stdout
 
-def test_to_yaml_stream() -> None:
+
+def test_to_yaml_stream(capsys) -> None:
     config: Config = Config.from_env(prefix="app_")
     stream = io.StringIO()
     config.to_yaml(stream)
@@ -176,8 +187,10 @@ def test_to_yaml_stream() -> None:
     temp_conf = Config.from_yaml(stream)
     validate(temp_conf)
 
+    capsys.readouterr()  # hide stdout
 
-def test_to_yaml_file() -> None:
+
+def test_to_yaml_file(capsys) -> None:
     config: Config = Config.from_env(prefix="app_")
     try:
         temp = NamedTemporaryFile()
@@ -186,6 +199,8 @@ def test_to_yaml_file() -> None:
         validate(temp_conf)
     finally:
         temp.close()
+
+    capsys.readouterr()  # hide stdout
 
 
 def test_deprecated_field(capsys: Any) -> None:
@@ -341,7 +356,7 @@ def test_to_env_schema() -> None:
     }
 
 
-def test_to_env() -> None:
+def test_to_env(capsys) -> None:
     config = Config.from_env(prefix="app_")
     assert dict(config.to_env()) == {
         "DB_URL": "postgres://user:pass@localhost:5432/db",
@@ -352,3 +367,5 @@ def test_to_env() -> None:
         "PROMETHEUS_LEVEL": "DEBUG",
         "PROMETHEUS_URL": "http://prometheus:9213",
     }
+
+    capsys.readouterr()  # hide stdout

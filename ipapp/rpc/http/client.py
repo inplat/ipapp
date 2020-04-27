@@ -1,3 +1,4 @@
+import warnings
 from typing import Any, Callable, Dict, Optional
 
 from aiohttp import ClientTimeout
@@ -7,6 +8,8 @@ from ipapp.http.client import Client, ClientConfig, ClientHttpSpan
 from ipapp.misc import json_encode as default_json_encode
 
 from ..const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
+
+warnings.warn("module is deprecated", DeprecationWarning, stacklevel=2)
 
 
 class RpcClientConfig(ClientConfig):

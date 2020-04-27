@@ -9,7 +9,7 @@ from _pytest.main import ExitCode, Session
 from _pytest.nodes import Item
 from _pytest.terminal import TerminalReporter
 
-from .warnings import QaseWarning, QaseConfigWarning
+from .warnings import QaseConfigWarning, QaseWarning
 
 
 def pytest_addoption(parser: Parser) -> None:
