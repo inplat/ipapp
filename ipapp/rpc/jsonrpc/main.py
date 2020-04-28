@@ -426,11 +426,13 @@ class JsonRpcCall:
             self.method,
             JsonRpcExecutor.cast2dump(
                 self.params
-                if isinstance(self.params, collections.abc.Sequence) else None
+                if isinstance(self.params, collections.abc.Sequence)
+                else None
             ),
             JsonRpcExecutor.cast2dump(
                 self.params
-                if isinstance(self.params, collections.abc.Mapping) else None
+                if isinstance(self.params, collections.abc.Mapping)
+                else None
             ),
             self.one_way,
         )
@@ -463,10 +465,14 @@ class JsonRpcClient:
         self,
         transport: Callable[[bytes, Optional[float]], Awaitable[bytes]],
         app: BaseApplication,
+        exception_mapping_callback: Optional[
+            Callable[[Optional[int], Optional[str], Optional[Any]], None]
+        ] = None,
     ):
         self._app = app
         self._proto = JSONRPCProtocol()
         self._transport = transport
+        self._exception_mapping_callback = exception_mapping_callback
 
     def exec(
         self,
@@ -534,6 +540,19 @@ class JsonRpcClient:
 
         return tuple(results)
 
+    def _raise_jsonrpc_error(
+        self,
+        code: Optional[int] = None,
+        message: Optional[str] = None,
+        data: Optional[Any] = None,
+    ) -> None:
+        if self._exception_mapping_callback is not None:
+            return self._exception_mapping_callback(code, message, data)
+        else:
+            raise JsonRpcError(
+                jsonrpc_error_code=code, message=message, data=data
+            )
+
     async def _send_single_request(
         self,
         request: bytes,
@@ -562,10 +581,10 @@ class JsonRpcClient:
                 if trap.is_captured:
                     trap.span.tag(SPAN_TAG_RPC_CODE, str(code))
 
-                raise JsonRpcError(
-                    jsonrpc_error_code=code,
-                    message=str(data.error),
-                    data=data.data if hasattr(data, 'data') else None,
+                self._raise_jsonrpc_error(
+                    code,
+                    str(data.error),
+                    data.data if hasattr(data, 'data') else None,
                 )
 
             if isinstance(data, JSONRPCSuccessResponse):
@@ -589,7 +608,7 @@ class JsonRpcClient:
             try:
                 rep = json.loads(result)
             except Exception as err:
-                raise JsonRpcError(message='Invalid reply: %s' % err)
+                self._raise_jsonrpc_error(message='Invalid reply: %s' % err)
 
             if not isinstance(rep, list):
                 rep_err = self._proto.parse_reply(result)
@@ -599,14 +618,14 @@ class JsonRpcClient:
                     if trap.is_captured:
                         trap.span.tag(SPAN_TAG_RPC_CODE, str(code))
 
-                    raise JsonRpcError(
-                        jsonrpc_error_code=code,
+                    self._raise_jsonrpc_error(
+                        code=code,
                         message=str(rep_err.error),
                         data=rep_err.data
                         if hasattr(rep_err, 'data')
                         else None,
                     )
                 else:
-                    raise JsonRpcError(message='Invalid reply')
+                    self._raise_jsonrpc_error(message='Invalid reply')
 
             return rep

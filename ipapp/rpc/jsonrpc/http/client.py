@@ -24,7 +24,19 @@ class JsonRpcHttpClient(Client):
         self.cfg = cfg
 
     async def prepare(self) -> None:
-        self.clt = _JsonRpcClient(self._send_request, self.app)
+        self.clt = _JsonRpcClient(
+            self._send_request,
+            self.app,
+            exception_mapping_callback=self._raise_jsonrpc_error,
+        )
+
+    def _raise_jsonrpc_error(
+        self,
+        code: Optional[int] = None,
+        message: Optional[str] = None,
+        data: Optional[Any] = None,
+    ) -> None:
+        raise JsonRpcError(jsonrpc_error_code=code, message=message, data=data)
 
     def exec(
         self,
