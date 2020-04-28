@@ -6,6 +6,15 @@
 
 .. 0.1.0:
 
+0.1.1:
+=======
+
+* json rpc 2.0: http сервер и клинет, openrpc discover
+* jaeger в qase
+* sftp client
+
+.. 0.1.0:
+
 0.1.0:
 =======
 
