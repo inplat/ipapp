@@ -1,4 +1,5 @@
 import asyncio
+import collections
 import json
 import traceback
 from collections import defaultdict
@@ -424,10 +425,12 @@ class JsonRpcCall:
         req = self.client._proto.create_request(
             self.method,
             JsonRpcExecutor.cast2dump(
-                self.params if isinstance(self.params, Iterable) else None
+                self.params
+                if isinstance(self.params, collections.abc.Sequence) else None
             ),
             JsonRpcExecutor.cast2dump(
-                self.params if isinstance(self.params, Mapping) else None
+                self.params
+                if isinstance(self.params, collections.abc.Mapping) else None
             ),
             self.one_way,
         )

@@ -213,18 +213,18 @@ async def test_rpc_client(unused_tcp_port):
 async def test_rpc_client_batch(unused_tcp_port):
     class Api:
         @method()
-        def method1(self):
-            return 'ok1'
+        def method1(self, a: int):
+            return 'ok%s' % a
 
         @method()
-        def method2(self):
-            return 'ok2'
+        def method2(self, a: int):
+            return 'ok%s' % a
 
     async with runapp(
         unused_tcp_port, JsonRpcHttpHandler(Api(), JsonRpcHttpHandlerConfig())
     ) as app:
         res1, res2 = await app.clt.exec_batch(
-            app.clt.exec('method1'), app.clt.exec('method2')
+            app.clt.exec('method1', {'a': 1}), app.clt.exec('method2', (2, ))
         )
         assert res1 == 'ok1'
         assert res2 == 'ok2'
