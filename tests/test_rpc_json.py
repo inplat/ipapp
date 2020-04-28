@@ -1,6 +1,8 @@
 import json
 from typing import Optional
 
+from pydantic.main import BaseModel
+
 from ipapp import BaseApplication, BaseConfig
 from ipapp.rpc import method
 from ipapp.rpc.jsonrpc import JsonRpcClient, JsonRpcError, JsonRpcExecutor
@@ -531,10 +533,29 @@ async def test_legacy_format_error():
 
 
 async def test_discover():
+    class Address(BaseModel):
+        inline: str
+        index: str
+
+    class User(BaseModel):
+        address: Address
+        name: str
+
     class H:
         @method()
         async def echo(self, text: str) -> str:
             return 'echo: %s' % text
+
+        @method()
+        async def get_user(self, id: int) -> User:
+            return User(
+                name='test',
+                address={'inline': 'Moscow, Kremlin, 1', 'index': '123456'},
+            )
+
+        @method()
+        async def add_user(self, user: User) -> int:
+            return 1
 
     ex = JsonRpcExecutor(H(), get_app(), discover_enabled=True)
     res = await ex.exec(
@@ -549,6 +570,21 @@ async def test_discover():
             "info": {"title": "", "version": "0"},
             "methods": [
                 {
+                    "name": "add_user",
+                    "params": [
+                        {
+                            "name": "user",
+                            "required": True,
+                            "schema": {"$ref": "#/components/schemas/User"},
+                        }
+                    ],
+                    "result": {
+                        "name": "result",
+                        "required": True,
+                        "schema": {"title": "Result", "type": "integer"},
+                    },
+                },
+                {
                     "name": "echo",
                     "params": [
                         {
@@ -562,13 +598,46 @@ async def test_discover():
                         "required": True,
                         "schema": {"title": "Result", "type": "string"},
                     },
-                }
+                },
+                {
+                    "name": "get_user",
+                    "params": [
+                        {
+                            "name": "id",
+                            "required": True,
+                            "schema": {"title": "Id", "type": "integer"},
+                        }
+                    ],
+                    "result": {
+                        "name": "result",
+                        "required": True,
+                        "schema": {"$ref": "#/components/schemas/User"},
+                    },
+                },
             ],
+            "components": {
+                "schemas": {
+                    "User": {
+                        "title": "User",
+                        "required": ["address", "name"],
+                        "type": "object",
+                        "properties": {
+                            "address": {
+                                "$ref": "#/components/schemas/Address"
+                            },
+                            "name": {"title": "Name", "type": "string"},
+                        },
+                    },
+                    "Address": {
+                        "title": "Address",
+                        "required": ["inline", "index"],
+                        "type": "object",
+                        "properties": {
+                            "inline": {"title": "Inline", "type": "string"},
+                            "index": {"title": "Index", "type": "string"},
+                        },
+                    },
+                }
+            },
         },
     }
-
-
-# TODO
-#   call with BaseModel
-#   error with BaseModel data
-#   reponse with BaseModel
