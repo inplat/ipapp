@@ -58,3 +58,61 @@ async def test_jsonschema_validators():
 
     with pytest.raises(InvalidArguments):
         await ex.exec('sum', ['2020-01-01-11'])
+
+
+async def test_errors_method_decorator():
+    with pytest.raises(UserWarning):
+
+        class Api1:
+            @method(errors=[1])
+            async def test(self):
+                pass
+
+    with pytest.raises(UserWarning):
+
+        class Api2:
+            @method(summary=1)
+            async def test(self):
+                pass
+
+    with pytest.raises(UserWarning):
+
+        class Api3:
+            @method(description=1)
+            async def test(self):
+                pass
+
+    with pytest.raises(UserWarning):
+
+        class Api4:
+            @method(deprecated=1)
+            async def test(self):
+                pass
+
+    with pytest.raises(UserWarning):
+
+        class Api5:
+            @method(request_model=1)
+            async def test(self):
+                pass
+
+    with pytest.raises(UserWarning):
+
+        class Api:
+            @method(response_model=1)
+            async def test(self):
+                pass
+
+    with pytest.raises(UserWarning):
+
+        class Api6:
+            @method(request_ref=1)
+            async def test(self):
+                pass
+
+    with pytest.raises(UserWarning):
+
+        class Api7:
+            @method(response_ref=1)
+            async def test(self):
+                pass

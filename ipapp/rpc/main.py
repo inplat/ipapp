@@ -20,27 +20,17 @@ from jsonschema.exceptions import SchemaError as JSONSchemaError
 from jsonschema.exceptions import ValidationError as JSONValidationError
 from pydantic import BaseConfig, BaseModel, ValidationError, create_model
 
+from .error import InvalidArguments, MethodNotFound, RpcError
+
 
 class _PydanticConfig(BaseConfig):
     arbitrary_types_allowed = True
 
 
-class RpcError(Exception):
-    pass
-
-
-class InvalidArguments(RpcError):
-    pass
-
-
-class MethodNotFound(RpcError):
-    pass
-
-
 def method(
     *,
     name: Optional[str] = None,
-    errors: Optional[List[RpcError]] = None,
+    errors: Optional[List[Type[RpcError]]] = None,
     deprecated: Optional[bool] = False,
     summary: str = "",
     description: str = "",
@@ -49,9 +39,55 @@ def method(
     request_ref: Optional[str] = None,
     response_ref: Optional[str] = None,
     validators: Optional[Dict[str, dict]] = None,
+    examples: Optional[List[Dict[str, Optional[str]]]] = None,
 ) -> Callable:
     def decorator(func: Callable) -> Callable:
-        setattr(func, "__rpc_name__", name or func.__name__)
+        func_name = name or func.__name__
+
+        if func_name is not None and not isinstance(func_name, str):
+            raise UserWarning('Method name must be a string')
+        if deprecated is not None and not isinstance(deprecated, bool):
+            raise UserWarning('Method deprecated must be a bool')
+        if summary is not None and not isinstance(summary, str):
+            raise UserWarning('Method summary must be a string')
+        if description is not None and not isinstance(description, str):
+            raise UserWarning('Method description must be a string')
+        if request_model is not None and (
+            not isinstance(request_model, type)
+            or not issubclass(request_model, BaseModel)
+        ):
+            raise UserWarning(
+                'Method request_model must be a subclass '
+                'of pydantic.BaseModel'
+            )
+        if response_model is not None and (
+            not isinstance(response_model, type)
+            or not issubclass(response_model, BaseModel)
+        ):
+            raise UserWarning(
+                'Method response_model must be a subclass '
+                'of pydantic.BaseModel'
+            )
+        if request_ref is not None and not isinstance(request_ref, str):
+            raise UserWarning('Method request_ref must be a string')
+        if response_ref is not None and not isinstance(response_ref, str):
+            raise UserWarning('Method response_ref must be a string')
+
+        if errors is not None:
+            for error in errors:
+                if not isinstance(error, type):
+                    raise UserWarning(
+                        'Method errors must be a list of RpcError subclasses'
+                    )
+                if not issubclass(error, RpcError):
+                    raise UserWarning(
+                        'Method errors must be a list of RpcError subclasses'
+                    )
+
+        if examples is not None:
+            _validate_examples(examples)
+
+        setattr(func, "__rpc_name__", func_name)
         setattr(func, "__rpc_errors__", errors or [])
         setattr(func, "__rpc_deprecated__", deprecated)
         setattr(func, "__rpc_summary__", summary)
@@ -60,6 +96,7 @@ def method(
         setattr(func, "__rpc_response_model__", response_model)
         setattr(func, "__rpc_request_ref__", request_ref)
         setattr(func, "__rpc_response_ref__", response_ref)
+        setattr(func, "__rpc_examples__", examples)
 
         if validators is not None:
             setattr(func, "__validators__", validators)
@@ -77,6 +114,32 @@ def method(
         return wrapper
 
     return decorator
+
+
+def _validate_examples(examples: Any) -> None:
+    if not isinstance(examples, list):
+        raise UserWarning()
+    struct: Dict[str, Optional[type]] = {
+        'name': str,
+        'description': str,
+        'summary': str,
+        'params': list,
+        'result': None,
+    }
+    struct_keys = set(struct.keys())
+    for ex in examples:
+        if not isinstance(ex, dict):
+            raise UserWarning
+        ex_keys = set(ex.keys())
+        if ex_keys - struct_keys:
+            raise UserWarning(
+                'Unexpected example keys %s' '' % (ex_keys - struct_keys,)
+            )
+        for key in ex.keys():
+            if struct[key] is not None:
+                cls = struct[key]
+                if cls is not None and not isinstance(ex[key], cls):
+                    raise UserWarning
 
 
 class _Method:

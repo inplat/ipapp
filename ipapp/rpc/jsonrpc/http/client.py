@@ -7,7 +7,7 @@ from ipapp.http.client import Client, ClientConfig
 from ipapp.rpc.jsonrpc.main import JsonRpcCall
 from ipapp.rpc.jsonrpc.main import JsonRpcClient as _JsonRpcClient
 
-from ..main import JsonRpcError
+from ..error import JsonRpcError
 
 
 class JsonRpcHttpClientConfig(ClientConfig):

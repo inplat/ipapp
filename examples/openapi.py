@@ -88,7 +88,7 @@ class Api:
     async def get_customers(self, customers: List[Customer]) -> List[Customer]:
         pass
 
-    @method(errors=[CustomerNotFound])  # type: ignore
+    @method(errors=[CustomerNotFound])
     async def update_customer(
         self,
         customer_id: UUID,

@@ -541,8 +541,25 @@ async def test_discover():
         address: Address
         name: str
 
+    class Err111(JsonRpcError):
+        jsonrpc_error_code = 111
+        message = "My Error 111"
+
+    class Err222(JsonRpcError):
+        jsonrpc_error_code = 222
+        message = "My Error 222"
+
     class H:
-        @method()
+        """
+        Api for tests
+
+        Log description
+        of api
+        """
+
+        __version__ = '1.0'
+
+        @method(deprecated=True)
         async def echo(self, text: str) -> str:
             return 'echo: %s' % text
 
@@ -553,8 +570,18 @@ async def test_discover():
                 address={'inline': 'Moscow, Kremlin, 1', 'index': '123456'},
             )
 
-        @method()
+        @method(errors=[Err111, Err222])
         async def add_user(self, user: User) -> int:
+            """
+            Add user
+
+            Метод добавляет нового
+            пользователи и возвращает его
+            идентификатор
+
+            :param user: объект пользователя
+            :return: идентифиатор пользователя
+            """
             return 1
 
     ex = JsonRpcExecutor(H(), get_app(), discover_enabled=True)
@@ -563,81 +590,96 @@ async def test_discover():
     )
 
     assert json.loads(res) == {
-        "jsonrpc": "2.0",
-        "id": 10,
-        "result": {
-            "openrpc": "1.2.4",
-            "info": {"title": "", "version": "0"},
-            "methods": [
+        'result': {
+            'openrpc': '1.2.4',
+            'info': {
+                'version': '1.0',
+                'title': 'Api for tests',
+                'description': 'Log description\nof api',
+            },
+            'methods': [
                 {
-                    "name": "add_user",
-                    "params": [
+                    'description': 'Метод добавляет нового\n'
+                    'пользователи и возвращает его\n'
+                    'идентификатор',
+                    'result': {
+                        'required': True,
+                        'schema': {'title': 'Result', 'type': 'integer'},
+                        'name': 'result',
+                        "summary": "идентифиатор пользователя",
+                    },
+                    'summary': 'Add user',
+                    'name': 'add_user',
+                    'errors': [
+                        {'code': 111, 'data': None, 'message': 'My Error 111'},
+                        {'code': 222, 'data': None, 'message': 'My Error 222'},
+                    ],
+                    'params': [
                         {
-                            "name": "user",
-                            "required": True,
-                            "schema": {"$ref": "#/components/schemas/User"},
+                            'required': True,
+                            'summary': 'объект пользователя',
+                            'schema': {'$ref': '#/components/schemas/User'},
+                            'name': 'user',
                         }
                     ],
-                    "result": {
-                        "name": "result",
-                        "required": True,
-                        "schema": {"title": "Result", "type": "integer"},
-                    },
                 },
                 {
-                    "name": "echo",
-                    "params": [
+                    'result': {
+                        'required': True,
+                        'schema': {'title': 'Result', 'type': 'string'},
+                        'name': 'result',
+                    },
+                    'deprecated': True,
+                    'params': [
                         {
-                            "name": "text",
-                            "required": True,
-                            "schema": {"title": "Text", "type": "string"},
+                            'required': True,
+                            'schema': {'title': 'Text', 'type': 'string'},
+                            'name': 'text',
                         }
                     ],
-                    "result": {
-                        "name": "result",
-                        "required": True,
-                        "schema": {"title": "Result", "type": "string"},
-                    },
+                    'name': 'echo',
                 },
                 {
-                    "name": "get_user",
-                    "params": [
+                    'result': {
+                        'required': True,
+                        'schema': {'$ref': '#/components/schemas/User'},
+                        'name': 'result',
+                    },
+                    'params': [
                         {
-                            "name": "id",
-                            "required": True,
-                            "schema": {"title": "Id", "type": "integer"},
+                            'required': True,
+                            'schema': {'title': 'Id', 'type': 'integer'},
+                            'name': 'id',
                         }
                     ],
-                    "result": {
-                        "name": "result",
-                        "required": True,
-                        "schema": {"$ref": "#/components/schemas/User"},
-                    },
+                    'name': 'get_user',
                 },
             ],
-            "components": {
-                "schemas": {
-                    "User": {
-                        "title": "User",
-                        "required": ["address", "name"],
-                        "type": "object",
-                        "properties": {
-                            "address": {
-                                "$ref": "#/components/schemas/Address"
+            'components': {
+                'schemas': {
+                    'User': {
+                        'required': ['address', 'name'],
+                        'properties': {
+                            'address': {
+                                '$ref': '#/components/schemas/Address'
                             },
-                            "name": {"title": "Name", "type": "string"},
+                            'name': {'title': 'Name', 'type': 'string'},
                         },
+                        'title': 'User',
+                        'type': 'object',
                     },
-                    "Address": {
-                        "title": "Address",
-                        "required": ["inline", "index"],
-                        "type": "object",
-                        "properties": {
-                            "inline": {"title": "Inline", "type": "string"},
-                            "index": {"title": "Index", "type": "string"},
+                    'Address': {
+                        'required': ['inline', 'index'],
+                        'properties': {
+                            'inline': {'title': 'Inline', 'type': 'string'},
+                            'index': {'title': 'Index', 'type': 'string'},
                         },
+                        'title': 'Address',
+                        'type': 'object',
                     },
                 }
             },
         },
+        'id': 10,
+        'jsonrpc': '2.0',
     }

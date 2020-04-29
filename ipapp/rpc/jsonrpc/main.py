@@ -2,7 +2,6 @@ import asyncio
 import collections
 import json
 import traceback
-from collections import defaultdict
 from typing import (
     Any,
     Awaitable,
@@ -23,7 +22,6 @@ from pydantic.json import ENCODERS_BY_TYPE, pydantic_encoder
 from tinyrpc import exc as rpc_exc
 from tinyrpc.protocols import jsonrpc as rpc
 from tinyrpc.protocols.jsonrpc import (
-    FixedErrorMessageMixin,
     InvalidReplyError,
     JSONRPCErrorResponse,
     JSONRPCInvalidRequestError,
@@ -36,44 +34,18 @@ from tinyrpc.protocols.jsonrpc import (
 from ipapp import BaseApplication
 from ipapp.ctx import app, span
 from ipapp.logger import Span
+from ipapp.rpc.error import InvalidArguments as _InvalidArguments
+from ipapp.rpc.error import MethodNotFound as _MethodNotFound
 from ipapp.rpc.main import Executor as _Executor
-from ipapp.rpc.main import InvalidArguments as _InvalidArguments
-from ipapp.rpc.main import MethodNotFound as _MethodNotFound
 
 from ..const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
+from .error import JsonRpcError
 from .openrpc.discover import discover
 from .openrpc.models import ExternalDocs, Server
 
 SPAN_TAG_JSONRPC_METHOD = 'rpc.method'
 SPAN_TAG_JSONRPC_CODE = 'rpc.code'
 SPAN_TAG_JSONRPC_IS_BATCH = 'rpc.is_batch'
-
-
-class JsonRpcError(FixedErrorMessageMixin, Exception):
-
-    jsonrpc_error_code = -32000
-    message = 'Server error'
-
-    def __init__(
-        self,
-        jsonrpc_error_code: Optional[int] = None,
-        message: Optional[str] = None,
-        data: Any = None,
-        **kwargs: Any,
-    ) -> None:
-        self.kwargs: dict = defaultdict(lambda: "")
-        self.kwargs.update(kwargs)
-
-        if jsonrpc_error_code is not None:
-            self.jsonrpc_error_code = jsonrpc_error_code
-        if message is not None:
-            self.message = message
-        if data is not None:
-            self.data = data
-
-        self.message = str(self.message).format_map(self.kwargs)
-
-        super().__init__()
 
 
 class JsonRpcExecutor:

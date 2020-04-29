@@ -1,3 +1,4 @@
-from .main import Executor, InvalidArguments, MethodNotFound, method
+from .error import InvalidArguments, MethodNotFound
+from .main import Executor, method
 
 __all__ = ['Executor', 'InvalidArguments', 'MethodNotFound', 'method']

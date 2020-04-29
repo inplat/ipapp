@@ -89,6 +89,7 @@ def test_openrpc():
                     },
                 ],
                 "result": {
+                    "summary": "a+b",
                     "name": "result",
                     "required": True,
                     "schema": {"title": "Result", "type": "integer"},

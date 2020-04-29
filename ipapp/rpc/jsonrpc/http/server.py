@@ -4,7 +4,7 @@ from typing import List, Optional
 from aiohttp import web
 from pydantic import BaseModel
 
-from ipapp.http.server import ServerHandler
+from ipapp.http.server import ServerHandler as _ServerHandler
 from ipapp.rpc.jsonrpc.main import JsonRpcExecutor
 from ipapp.rpc.jsonrpc.openrpc.models import ExternalDocs, Server
 
@@ -16,7 +16,7 @@ class JsonRpcHttpHandlerConfig(BaseModel):
     discover_enabled: bool = True
 
 
-class JsonRpcHttpHandler(ServerHandler):
+class JsonRpcHttpHandler(_ServerHandler):
     _rpc: JsonRpcExecutor
 
     def __init__(
