@@ -308,7 +308,7 @@ class Executor:
                         raise UserWarning(
                             'Method %s duplicated' '' % fn.__rpc_name__
                         )
-                    self._methods[key] = _Method(fn)
+                    self._methods[fn.__rpc_name__] = _Method(fn)
 
     async def exec(
         self,
