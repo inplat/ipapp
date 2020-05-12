@@ -4,7 +4,7 @@ from asyncio import Future, wait_for
 from datetime import datetime, timezone
 
 import asyncpg
-from iprpc import method
+from ipapp.rpc import method
 
 from ipapp import BaseApplication, BaseConfig
 from ipapp.db.pg import Postgres

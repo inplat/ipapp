@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -13,7 +14,7 @@ from typing import (
 )
 
 import asyncpg
-from iprpc import MethodExecutor
+from ipapp.rpc.main import Executor
 from pydantic import BaseModel, Field
 
 from ipapp import Component
@@ -197,7 +198,7 @@ class TaskManagerConfig(BaseModel):
 
 class TaskManager(Component):
     def __init__(self, api: object, cfg: TaskManagerConfig) -> None:
-        self._executor: MethodExecutor = MethodExecutor(api)
+        self._executor: Executor = Executor(api)
         self.cfg = cfg
         self._stopping = False
         self._scan_fut: Optional[asyncio.Future] = None
@@ -399,33 +400,32 @@ class TaskManager(Component):
             span.tag(TaskManagerSpan.TAG_TASK_ID, task.id)
             span.tag(TaskManagerSpan.TAG_TASK_NAME, task.name)
             try:
-                time_begin = time.time()
-                res = await self._executor.call_parsed(
-                    task.name, task.params, {}
-                )
-                time_finish = time.time()
-
+                err: Optional[Exception] = None
                 err_str: Optional[str] = None
                 err_trace: Optional[str] = None
-                if res.error is not None:
-                    if res.error.parent is not None:
-                        if isinstance(res.error.parent, Retry):
-                            err_str = str(res.error.parent.err)
-                        else:
-                            err_str = str(res.error.parent)
+                res: Any = None
+                time_begin = time.time()
+                try:
+                    res = await self._executor.exec(
+                        task.name, kwargs=task.params
+                    )
+                except Exception as e:
+                    err = e
+                    if isinstance(err, Retry):
+                        err_str = str(err.err)
                     else:
-                        err_str = str(res.error)
-                    err_trace = res.error.trace
-
-                    span.error(res.error)
-                    self.app.log_err(res.error)
+                        err_str = str(err)
+                    err_trace = traceback.format_exc()
+                    span.error(err)
+                    self.app.log_err(err)
+                time_finish = time.time()
 
                 await self._db.task_log_add(
                     task.id,
                     task.eta,
                     time_begin,
                     time_finish,
-                    res.result,
+                    res,
                     err_str,
                     err_trace,
                     lock=True,
@@ -436,8 +436,8 @@ class TaskManager(Component):
                 else:
                     retries = task.retries + 1
 
-                if res.error is not None:
-                    if isinstance(res.error.parent, Retry):
+                if err is not None:
+                    if isinstance(err, Retry):
                         if retries >= task.max_retries:
                             await self._db.task_move_arch(
                                 task.id, STATUS_ERROR, retries, lock=True
@@ -459,6 +459,7 @@ class TaskManager(Component):
                     )
             except Exception as err:
                 span.error(err)
+                self.app.log_err(err)
                 raise
 
 
