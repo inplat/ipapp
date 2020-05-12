@@ -1,6 +1,6 @@
 import asyncio
-import traceback
 import time
+import traceback
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from typing import (
@@ -14,7 +14,6 @@ from typing import (
 )
 
 import asyncpg
-from ipapp.rpc.main import Executor
 from pydantic import BaseModel, Field
 
 from ipapp import Component
@@ -24,6 +23,7 @@ from ipapp.error import PrepareError
 from ipapp.logger import Span, wrap2span
 from ipapp.misc import json_encode as default_json_encoder
 from ipapp.misc import mask_url_pwd
+from ipapp.rpc.main import Executor
 
 TaskHandler = Union[Callable, str]
 ETA = Union[datetime, float, int]
