@@ -44,7 +44,11 @@ from ipapp.openapi.models import (
 from ipapp.openapi.templates import render_redoc_html, render_swagger_ui_html
 from ipapp.rpc.const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
 
-warnings.warn("module is deprecated", DeprecationWarning, stacklevel=2)
+warnings.warn(
+    "module is deprecated. Use ipapp.rpc.jsonrpc.http.server instead",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 class RpcHandlerConfig(BaseModel):

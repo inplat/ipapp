@@ -9,7 +9,11 @@ from ipapp.misc import json_encode as default_json_encode
 
 from ..const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
 
-warnings.warn("module is deprecated", DeprecationWarning, stacklevel=2)
+warnings.warn(
+    "module is deprecated. Use ipapp.rpc.jsonrpc.http.client instead",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 class RpcClientConfig(ClientConfig):
