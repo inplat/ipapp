@@ -251,6 +251,6 @@ class RpcClientChannel(PikaChannel):
         return self._clt.exec(method, params, one_way=one_way, timeout=timeout)
 
     async def exec_batch(
-            self, *calls: JsonRpcCall, timeout: Optional[float] = None
+        self, *calls: JsonRpcCall, timeout: Optional[float] = None
     ) -> Tuple[Union[JsonRpcError, Any], ...]:
         return await self._clt.exec_batch(*calls, timeout=timeout)
