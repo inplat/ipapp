@@ -1,30 +1,33 @@
 import asyncio
-import json
 import uuid
-import warnings
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Mapping,
+    Optional,
+    Tuple,
+    Union,
+)
 
-from iprpc.executor import InternalError, MethodExecutor
 from pydantic import Field
 
 from ipapp.ctx import span
-from ipapp.logger import Span, wrap2span
+from ipapp.logger import Span
 from ipapp.misc import json_encode as default_json_encode
 from ipapp.mq.pika import (
-    AmqpOutSpan,
     AmqpSpan,
     Deliver,
     PikaChannel,
     PikaChannelConfig,
     Properties,
 )
-
-from ..const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
-
-warnings.warn(
-    "Module is deprecated. Use ipapp.rpc.jsonrpc.mq.pika instead",
-    DeprecationWarning,
-    stacklevel=2,
+from ipapp.rpc.jsonrpc import (
+    JsonRpcCall,
+    JsonRpcClient,
+    JsonRpcError,
+    JsonRpcExecutor,
 )
 
 
@@ -46,7 +49,8 @@ class RpcServerChannelConfig(PikaChannelConfig):
     queue_durable: bool = Field(True, description="Устойчивая очередь")
     queue_auto_delete: bool = Field(
         False,
-        description="Удалять очередь, если потребитель отменился или отключился",
+        description="Удалять очередь, если потребитель "
+        "отменился или отключился",
     )
     queue_arguments: Optional[dict] = Field(
         None, description="Настройки очереди"
@@ -54,7 +58,6 @@ class RpcServerChannelConfig(PikaChannelConfig):
     debug: bool = Field(
         False, description="Возвращать в RPC ошибках стектрейсы"
     )
-    encoding: str = Field("UTF-8", description="Кодировка")
     propagate_trace: bool = Field(
         True, description="Передавать заголовки спанов в заголовках сообщений"
     )
@@ -63,7 +66,6 @@ class RpcServerChannelConfig(PikaChannelConfig):
 class RpcClientChannelConfig(PikaChannelConfig):
     queue: str = Field("rpc", description="Название очереди")
     timeout: float = Field(60.0, description="Таймаут RPC вызова")
-    encoding: str = Field("UTF-8", description="Кодировка")
     propagate_trace: bool = Field(
         True, description="Передавать заголовки спанов в заголовках сообщений"
     )
@@ -71,7 +73,7 @@ class RpcClientChannelConfig(PikaChannelConfig):
 
 class RpcServerChannel(PikaChannel):
     cfg: RpcServerChannelConfig
-    _rpc: MethodExecutor
+    _rpc: JsonRpcExecutor
     _lock: asyncio.Lock
 
     def __init__(
@@ -94,7 +96,7 @@ class RpcServerChannel(PikaChannel):
         )
         await self.qos(prefetch_count=self.cfg.prefetch_count)
         self._lock = asyncio.Lock(loop=self.amqp.loop)
-        self._rpc = MethodExecutor(self.api)
+        self._rpc = JsonRpcExecutor(self.api, self.amqp.app)
 
     async def start(self) -> None:
         await self.consume(self.cfg.queue, self._message)
@@ -111,36 +113,10 @@ class RpcServerChannel(PikaChannel):
             with self.amqp.app.logger.capture_span(AmqpSpan) as trap:
                 await self.ack(delivery_tag=deliver.delivery_tag)
                 trap.span.skip()
-            result = await self._rpc.call(body, encoding=self.cfg.encoding)
-            if result.method is not None:
-                span.tag(SPAN_TAG_RPC_METHOD, result.method)
-            span.name = 'rpc::in (%s)' % result.method
-            if result.error is not None:
-                span.error(result.error)
-                if isinstance(result.error, InternalError):
-                    self.amqp.app.log_err(result.error)
+
+            result = await self._rpc.exec(body)
 
             if proprties.reply_to:
-                if result.error is not None:
-                    resp = {
-                        "code": result.error.code,
-                        "message": result.error.message,
-                        "details": str(result.error.parent),
-                    }
-
-                    if self.cfg.debug:
-                        resp['trace'] = result.error.trace
-                    if result.result is not None:
-                        resp['result'] = result.result
-                else:
-                    resp = {
-                        "code": 0,
-                        "message": 'OK',
-                        'result': result.result,
-                    }
-
-                span.tag(SPAN_TAG_RPC_CODE, resp['code'])
-                msg = self._json_encode(resp).encode(self.cfg.encoding)
                 props = Properties()
                 if proprties.correlation_id:
                     props.correlation_id = proprties.correlation_id
@@ -151,7 +127,7 @@ class RpcServerChannel(PikaChannel):
                     await self.publish(
                         '',
                         proprties.reply_to,
-                        msg,
+                        result,
                         props,
                         propagate_trace=False,
                     )
@@ -169,11 +145,18 @@ class RpcClientChannel(PikaChannel):
     _lock: asyncio.Lock
     _queue: str
     _futs: Dict[str, Tuple[asyncio.Future, Span]] = {}
+    _clt: JsonRpcClient
+    _exception_mapping_callback: Optional[
+        Callable[[Optional[int], Optional[str], Optional[Any]], None]
+    ] = None
 
     async def prepare(self) -> None:
         res = await self.queue_declare('', exclusive=True)
         self._queue = res.method.queue
         self._lock = asyncio.Lock(loop=self.amqp.loop)
+        self._clt = JsonRpcClient(
+            self._transport, self.amqp.app, self._exception_mapping_callback
+        )
 
     async def start(self) -> None:
         await self.consume(self._queue, self._message)
@@ -188,8 +171,6 @@ class RpcClientChannel(PikaChannel):
     ) -> None:
         async with self._lock:
             await self.ack(delivery_tag=deliver.delivery_tag)
-
-        js = json.loads(body, encoding=self.cfg.encoding)
 
         if proprties.correlation_id in self._futs:
             fut, parent_span = self._futs[proprties.correlation_id]
@@ -213,73 +194,63 @@ class RpcClientChannel(PikaChannel):
             )
             span.skip()
 
-            parent_span.tag(SPAN_TAG_RPC_CODE, js['code'])
+            fut.set_result(body)
 
-            if js['code'] == 0:
-                fut.set_result(js['result'])
-            else:
-                fut.set_exception(
-                    RpcError(js['code'], js['message'], js.get('detail'))
+    async def _transport(
+        self, request: bytes, timeout: Optional[float]
+    ) -> bytes:
+        correlation_id = str(uuid.uuid4())
+        fut: asyncio.Future = asyncio.Future(loop=self.amqp.app.loop)
+        self._futs[correlation_id] = (fut, span)
+        try:
+            with self.amqp.app.logger.capture_span(AmqpSpan) as trap:
+                headers: Dict[str, str] = {}
+                if self.cfg.propagate_trace:
+                    headers = span.to_headers()
+                await self.publish(
+                    '',
+                    self.cfg.queue,
+                    request,
+                    Properties(
+                        correlation_id=correlation_id,
+                        reply_to=self._queue,
+                        headers=headers,
+                    ),
+                    propagate_trace=False,
                 )
 
-    async def call(
+                anns = trap.span.annotations.get(AmqpSpan.ANN_OUT_PROPS)
+                if anns is not None and len(anns) > 0:
+                    ann_body, ann_stamp = anns[0]
+                    span.annotate(AmqpSpan.ANN_IN_PROPS, ann_body, ann_stamp)
+
+                anns = trap.span.annotations.get(AmqpSpan.ANN_OUT_BODY)
+                if anns is not None and len(anns) > 0:
+                    ann_body, ann_stamp = anns[0]
+                    span.annotate(AmqpSpan.ANN_IN_BODY, ann_body, ann_stamp)
+
+                trap.span.copy_to(
+                    span, annotations=False, tags=True, error=True
+                )
+                trap.span.skip()
+
+            return await asyncio.wait_for(
+                fut, timeout=timeout or self.cfg.timeout
+            )
+
+        finally:
+            del self._futs[correlation_id]
+
+    def exec(
         self,
         method: str,
-        params: Dict[str, Any],
+        params: Union[Iterable[Any], Mapping[str, Any], None] = None,
+        one_way: bool = False,
         timeout: Optional[float] = None,
-    ) -> Any:
-        msg = self._json_encode({"method": method, "params": params}).encode(
-            self.cfg.encoding
-        )
-        correlation_id = str(uuid.uuid4())
+    ) -> JsonRpcCall:
+        return self._clt.exec(method, params, one_way=one_way, timeout=timeout)
 
-        fut: asyncio.Future = asyncio.Future(loop=self.amqp.app.loop)
-        with wrap2span(
-            kind=Span.KIND_CLIENT, app=self.amqp.app, cls=AmqpOutSpan
-        ) as span:
-            span.tag(SPAN_TAG_RPC_METHOD, method)
-            span.name = 'rpc::out (%s)' % method
-
-            self._futs[correlation_id] = (fut, span)
-            try:
-                with self.amqp.app.logger.capture_span(AmqpSpan) as trap:
-                    headers: Dict[str, str] = {}
-                    if self.cfg.propagate_trace:
-                        headers = span.to_headers()
-                    await self.publish(
-                        '',
-                        self.cfg.queue,
-                        msg,
-                        Properties(
-                            correlation_id=correlation_id,
-                            reply_to=self._queue,
-                            headers=headers,
-                        ),
-                        propagate_trace=False,
-                    )
-
-                    anns = trap.span.annotations.get(AmqpSpan.ANN_OUT_PROPS)
-                    if anns is not None and len(anns) > 0:
-                        ann_body, ann_stamp = anns[0]
-                        span.annotate(
-                            AmqpSpan.ANN_IN_PROPS, ann_body, ann_stamp
-                        )
-
-                    anns = trap.span.annotations.get(AmqpSpan.ANN_OUT_BODY)
-                    if anns is not None and len(anns) > 0:
-                        ann_body, ann_stamp = anns[0]
-                        span.annotate(
-                            AmqpSpan.ANN_IN_BODY, ann_body, ann_stamp
-                        )
-
-                    trap.span.copy_to(
-                        span, annotations=False, tags=True, error=True
-                    )
-                    trap.span.skip()
-
-                return await asyncio.wait_for(
-                    fut, timeout=timeout or self.cfg.timeout
-                )
-
-            finally:
-                del self._futs[correlation_id]
+    async def exec_batch(
+            self, *calls: JsonRpcCall, timeout: Optional[float] = None
+    ) -> Tuple[Union[JsonRpcError, Any], ...]:
+        return await self._clt.exec_batch(*calls, timeout=timeout)
