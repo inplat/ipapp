@@ -4,10 +4,10 @@ from asyncio import Future, wait_for
 from datetime import datetime, timezone
 
 import asyncpg
-from ipapp.rpc import method
 
 from ipapp import BaseApplication, BaseConfig
 from ipapp.db.pg import Postgres
+from ipapp.rpc import method
 from ipapp.task.db import (
     CREATE_TABLE_QUERY,
     STATUS_CANCELED,
