@@ -15,7 +15,7 @@ class JsonRpcHttpHandlerConfig(BaseModel):
     shield: bool = False
     discover_enabled: bool = True
     cors_enabled: bool = True
-    cors_origin: str = 'http://openrpc-playground.app.ipl'
+    cors_origin: str = 'https://playground.open-rpc.org'
 
 
 class JsonRpcHttpHandler(_ServerHandler):
