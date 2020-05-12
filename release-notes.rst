@@ -4,6 +4,15 @@
 Изменения
 #########
 
+.. 0.1.4:
+
+0.1.4:
+=======
+
+* JSON-RPC поверх AMQP
+* taskmanager больше не зависит от iprpc
+* Значение по-улолчанию для CORS в JSON-RPC HTTP сервере теперь https://playground.open-rpc.org
+
 .. 0.1.3:
 
 0.1.3:
