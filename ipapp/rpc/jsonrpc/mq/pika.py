@@ -31,16 +31,6 @@ from ipapp.rpc.jsonrpc import (
 )
 
 
-class RpcError(Exception):
-    def __init__(
-        self, code: int, message: Optional[str], detail: Optional[str]
-    ) -> None:
-        self.code = code
-        self.message = message
-        self.detail = detail
-        super().__init__('%s[%s] %s' % (message, code, detail))
-
-
 class RpcServerChannelConfig(PikaChannelConfig):
     queue: str = Field("rpc", description="Название очереди")
     prefetch_count: int = Field(
