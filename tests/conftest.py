@@ -1,5 +1,13 @@
 import asyncio
-from typing import Any, AsyncGenerator, Awaitable, Callable, Optional
+from asyncio import AbstractEventLoop
+from typing import (
+    Any,
+    AsyncGenerator,
+    Awaitable,
+    Callable,
+    Generator,
+    Optional,
+)
 
 import asyncpg
 import pika
@@ -28,6 +36,18 @@ def pytest_addoption(parser: Parser) -> None:
         help="RabbitMq override connection string",
         metavar="amqp://user:pwd@host:port/vhost",
     )
+
+
+@pytest.fixture(scope='session')
+def event_loop() -> Generator[AbstractEventLoop, None, None]:
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest.fixture(scope='session')
+def loop(event_loop: AbstractEventLoop) -> AbstractEventLoop:
+    return event_loop
 
 
 async def wait_service(

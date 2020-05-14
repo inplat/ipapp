@@ -17,6 +17,7 @@ Inplat application framework
    rpc_http
    rpc_amqp
    openapi
+   s3
    documentation
    release-notes
 

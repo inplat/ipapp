@@ -1,10 +1,28 @@
+from asyncio import AbstractEventLoop
+from typing import Any, AsyncGenerator, Dict
 from uuid import uuid4
 
 import pytest
 
 from ipapp import BaseApplication, BaseConfig
-from ipapp.s3.boto import S3, S3Config
-from ipapp.s3.exceptions import FileTypeNotAllowedError
+from ipapp.s3 import S3, FileTypeNotAllowedError, S3Config
+
+
+@pytest.fixture(scope='session')
+async def s3(loop: AbstractEventLoop) -> AsyncGenerator[S3, None]:
+    s3 = S3(
+        S3Config(
+            endpoint_url='http://127.0.0.1:9000',
+            aws_access_key_id='EXAMPLEACCESSKEY',
+            aws_secret_access_key='EXAMPLESECRETKEY',
+        )
+    )
+    app = BaseApplication(BaseConfig())
+    app.add('s3', s3)
+
+    await app.start()
+    yield s3
+    await app.stop()
 
 
 async def save(
@@ -13,15 +31,15 @@ async def save(
     filepath: str,
     bucket_name: str,
     content_type: str,
-    metadata: dict,
-):
+    metadata: Dict[str, Any],
+) -> None:
     file_type = content_type.split('/')[-1]
-    with open(filepath, 'rb') as file:
+    with open(filepath, 'rb') as f:
         if not await s3.bucket_exists(bucket_name):
             await s3.create_bucket(bucket_name)
 
         object_name = await s3.put_object(
-            data=file,
+            data=f,
             filename=uuid,
             folder='folder',
             metadata=metadata,
@@ -42,28 +60,11 @@ async def save(
         assert obj.metadata == metadata
         assert obj.size > 0
 
-        file.seek(0)
-        async with obj.body as s:
-            assert file.read() == await s.read()
+        f.seek(0)
+        assert obj.body == f.read()
 
 
-async def test_s3() -> None:
-    app = BaseApplication(BaseConfig())
-    app.add(
-        's3',
-        S3(
-            S3Config(
-                endpoint_url="http://127.0.0.1:9000",
-                region_name="us-east-1",
-                aws_access_key_id="EXAMPLEACCESSKEY",
-                aws_secret_access_key="EXAMPLESECRETKEY",
-            )
-        ),
-    )
-    await app.start()
-
-    s3: S3 = app.get('s3')  # type: ignore
-
+async def test_s3(s3: S3) -> None:
     # create/Delete Bucket
     uuid = uuid4().hex
     location = await s3.create_bucket(uuid)
@@ -102,25 +103,8 @@ async def test_s3() -> None:
     assert await s3.bucket_exists(uuid) is True
     await s3.delete_bucket(uuid)
 
-    await app.stop()
 
-
-async def test_s3_file_save() -> None:
-    app = BaseApplication(BaseConfig())
-    app.add(
-        's3',
-        S3(
-            S3Config(
-                endpoint_url="http://127.0.0.1:9000",
-                region_name="us-east-1",
-                aws_access_key_id="EXAMPLEACCESSKEY",
-                aws_secret_access_key="EXAMPLESECRETKEY",
-            )
-        ),
-    )
-    await app.start()
-    s3: S3 = app.get('s3')  # type: ignore
-
+async def test_s3_file_save(s3: S3) -> None:
     # Save PDF
     uuid = uuid4().hex
     filepath = f'tests/files/test.pdf'
@@ -153,5 +137,3 @@ async def test_s3_file_save() -> None:
     metadata = {'foo': 'bar'}
     with pytest.raises(FileTypeNotAllowedError):
         await save(s3, uuid, filepath, bucket_name, content_type, metadata)
-
-    await app.stop()

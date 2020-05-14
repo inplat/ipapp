@@ -1,0 +1,10 @@
+Компонент S3
+============
+
+Компонент для работы с S3.
+
+Пример
+------
+
+.. literalinclude:: ../../examples/s3.py
+  :language: python
