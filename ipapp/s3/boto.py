@@ -13,6 +13,22 @@ from pydantic import BaseModel, Field
 from ipapp.component import Component
 from ipapp.s3.exceptions import FileTypeNotAllowedError
 
+from ..logger import Span, wrap2span
+
+
+class S3ClientSpan(Span):
+    KIND_CLIENT = "CLIENT"
+
+    NAME_LIST_BUCKETS = "s3::list_buckets"
+    NAME_BUCKET_EXISTS = "s3::bucket_exists"
+    NAME_CREATE_BUCKET = "s3::create_bucket"
+    NAME_DELETE_BUCKET = "s3::delete_bucket"
+    NAME_PUT_OBJECT = "s3::put_object"
+    NAME_GET_OBJECT = "s3::get_object"
+    NAME_GENERATE_PRESIGNED_URL = "s3::generate_presigned_url"
+
+    ANN_EVENT = "event"
+
 
 class Bucket(NamedTuple):
     name: str
@@ -97,15 +113,20 @@ class S3Config(BaseModel):
         'pdf,jpeg,png,gif',
         description='Разрешенные для сохранения типы данных',
     )
+    log_result: bool = Field(
+        False, description="Логирование результатов запросов"
+    )
 
 
 class Client:
     def __init__(
         self,
+        component: "S3",
         base_client: AioBaseClient,
         bucket_name: str,
         allowed_types: List[str],
     ) -> None:
+        self.component = component
         self.base_client = base_client
         self.bucket_name = bucket_name
         self.allowed_types = allowed_types
@@ -119,37 +140,88 @@ class Client:
         await self.base_client.close()
 
     async def list_buckets(self) -> List[Bucket]:
-        response = await self.base_client.list_buckets()
+        self.component.app.log_debug("S3 list_buckets")
 
-        return [
-            Bucket(
-                name=bucket.get('Name'),
-                creation_date=bucket.get('CreationDate'),
-            )
-            for bucket in response.get('Buckets', [])
-        ]
+        with wrap2span(
+            name=S3ClientSpan.NAME_LIST_BUCKETS,
+            kind=S3ClientSpan.KIND_CLIENT,
+            cls=S3ClientSpan,
+            app=self.component.app,
+        ) as span:
+            response = await self.base_client.list_buckets()
+
+            buckets = [
+                Bucket(
+                    name=bucket.get('Name'),
+                    creation_date=bucket.get('CreationDate'),
+                )
+                for bucket in response.get('Buckets', [])
+            ]
+
+            if self.component.cfg.log_result:
+                span.annotate(S3ClientSpan.ANN_EVENT, buckets)
+
+            return buckets
 
     async def bucket_exists(self, bucket_name: Optional[str] = None) -> bool:
-        buckets = await self.list_buckets()
+        bucket_name = bucket_name or self.bucket_name
 
-        for bucket in buckets:
-            if bucket.name == (bucket_name or self.bucket_name):
-                return True
+        self.component.app.log_debug("S3 bucket_exists '%s'", bucket_name)
 
-        return False
+        with wrap2span(
+            name=S3ClientSpan.NAME_BUCKET_EXISTS,
+            kind=S3ClientSpan.KIND_CLIENT,
+            cls=S3ClientSpan,
+            app=self.component.app,
+        ) as span:
+            buckets = await self.list_buckets()
+
+            exists = False
+
+            for bucket in buckets:
+                if bucket.name == bucket_name:
+                    exists = True
+
+            span.annotate(S3ClientSpan.ANN_EVENT, exists)
+
+            return exists
 
     async def create_bucket(
         self, bucket_name: Optional[str] = None, acl: str = 'private'
     ) -> str:
-        response = await self.base_client.create_bucket(
-            ACL=acl, Bucket=bucket_name or self.bucket_name,
-        )
-        return response.get('Location')
+        bucket_name = bucket_name or self.bucket_name
+
+        self.component.app.log_debug("S3 create_bucket '%s'", bucket_name)
+
+        with wrap2span(
+            name=S3ClientSpan.NAME_CREATE_BUCKET,
+            kind=S3ClientSpan.KIND_CLIENT,
+            cls=S3ClientSpan,
+            app=self.component.app,
+        ) as span:
+            response = await self.base_client.create_bucket(
+                ACL=acl, Bucket=bucket_name,
+            )
+            location = response.get('Location')
+
+            span.annotate(S3ClientSpan.ANN_EVENT, location)
+
+            return location
 
     async def delete_bucket(self, bucket_name: Optional[str] = None) -> None:
-        await self.base_client.delete_bucket(
-            Bucket=bucket_name or self.bucket_name
-        )
+        bucket_name = bucket_name or self.bucket_name
+
+        self.component.app.log_debug("S3 delete_bucket '%s'", bucket_name)
+
+        with wrap2span(
+            name=S3ClientSpan.NAME_DELETE_BUCKET,
+            kind=S3ClientSpan.KIND_CLIENT,
+            cls=S3ClientSpan,
+            app=self.component.app,
+        ) as span:
+            span.annotate(S3ClientSpan.ANN_EVENT, bucket_name)
+
+            await self.base_client.delete_bucket(Bucket=bucket_name)
 
     async def put_object(
         self,
@@ -159,46 +231,71 @@ class Client:
         metadata: Dict[str, Any] = None,
         bucket_name: Optional[str] = None,
     ) -> str:
-        content_type = magic.from_buffer(data.read(1024), mime=True)
-        filetype = content_type.split('/')[-1]
-        if filetype not in self.allowed_types:
-            raise FileTypeNotAllowedError
+        bucket_name = bucket_name or self.bucket_name
 
-        data.seek(0)
+        with wrap2span(
+            name=S3ClientSpan.NAME_PUT_OBJECT,
+            kind=S3ClientSpan.KIND_CLIENT,
+            cls=S3ClientSpan,
+            app=self.component.app,
+        ) as span:
+            content_type = magic.from_buffer(data.read(1024), mime=True)
+            filetype = content_type.split('/')[-1]
+            if filetype not in self.allowed_types:
+                raise FileTypeNotAllowedError
 
-        object_name = f'{folder}/{filename}.{filetype}'.lower()
+            data.seek(0)
 
-        await self.base_client.put_object(
-            Bucket=bucket_name or self.bucket_name,
-            Key=object_name,
-            Body=data,
-            ContentType=content_type,
-            Metadata=metadata or {},
-        )
+            object_name = f'{folder}/{filename}.{filetype}'.lower()
 
-        return object_name
+            event = f"'{object_name}' to '{bucket_name}'"
+            self.component.app.log_debug("S3 put_object %s", event)
+
+            await self.base_client.put_object(
+                Bucket=bucket_name,
+                Key=object_name,
+                Body=data,
+                ContentType=content_type,
+                Metadata=metadata or {},
+            )
+
+            span.annotate(S3ClientSpan.ANN_EVENT, event)
+
+            return object_name
 
     async def get_object(
         self, object_name: str, bucket_name: Optional[str] = None
     ) -> Object:
-        response = await self.base_client.get_object(
-            Bucket=bucket_name or self.bucket_name, Key=object_name,
-        )
+        bucket_name = bucket_name or self.bucket_name
+        event = f"'{object_name}' from '{bucket_name}'"
+        self.component.app.log_debug("S3 get_object %s", event)
 
-        async with response['Body'] as f:
-            body = await f.read()
+        with wrap2span(
+            name=S3ClientSpan.NAME_GET_OBJECT,
+            kind=S3ClientSpan.KIND_CLIENT,
+            cls=S3ClientSpan,
+            app=self.component.app,
+        ) as span:
+            response = await self.base_client.get_object(
+                Bucket=bucket_name, Key=object_name,
+            )
 
-        return Object(
-            bucket_name=bucket_name or self.bucket_name,
-            object_name=object_name,
-            size=response.get('ContentLength'),
-            etag=response.get('Etag'),
-            content_type=response.get('ContentType'),
-            accept_ranges=response.get('AcceptRanges'),
-            last_modified=response.get('LastModified'),
-            body=body,
-            metadata=response.get('Metadata'),
-        )
+            async with response['Body'] as f:
+                body = await f.read()
+
+            span.annotate(S3ClientSpan.ANN_EVENT, event)
+
+            return Object(
+                bucket_name=bucket_name,
+                object_name=object_name,
+                size=response.get('ContentLength'),
+                etag=response.get('Etag'),
+                content_type=response.get('ContentType'),
+                accept_ranges=response.get('AcceptRanges'),
+                last_modified=response.get('LastModified'),
+                body=body,
+                metadata=response.get('Metadata'),
+            )
 
     async def generate_presigned_url(
         self,
@@ -206,15 +303,29 @@ class Client:
         expires: int = 3600,
         bucket_name: Optional[str] = None,
     ) -> ParseResult:
-        url = self.base_client.generate_presigned_url(
-            ClientMethod='get_object',
-            Params={
-                'Bucket': bucket_name or self.bucket_name,
-                'Key': object_name,
-            },
-            ExpiresIn=expires,
-        )
-        return urlparse(url)
+        bucket_name = bucket_name or self.bucket_name
+
+        event = f"'{object_name}' from '{bucket_name}'"
+        self.component.app.log_debug("S3 generate_presigned_url %s", event)
+
+        with wrap2span(
+            name=S3ClientSpan.NAME_GENERATE_PRESIGNED_URL,
+            kind=S3ClientSpan.KIND_CLIENT,
+            cls=S3ClientSpan,
+            app=self.component.app,
+        ) as span:
+            span.annotate(S3ClientSpan.ANN_EVENT, event)
+
+            url = self.base_client.generate_presigned_url(
+                ClientMethod='get_object',
+                Params={'Bucket': bucket_name, 'Key': object_name},
+                ExpiresIn=expires,
+            )
+
+            if self.component.cfg.log_result:
+                span.annotate(S3ClientSpan.ANN_EVENT, url)
+
+            return urlparse(url)
 
 
 class S3(Component):
@@ -299,7 +410,7 @@ class S3(Component):
 
     def _create_client(self) -> Client:
         return Client(
-            self.create_client(), self.bucket_name, self.allowed_types
+            self, self.create_client(), self.bucket_name, self.allowed_types
         )
 
     def create_client(self, **kwargs: Any) -> AioBaseClient:
