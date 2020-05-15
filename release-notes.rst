@@ -12,6 +12,7 @@
 * JSON-RPC поверх AMQP
 * taskmanager больше не зависит от iprpc
 * Значение по-улолчанию для CORS в JSON-RPC HTTP сервере теперь https://playground.open-rpc.org
+* добавлены методы app.shutdown() app.restart() для остановки и перезапуска приложения соответственно
 
 .. 0.1.3:
 

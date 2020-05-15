@@ -4,6 +4,7 @@ import signal
 import time
 from typing import Any, Dict, List, Optional, Union
 
+from .autoreload import _reload
 from .component import Component
 from .config import BaseConfig
 from .error import GracefulExit, PrepareError
@@ -11,6 +12,9 @@ from .logger import Logger
 from .misc import ctx_app_set
 
 logger = logging.getLogger('ipapp')
+
+
+RESTART = object()
 
 
 def _raise_graceful_exit() -> None:  # pragma: no cover
@@ -29,6 +33,7 @@ class BaseApplication(object):
         self._version = ''
         self._build_stamp: float = 0.0
         self._start_stamp: Optional[float] = None
+        self._shutdown_fut: asyncio.Future = asyncio.Future(loop=self.loop)
 
     @property
     def version(self) -> str:
@@ -120,16 +125,29 @@ class BaseApplication(object):
                 pass
 
             try:
-                self.loop.run_forever()
+                self.loop.run_until_complete(
+                    asyncio.wait([self._shutdown_fut], loop=self.loop)
+                )
+                print('*' * 80)
+                print(self._shutdown_fut.result())
             except GracefulExit:  # pragma: no cover
                 pass
 
             return 0
         finally:
-            self.loop.run_until_complete(self.stop())
-            if hasattr(self.loop, 'shutdown_asyncgens'):
-                self.loop.run_until_complete(self.loop.shutdown_asyncgens())
-            self.loop.close()
+            try:
+                self.loop.run_until_complete(self.stop())
+                if hasattr(self.loop, 'shutdown_asyncgens'):
+                    self.loop.run_until_complete(
+                        self.loop.shutdown_asyncgens()
+                    )
+                self.loop.close()
+            finally:
+                if (
+                    self._shutdown_fut.done()
+                    and self._shutdown_fut.result() is RESTART
+                ):
+                    _reload()
 
     async def start(self) -> None:
         ctx_app_set(self)
@@ -158,6 +176,12 @@ class BaseApplication(object):
             await self._stop_comp(comp_name)
         await self._stop_logger()
         await self.loop.shutdown_asyncgens()
+
+    def shutdown(self) -> None:
+        self._shutdown_fut.set_result(None)
+
+    def restart(self) -> None:
+        self._shutdown_fut.set_result(RESTART)
 
     async def _stop_comp(self, name: str) -> None:
         if name in self._stopped:
