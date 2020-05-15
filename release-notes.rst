@@ -10,6 +10,7 @@
 =======
 
 * Исправлена работа с S3 (теперь get_object загружает весь оюъект)
+* Добавлена трассировка в s3
 * JSON-RPC поверх AMQP
 * taskmanager больше не зависит от iprpc
 * Значение по-улолчанию для CORS в JSON-RPC HTTP сервере теперь https://playground.open-rpc.org
