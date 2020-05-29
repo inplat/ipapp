@@ -1,7 +1,7 @@
-from typing import Any, Iterable, Mapping, Optional, Tuple, Union
+from typing import Any, Iterable, Mapping, Optional, Tuple, Type, Union
 
 from aiohttp import ClientTimeout
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from ipapp.http.client import Client, ClientConfig
 from ipapp.rpc.jsonrpc.main import JsonRpcCall
@@ -44,8 +44,9 @@ class JsonRpcHttpClient(Client):
         params: Union[Iterable[Any], Mapping[str, Any], None] = None,
         one_way: bool = False,
         timeout: Optional[float] = None,
+        model: Optional[Type[BaseModel]] = None,
     ) -> JsonRpcCall:
-        return self.clt.exec(method, params, one_way, timeout)
+        return self.clt.exec(method, params, one_way, timeout, model)
 
     async def exec_batch(
         self, *calls: JsonRpcCall, timeout: Optional[float] = None

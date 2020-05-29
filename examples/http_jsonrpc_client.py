@@ -1,6 +1,8 @@
 import logging
 import sys
 
+from pydantic.main import BaseModel
+
 from ipapp import BaseApplication, BaseConfig, main
 from ipapp.error import GracefulExit
 from ipapp.logger.adapters.prometheus import (
@@ -14,6 +16,11 @@ from ipapp.rpc.jsonrpc.http.client import (
     JsonRpcHttpClient,
     JsonRpcHttpClientConfig,
 )
+
+
+class User(BaseModel):
+    id: int
+    name: str
 
 
 class Config(BaseConfig):
@@ -52,6 +59,21 @@ class App(BaseApplication):
         print('RESULT 2:', res2, type(res2))
         print('RESULT 3:', res3, type(res3), res3.jsonrpc_error_code)
         print('=' * 80)
+
+        print('BaseModel single')
+        res1 = await self.clt.exec('find', [1,], model=User)
+        print('=' * 80)
+        print('RESULT 1:', res1, type(res1))
+
+        print('=' * 80)
+        print('BaseModel batch')
+        res1, res2 = await self.clt.exec_batch(
+            self.clt.exec('find', [1,], model=User),
+            self.clt.exec('find', {'id': 2}, model=User),
+        )
+        print('=' * 80)
+        print('RESULT 1:', res1, type(res1))
+        print('RESULT 2:', res1, type(res2))
 
         # res = await self.clt.exec('test', {})
         # print('=' * 80)

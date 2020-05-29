@@ -13,6 +13,7 @@ from typing import (
     Mapping,
     Optional,
     Tuple,
+    Type,
     Union,
 )
 
@@ -380,18 +381,29 @@ class JsonRpcCall:
         params: Union[Iterable[Any], Mapping[str, Any], None] = None,
         one_way: bool = False,
         timeout: Optional[float] = None,
+        model: Optional[Type[BaseModel]] = None,
     ) -> None:
         self.client = client
         self.method = method
         self.params = params
         self.one_way = one_way
         self.timeout = timeout
+        self.model = model
         self.unique_id = None
 
     def __await__(self) -> Generator:
-        return self.client._send_single_request(
+        return self._call().__await__()
+
+    async def _call(self) -> Any:
+        res = await self.client._send_single_request(
             self._encode(), self.timeout, self.method, self.one_way
-        ).__await__()
+        )
+        return self._convert_result(res)
+
+    def _convert_result(self, res: Any) -> Any:
+        if self.model:
+            return self.model(**res)
+        return res
 
     def _encode(self) -> bytes:
         req = self.client._proto.create_request(
@@ -452,8 +464,9 @@ class JsonRpcClient:
         params: Union[Iterable[Any], Mapping[str, Any], None] = None,
         one_way: bool = False,
         timeout: Optional[float] = None,
+        model: Optional[Type[BaseModel]] = None,
     ) -> JsonRpcCall:
-        return JsonRpcCall(self, method, params, one_way, timeout)
+        return JsonRpcCall(self, method, params, one_way, timeout, model)
 
     async def exec_batch(
         self, *calls: JsonRpcCall, timeout: Optional[float] = None
@@ -506,7 +519,7 @@ class JsonRpcClient:
                         data=data,
                     )
                 elif isinstance(result, JSONRPCSuccessResponse):
-                    results[idx] = result.result
+                    results[idx] = calls[idx]._convert_result(result.result)
                 else:
                     raise NotImplementedError
 

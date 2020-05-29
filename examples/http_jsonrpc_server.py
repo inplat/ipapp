@@ -2,6 +2,7 @@ import logging
 import sys
 
 from iprpc import method
+from pydantic.main import BaseModel
 
 from ipapp import BaseApplication, BaseConfig, main
 from ipapp.http.server import Server, ServerConfig
@@ -30,6 +31,11 @@ class MyError(JsonRpcError):
     message = "My error"
 
 
+class User(BaseModel):
+    id: int
+    name: str
+
+
 class Api:
     @method()
     async def test(self) -> str:
@@ -45,6 +51,11 @@ class Api:
     @method()
     async def err(self) -> str:
         raise MyError
+
+    @method()
+    async def find(self, id: int) -> User:
+        print('**')
+        return User(id=id, name='User%d' % id)
 
 
 class App(BaseApplication):
