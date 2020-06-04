@@ -1,2 +1,2 @@
-aiobotocore==0.12.0
-python-magic==0.4.15 
+aiobotocore==1.0.5
+python-magic==0.4.18

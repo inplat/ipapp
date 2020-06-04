@@ -6,7 +6,7 @@ from urllib.parse import ParseResult, urlparse
 import aiobotocore
 import magic
 from aiobotocore import AioSession
-from aiobotocore.client import AioBaseClient
+from aiobotocore.session import ClientCreatorContext
 from aiobotocore.config import AioConfig
 from pydantic import BaseModel, Field
 
@@ -122,22 +122,23 @@ class Client:
     def __init__(
         self,
         component: "S3",
-        base_client: AioBaseClient,
+        base_client_creator: ClientCreatorContext,
         bucket_name: str,
         allowed_types: List[str],
     ) -> None:
         self.component = component
-        self.base_client = base_client
+        self.base_client_creator = base_client_creator
         self.bucket_name = bucket_name
         self.allowed_types = allowed_types
 
-    async def __aenter__(self) -> AioBaseClient:
+    async def __aenter__(self) -> 'Client':
+        self.base_client = await self.base_client_creator.__aenter__()
         return self
 
     async def __aexit__(
         self, exc_type: Type, exc_val: Exception, exc_tb: TracebackType
     ) -> None:
-        await self.base_client.close()
+        await self.base_client_creator.__aexit__(exc_type, exc_val, exc_tb)
 
     async def list_buckets(self) -> List[Bucket]:
         self.component.app.log_debug("S3 list_buckets")
@@ -316,7 +317,7 @@ class Client:
         ) as span:
             span.annotate(S3ClientSpan.ANN_EVENT, event)
 
-            url = self.base_client.generate_presigned_url(
+            url = await self.base_client.generate_presigned_url(
                 ClientMethod='get_object',
                 Params={'Bucket': bucket_name, 'Key': object_name},
                 ExpiresIn=expires,
@@ -413,7 +414,7 @@ class S3(Component):
             self, self.create_client(), self.bucket_name, self.allowed_types
         )
 
-    def create_client(self, **kwargs: Any) -> AioBaseClient:
+    def create_client(self, **kwargs: Any) -> ClientCreatorContext:
         return self.session.create_client(
             's3',
             **{
