@@ -265,7 +265,7 @@ class _Method:
             except ValidationError as err:
                 es: List[str] = []
                 for e in err.errors():
-                    loc = '.'.join(str(l) for l in e['loc'])
+                    loc = '.'.join(str(loc) for loc in e['loc'])
                     es.append('%s in %s' % (e['msg'], loc))
                 raise InvalidArguments(Exception('; '.join(es)))
 

@@ -107,7 +107,7 @@ async def test_s3(s3: S3) -> None:
 async def test_s3_file_save(s3: S3) -> None:
     # Save PDF
     uuid = uuid4().hex
-    filepath = f'tests/files/test.pdf'
+    filepath = 'tests/files/test.pdf'
     bucket_name = 'tests'
     content_type = 'application/pdf'
     metadata = {'foo': 'bar'}
@@ -115,7 +115,7 @@ async def test_s3_file_save(s3: S3) -> None:
 
     # Save JPG
     uuid = uuid4().hex
-    filepath = f'tests/files/test.jpeg'
+    filepath = 'tests/files/test.jpeg'
     bucket_name = 'tests'
     content_type = 'image/jpeg'
     metadata = {'foo': 'bar'}
@@ -123,7 +123,7 @@ async def test_s3_file_save(s3: S3) -> None:
 
     # Save GIF
     uuid = uuid4().hex
-    filepath = f'tests/files/test.gif'
+    filepath = 'tests/files/test.gif'
     bucket_name = 'tests'
     content_type = 'image/gif'
     metadata = {'foo': 'bar'}
@@ -131,7 +131,7 @@ async def test_s3_file_save(s3: S3) -> None:
 
     # Save Not Allowed
     uuid = uuid4().hex
-    filepath = f'tests/files/test.ico'
+    filepath = 'tests/files/test.ico'
     bucket_name = 'tests'
     content_type = 'image/ico'
     metadata = {'foo': 'bar'}
