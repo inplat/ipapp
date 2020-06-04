@@ -39,7 +39,7 @@ class SentryServer:
         return web.HTTPOk()
 
 
-async def test_success():
+async def test_success(loop):
     async with SentryServer() as ss:
         cfg = SentryConfig(dsn=ss.addr)
         adapter = SentryAdapter(cfg)

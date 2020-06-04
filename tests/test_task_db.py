@@ -78,7 +78,7 @@ async def wait_no_pending(postgres_url, schema):
     raise TimeoutError()
 
 
-async def test_success(postgres_url):
+async def test_success(loop, postgres_url):
     test_schema_name = await prepare(postgres_url)
 
     fut = Future()
@@ -136,7 +136,7 @@ async def test_success(postgres_url):
     await app.stop()
 
 
-async def test_reties_success(postgres_url):
+async def test_reties_success(loop, postgres_url):
     test_schema_name = await prepare(postgres_url)
 
     fut = Future()
@@ -198,7 +198,7 @@ async def test_reties_success(postgres_url):
     await app.stop()
 
 
-async def test_reties_error(postgres_url):
+async def test_reties_error(loop, postgres_url):
     test_schema_name = await prepare(postgres_url)
 
     fut = Future()
@@ -268,7 +268,7 @@ async def test_reties_error(postgres_url):
     await app.stop()
 
 
-async def test_tasks_by_ref(postgres_url):
+async def test_tasks_by_ref(loop, postgres_url):
     test_schema_name = await prepare(postgres_url)
 
     fut = Future()
@@ -312,7 +312,7 @@ async def test_tasks_by_ref(postgres_url):
     await app.stop()
 
 
-async def test_task_cancel(postgres_url):
+async def test_task_cancel(loop, postgres_url):
     test_schema_name = await prepare(postgres_url)
 
     fut = Future()

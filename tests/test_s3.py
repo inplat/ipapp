@@ -1,4 +1,3 @@
-from asyncio import AbstractEventLoop
 from typing import Any, AsyncGenerator, Dict
 from uuid import uuid4
 
@@ -8,8 +7,8 @@ from ipapp import BaseApplication, BaseConfig
 from ipapp.s3 import S3, FileTypeNotAllowedError, S3Config
 
 
-@pytest.fixture(scope='session')
-async def s3(loop: AbstractEventLoop) -> AsyncGenerator[S3, None]:
+@pytest.fixture()
+async def s3() -> AsyncGenerator[S3, None]:
     s3 = S3(
         S3Config(
             endpoint_url='http://127.0.0.1:9000',
@@ -64,7 +63,7 @@ async def save(
         assert obj.body == f.read()
 
 
-async def test_s3(s3: S3) -> None:
+async def test_s3(loop, s3: S3) -> None:
     # create/Delete Bucket
     uuid = uuid4().hex
     location = await s3.create_bucket(uuid)
@@ -104,7 +103,7 @@ async def test_s3(s3: S3) -> None:
     await s3.delete_bucket(uuid)
 
 
-async def test_s3_file_save(s3: S3) -> None:
+async def test_s3_file_save(loop, s3: S3) -> None:
     # Save PDF
     uuid = uuid4().hex
     filepath = 'tests/files/test.pdf'

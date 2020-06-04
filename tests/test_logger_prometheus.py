@@ -7,7 +7,7 @@ from ipapp.logger.adapters.prometheus import (
 )
 
 
-async def test_success(unused_tcp_port):
+async def test_success(loop, unused_tcp_port):
     port = unused_tcp_port
 
     cfg = PrometheusConfig(

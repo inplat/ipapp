@@ -38,7 +38,7 @@ async def wait_for(fn: Callable, timeout=60) -> Any:
             raise
 
 
-async def test_pika(rabbitmq_url):
+async def test_pika(loop, rabbitmq_url):
 
     messages: List[Tuple[bytes]] = []
 

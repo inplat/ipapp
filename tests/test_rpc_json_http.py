@@ -53,7 +53,7 @@ def runapp(port, handler):
     return RunAppCtx(app)
 
 
-async def test_rpc(unused_tcp_port):
+async def test_rpc(loop, unused_tcp_port):
     class Api:
         @method()
         def method1(self):
@@ -73,7 +73,7 @@ async def test_rpc(unused_tcp_port):
             assert result == {'id': 1, 'jsonrpc': '2.0', 'result': 'ok'}
 
 
-async def test_rpc_error(unused_tcp_port):
+async def test_rpc_error(loop, unused_tcp_port):
     class MyError(JsonRpcError):
         jsonrpc_error_code = 100
         message = 'Err'
@@ -100,7 +100,7 @@ async def test_rpc_error(unused_tcp_port):
             }
 
 
-async def test_batch(unused_tcp_port):
+async def test_batch(loop, unused_tcp_port):
     class Api:
         @method()
         def method1(self):
@@ -125,7 +125,7 @@ async def test_batch(unused_tcp_port):
             ]
 
 
-async def test_batch_complicated(unused_tcp_port):
+async def test_batch_complicated(loop, unused_tcp_port):
     class Api:
         @method()
         def sum(self, a: int, b: int):
@@ -197,7 +197,7 @@ async def test_batch_complicated(unused_tcp_port):
             ]
 
 
-async def test_rpc_client(unused_tcp_port):
+async def test_rpc_client(loop, unused_tcp_port):
     class Api:
         @method()
         def method1(self):
@@ -210,7 +210,7 @@ async def test_rpc_client(unused_tcp_port):
         assert result == 'ok'
 
 
-async def test_rpc_client_batch(unused_tcp_port):
+async def test_rpc_client_batch(loop, unused_tcp_port):
     class Api:
         @method()
         def method1(self, a: int):
@@ -230,7 +230,7 @@ async def test_rpc_client_batch(unused_tcp_port):
         assert res2 == 'ok2'
 
 
-async def test_rpc_client_timeout(unused_tcp_port):
+async def test_rpc_client_timeout(loop, unused_tcp_port):
     class Api:
         @method()
         async def method1(self):
@@ -249,7 +249,7 @@ async def test_rpc_client_timeout(unused_tcp_port):
         await app.clt.exec('method2', timeout=0)  # no timeout
 
 
-async def test_rpc_client_custom_error(unused_tcp_port):
+async def test_rpc_client_custom_error(loop, unused_tcp_port):
     class MyErrr(JsonRpcError):
         jsonrpc_error_code = 100
         message = "My err {some_var} {some_else}"
