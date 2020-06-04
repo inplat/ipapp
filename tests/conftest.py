@@ -1,11 +1,5 @@
 import asyncio
-from typing import (
-    Any,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    Optional,
-)
+from typing import Any, AsyncGenerator, Awaitable, Callable, Optional
 
 import asyncpg
 import pika

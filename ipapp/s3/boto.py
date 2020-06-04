@@ -6,8 +6,8 @@ from urllib.parse import ParseResult, urlparse
 import aiobotocore
 import magic
 from aiobotocore import AioSession
-from aiobotocore.session import ClientCreatorContext
 from aiobotocore.config import AioConfig
+from aiobotocore.session import ClientCreatorContext
 from pydantic import BaseModel, Field
 
 from ipapp.component import Component
