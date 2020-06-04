@@ -61,14 +61,14 @@ class App(BaseApplication):
         print('=' * 80)
 
         print('BaseModel single')
-        res1 = await self.clt.exec('find', [1,], model=User)
+        res1 = await self.clt.exec('find', [1, ], model=User)
         print('=' * 80)
         print('RESULT 1:', res1, type(res1))
 
         print('=' * 80)
         print('BaseModel batch')
         res1, res2 = await self.clt.exec_batch(
-            self.clt.exec('find', [1,], model=User),
+            self.clt.exec('find', [1, ], model=User),
             self.clt.exec('find', {'id': 2}, model=User),
         )
         print('=' * 80)
