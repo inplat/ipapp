@@ -25,6 +25,8 @@ with open('requirements_s3.txt') as requirements_file:
     requirements_s3 = requirements_file.read()
 with open('requirements_sftp.txt') as requirements_file:
     requirements_sftp = requirements_file.read()
+with open('requirements_fastapi.txt') as requirements_file:
+    requirements_fastapi = requirements_file.read()
 
 
 setup(
@@ -58,6 +60,7 @@ setup(
         'testing': requirements_testing.split('\n'),
         's3': requirements_s3.split('\n'),
         'sftp': requirements_sftp.split('\n'),
+        'fastapi': requirements_fastapi.split('\n'),
     },
     entry_points={'pytest11': ['pytest_qase = ipapp.pytest.qase.plugin']},
 )
