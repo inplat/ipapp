@@ -7,4 +7,4 @@
 -r requirements_s3.txt
 -r requirements_sftp.txt
 
-twine==3.1.1
+twine==3.2.0
