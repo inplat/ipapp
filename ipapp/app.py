@@ -157,15 +157,13 @@ class BaseApplication(object):
         self.log_info('Prepare for start')
 
         await asyncio.gather(
-            *[comp.prepare() for comp in self._components.values()],
-            loop=self.loop,
+            *[comp.prepare() for comp in self._components.values()]
         )
 
         self.log_info('Starting...')
         self._start_stamp = time.time()
         await asyncio.gather(
-            *[comp.start() for comp in self._components.values()],
-            loop=self.loop,
+            *[comp.start() for comp in self._components.values()]
         )
 
         self.log_info('Running...')

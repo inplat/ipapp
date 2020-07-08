@@ -42,7 +42,7 @@ class Logger:
 
     async def start(self) -> None:
         self._started = True
-        await asyncio.gather(*self._configs, loop=self.app.loop)
+        await asyncio.gather(*self._configs)
 
     async def stop(self) -> None:
         if not self._started:  # pragma: no cover
@@ -53,9 +53,7 @@ class Logger:
             self._waiting_all_spans_finished = True
             await asyncio.wait([self._fut_all_spans_finished])
 
-        await asyncio.gather(
-            *[adapter.stop() for adapter in self.adapters], loop=self.app.loop
-        )
+        await asyncio.gather(*[adapter.stop() for adapter in self.adapters])
 
     def span_new(
         self,

@@ -851,9 +851,7 @@ class Pika(Component):
             await self._open_channels()
 
             if self._started:
-                await asyncio.gather(
-                    *[ch.start() for ch in self._channels], loop=self.loop
-                )
+                await asyncio.gather(*[ch.start() for ch in self._channels])
 
     async def _on_channel_close(
         self, ch: PikaChannel, pika_ch: pika.channel.Channel, err: Exception
@@ -875,19 +873,15 @@ class Pika(Component):
             ch._init(self, pch)  # noqa
             self._channels.append(ch)
             corors.append(ch.prepare())
-        await asyncio.gather(*corors, loop=self.loop)
+        await asyncio.gather(*corors)
 
     async def start(self) -> None:
         self._started = True
 
-        await asyncio.gather(
-            *[ch.start() for ch in self._channels], loop=self.loop
-        )
+        await asyncio.gather(*[ch.start() for ch in self._channels])
 
     async def stop(self) -> None:
-        await asyncio.gather(
-            *[ch.stop() for ch in self._channels], loop=self.loop
-        )
+        await asyncio.gather(*[ch.stop() for ch in self._channels])
 
         if self._conn is not None:
             self.app.log_info("Disconnecting from %s", self._masked_url)

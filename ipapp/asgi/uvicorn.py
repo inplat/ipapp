@@ -3,18 +3,19 @@ import ssl
 from contextvars import Token
 from functools import partial
 from typing import Any, Awaitable, Callable, Dict, Optional
-from ipapp.ctx import span
-from fastapi.applications import FastAPI
+
 from pydantic.main import BaseModel
-from uvicorn.config import LOGGING_CONFIG, SSL_PROTOCOL_VERSION
-from uvicorn.main import Config, Server
 from yarl import URL
 
+from fastapi.applications import FastAPI
 from ipapp.component import Component
+from ipapp.ctx import span
 from ipapp.http import HttpSpan
 from ipapp.http._base import RE_SECRET_WORDS
 from ipapp.http.server import ServerHttpSpan
 from ipapp.misc import ctx_span_reset, ctx_span_set
+from uvicorn.config import LOGGING_CONFIG, SSL_PROTOCOL_VERSION
+from uvicorn.main import Config, Server
 
 
 class UvicornConfig(BaseModel):

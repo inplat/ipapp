@@ -190,9 +190,7 @@ class JsonRpcExecutor:
                     )
                 )
 
-        results = await asyncio.gather(
-            *batch, loop=self._loop, return_exceptions=True
-        )
+        results = await asyncio.gather(*batch, return_exceptions=True)
 
         if resp is None:
             return None

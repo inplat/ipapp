@@ -2,7 +2,6 @@ import logging
 import sys
 
 from fastapi.applications import FastAPI
-
 from ipapp import BaseApplication, BaseConfig, main
 from ipapp.asgi.uvicorn import Uvicorn, UvicornConfig
 from ipapp.ctx import span
