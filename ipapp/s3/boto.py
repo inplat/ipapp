@@ -21,6 +21,7 @@ class S3ClientSpan(Span):
 
     NAME_LIST_BUCKETS = "s3::list_buckets"
     NAME_BUCKET_EXISTS = "s3::bucket_exists"
+    NAME_FILE_EXISTS = "s3::file_exists"
     NAME_CREATE_BUCKET = "s3::create_bucket"
     NAME_DELETE_BUCKET = "s3::delete_bucket"
     NAME_PUT_OBJECT = "s3::put_object"
@@ -182,6 +183,40 @@ class Client:
             for bucket in buckets:
                 if bucket.name == bucket_name:
                     exists = True
+
+            span.annotate(S3ClientSpan.ANN_EVENT, exists)
+
+            return exists
+
+    async def file_exists(
+        self,
+        bucket_name: Optional[str] = None,
+        file_name: Optional[str] = None,
+    ) -> bool:
+        bucket_name = bucket_name or self.bucket_name
+
+        self.component.app.log_debug("S3 file_exists '%s'", file_name)
+
+        with wrap2span(
+            name=S3ClientSpan.NAME_FILE_EXISTS,
+            kind=S3ClientSpan.KIND_CLIENT,
+            cls=S3ClientSpan,
+            app=self.component.app,
+        ) as span:
+            buckets = await self.list_buckets()
+
+            exists = False
+
+            for bucket in buckets:
+
+                if bucket.name == bucket_name:
+                    response = await self.base_client.list_objects_v2(
+                        Bucket=bucket_name, Prefix=file_name,
+                    )
+
+                    for obj in response.get('Contents', []):
+                        if obj['Key'] == file_name:
+                            exists = True
 
             span.annotate(S3ClientSpan.ANN_EVENT, exists)
 
@@ -368,6 +403,14 @@ class S3(Component):
     async def bucket_exists(self, bucket_name: Optional[str] = None) -> bool:
         async with self._create_client() as client:
             return await client.bucket_exists(bucket_name)
+
+    async def file_exists(
+        self,
+        bucket_name: Optional[str] = None,
+        file_name: Optional[str] = None,
+    ) -> bool:
+        async with self._create_client() as client:
+            return await client.file_exists(bucket_name, file_name)
 
     async def create_bucket(
         self, bucket_name: Optional[str] = None, acl: str = 'private'
