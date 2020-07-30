@@ -24,6 +24,7 @@ class S3ClientSpan(Span):
     NAME_BUCKET_EXISTS = "s3::bucket_exists"
     NAME_FILE_EXISTS = "s3::file_exists"
     NAME_CREATE_BUCKET = "s3::create_bucket"
+    NAME_COPY_OBJECT = "s3::copy_object"
     NAME_DELETE_BUCKET = "s3::delete_bucket"
     NAME_PUT_OBJECT = "s3::put_object"
     NAME_GET_OBJECT = "s3::get_object"
@@ -165,6 +166,28 @@ class Client:
                 span.annotate(S3ClientSpan.ANN_EVENT, buckets)
 
             return buckets
+
+    async def copy_object(
+        self,
+        bucket_name: Optional[str] = None,
+        file_path: Optional[str] = None,
+        from_bucket: Optional[str] = None,
+        from_file_path: Optional[str] = None
+    ) -> None:
+        bucket_name = bucket_name or self.bucket_name
+
+        self.component.app.log_debug("S3 copy object '%s'", bucket_name)
+
+        with wrap2span(
+            name=S3ClientSpan.NAME_COPY_OBJECT,
+            kind=S3ClientSpan.KIND_CLIENT,
+            cls=S3ClientSpan,
+            app=self.component.app,
+        ) as span:
+            
+            await self.base_client.copy_object(Bucket=from_bucket, CopySource=file_path, Key=from_file_path)
+            await self.base_client.delete_object(Bucket=bucket_name, Key=file_path.replace(f"{bucket_name}/", ''))
+
 
     async def bucket_exists(self, bucket_name: Optional[str] = None) -> bool:
         bucket_name = bucket_name or self.bucket_name
@@ -461,6 +484,12 @@ class S3(Component):
     async def list_files_info(self, bucket_name: str) -> List[Bucket]:
         async with self._create_client() as client:
             return await client.list_files_info(bucket_name)
+
+    async def copy_object(
+        self, bucket_name: Optional[str] = None, file_path: Optional[str] = None, from_bucket: Optional[str] = None, from_file_path: Optional[str] = None
+    ) -> None:
+        async with self._create_client() as client:
+            return await client.copy_object(bucket_name, file_path, from_bucket, from_file_path)
 
     async def get_object(
         self, object_name: str, bucket_name: Optional[str] = None
