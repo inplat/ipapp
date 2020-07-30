@@ -1,4 +1,4 @@
-git from datetime import datetime
+from datetime import datetime
 from types import TracebackType
 from typing import IO, Any, Dict, List, NamedTuple, Optional, Type, Union
 from urllib.parse import ParseResult, urlparse
@@ -172,7 +172,7 @@ class Client:
         bucket_name: Optional[str] = None,
         file_path: Optional[str] = None,
         from_bucket: Optional[str] = None,
-        from_file_path: Optional[str] = None
+        from_file_path: Optional[str] = None,
     ) -> None:
         bucket_name = bucket_name or self.bucket_name
 
@@ -184,10 +184,13 @@ class Client:
             cls=S3ClientSpan,
             app=self.component.app,
         ) as span:
-            
-            await self.base_client.copy_object(Bucket=from_bucket, CopySource=file_path, Key=from_file_path)
-            await self.base_client.delete_object(Bucket=bucket_name, Key=file_path.replace(f"{bucket_name}/", ''))
 
+            await self.base_client.copy_object(
+                Bucket=from_bucket, CopySource=file_path, Key=from_file_path
+            )
+            delete_file = await self.base_client.delete_object(Bucket=bucket_name, Key=file_path.replace(f"{bucket_name}/", ''))  # type: ignore
+
+            span.annotate(S3ClientSpan.ANN_EVENT, delete_file)
 
     async def bucket_exists(self, bucket_name: Optional[str] = None) -> bool:
         bucket_name = bucket_name or self.bucket_name
@@ -486,10 +489,16 @@ class S3(Component):
             return await client.list_files_info(bucket_name)
 
     async def copy_object(
-        self, bucket_name: Optional[str] = None, file_path: Optional[str] = None, from_bucket: Optional[str] = None, from_file_path: Optional[str] = None
+        self,
+        bucket_name: Optional[str] = None,
+        file_path: Optional[str] = None,
+        from_bucket: Optional[str] = None,
+        from_file_path: Optional[str] = None,
     ) -> None:
         async with self._create_client() as client:
-            return await client.copy_object(bucket_name, file_path, from_bucket, from_file_path)
+            return await client.copy_object(
+                bucket_name, file_path, from_bucket, from_file_path
+            )
 
     async def get_object(
         self, object_name: str, bucket_name: Optional[str] = None
