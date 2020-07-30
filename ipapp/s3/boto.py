@@ -1,4 +1,4 @@
-from datetime import datetime
+git from datetime import datetime
 from types import TracebackType
 from typing import IO, Any, Dict, List, NamedTuple, Optional, Type, Union
 from urllib.parse import ParseResult, urlparse
@@ -20,6 +20,7 @@ class S3ClientSpan(Span):
     KIND_CLIENT = "CLIENT"
 
     NAME_LIST_BUCKETS = "s3::list_buckets"
+    NAME_LIST_FILES_INFO = "s3::list_files_info"
     NAME_BUCKET_EXISTS = "s3::bucket_exists"
     NAME_FILE_EXISTS = "s3::file_exists"
     NAME_CREATE_BUCKET = "s3::create_bucket"
@@ -187,6 +188,28 @@ class Client:
             span.annotate(S3ClientSpan.ANN_EVENT, exists)
 
             return exists
+
+    async def list_files_info(self, bucket_name: Optional[str] = None) -> list:
+        bucket_name = bucket_name or self.bucket_name
+
+        self.component.app.log_debug("S3 list_files '%s'", bucket_name)
+
+        with wrap2span(
+            name=S3ClientSpan.NAME_LIST_FILES_INFO,
+            kind=S3ClientSpan.KIND_CLIENT,
+            cls=S3ClientSpan,
+            app=self.component.app,
+        ) as span:
+            result: list = []
+            response = await self.base_client.list_objects_v2(
+                Bucket=bucket_name,
+            )
+            for obj in response.get('Contents', []):
+                result.append(obj)
+
+            span.annotate(S3ClientSpan.ANN_EVENT, result)
+
+            return result
 
     async def file_exists(
         self,
@@ -434,6 +457,10 @@ class S3(Component):
             return await client.put_object(
                 data, filename, folder, metadata, bucket_name
             )
+
+    async def list_files_info(self, bucket_name: str) -> List[Bucket]:
+        async with self._create_client() as client:
+            return await client.list_files_info(bucket_name)
 
     async def get_object(
         self, object_name: str, bucket_name: Optional[str] = None
