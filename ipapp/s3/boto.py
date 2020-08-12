@@ -11,7 +11,7 @@ from aiobotocore.session import ClientCreatorContext
 from pydantic import BaseModel, Field
 
 from ipapp.component import Component
-from ipapp.s3.exceptions import FileTypeNotAllowedError
+from ipapp.s3.exceptions import FileTypeNotAllowedError, ErrorMoveFile
 
 from ..logger import Span, wrap2span
 
@@ -167,7 +167,7 @@ class Client:
 
             return buckets
 
-    async def copy_object(
+    async def move_object(
         self,
         bucket_name: Optional[str] = None,
         file_path: Optional[str] = None,
@@ -185,9 +185,15 @@ class Client:
             app=self.component.app,
         ) as span:
 
-            await self.base_client.copy_object(
-                Bucket=from_bucket, CopySource=file_path, Key=from_file_path
-            )
+            try:
+                await self.base_client.copy_object(
+                    Bucket=from_bucket,
+                    CopySource=file_path,
+                    Key=from_file_path,
+                )
+            except Exception:
+                raise ErrorMoveFile()
+
             delete_file = await self.base_client.delete_object(Bucket=bucket_name, Key=file_path.replace(f"{bucket_name}/", ''))  # type: ignore
 
             span.annotate(S3ClientSpan.ANN_EVENT, delete_file)
@@ -488,7 +494,7 @@ class S3(Component):
         async with self._create_client() as client:
             return await client.list_files_info(bucket_name)
 
-    async def copy_object(
+    async def move_object(
         self,
         bucket_name: Optional[str] = None,
         file_path: Optional[str] = None,
@@ -496,7 +502,7 @@ class S3(Component):
         from_file_path: Optional[str] = None,
     ) -> None:
         async with self._create_client() as client:
-            return await client.copy_object(
+            return await client.move_object(
                 bucket_name, file_path, from_bucket, from_file_path
             )
 
