@@ -28,6 +28,7 @@ class S3ClientSpan(Span):
     NAME_DELETE_BUCKET = "s3::delete_bucket"
     NAME_PUT_OBJECT = "s3::put_object"
     NAME_GET_OBJECT = "s3::get_object"
+    NAME_GET_OBJECT_VERSIONS = "s3::get_object_versions"
     NAME_GENERATE_PRESIGNED_URL = "s3::generate_presigned_url"
 
     ANN_EVENT = "event"
@@ -388,6 +389,24 @@ class Client:
                 metadata=response.get('Metadata'),
             )
 
+    async def get_objects_versions(
+        self, object_name: str, bucket_name: Optional[str] = None
+    ) -> None:
+        bucket_name = bucket_name or self.bucket_name
+        event = f"'{object_name}' from '{bucket_name}'"
+        self.component.app.log_debug("S3 get_object versions %s", event)
+
+        with wrap2span(
+            name=S3ClientSpan.NAME_GET_OBJECT_VERSIONS,
+            kind=S3ClientSpan.KIND_CLIENT,
+            cls=S3ClientSpan,
+            app=self.component.app,
+        ) as span:
+
+            response = await self.base_client.list_object_versions(
+                Bucket=bucket_name, Prefix=object_name,
+            )
+
     async def generate_presigned_url(
         self,
         object_name: str,
@@ -511,6 +530,12 @@ class S3(Component):
     ) -> Object:
         async with self._create_client() as client:
             return await client.get_object(object_name, bucket_name)
+
+    async def get_objects_versions(
+        self, object_name: str, bucket_name: Optional[str] = None
+    ) -> Object:
+        async with self._create_client() as client:
+            return await client.get_objects_versions(object_name, bucket_name)
 
     async def generate_presigned_url(
         self,
