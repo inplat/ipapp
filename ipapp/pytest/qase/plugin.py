@@ -3,9 +3,9 @@ import warnings
 from typing import Any, Dict, List, Optional
 
 import requests
-from _pytest.config import Config
+from _pytest.config import Config, ExitCode
 from _pytest.config.argparsing import Parser
-from _pytest.main import ExitCode, Session
+from _pytest.main import Session
 from _pytest.nodes import Item
 from _pytest.terminal import TerminalReporter
 

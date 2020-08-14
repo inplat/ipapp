@@ -356,11 +356,9 @@ class OpenApiRpcHandler(RpcHandler):
             self.openapi.components.schemas = {
                 x: definitions[x] for x in sorted(definitions)
             }
-
         self.server.web_app.router.add_get(
             self.openapi_url, self.openapi_handler,
         )
-
         self.server.web_app.router.add_get(
             self.docs_url, self.docs_handler,
         )
