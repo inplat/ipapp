@@ -26,6 +26,7 @@ class S3ClientSpan(Span):
     NAME_CREATE_BUCKET = "s3::create_bucket"
     NAME_COPY_OBJECT = "s3::copy_object"
     NAME_DELETE_OBJECT = "s3::delete_object"
+    NAME_GET_OBJECTS = "s3::get_objects"
     NAME_DELETE_BUCKET = "s3::delete_bucket"
     NAME_PUT_OBJECT = "s3::put_object"
     NAME_GET_OBJECT = "s3::get_object"
@@ -232,6 +233,36 @@ class Client:
             span.annotate(S3ClientSpan.ANN_EVENT, exists)
 
             return exists
+
+    async def get_objects(
+        self, bucket_name: Optional[str] = None, path: Optional[str] = None
+    ) -> list:
+        bucket_name = bucket_name or self.bucket_name
+
+        self.component.app.log_debug("S3 file_exists '%s'", path)
+
+        result = []
+
+        with wrap2span(
+            name=S3ClientSpan.NAME_GET_OBJECTS,
+            kind=S3ClientSpan.KIND_CLIENT,
+            cls=S3ClientSpan,
+            app=self.component.app,
+        ) as span:
+            buckets = await self.list_buckets()
+
+            for bucket in buckets:
+
+                if bucket.name == bucket_name:
+                    response = await self.base_client.list_objects_v2(
+                        Bucket=bucket_name, Prefix=path
+                    )
+                    for obj in response.get('Contents', []):
+                        result.append(obj)
+
+            span.annotate(S3ClientSpan.ANN_EVENT, result)
+
+            return result
 
     async def list_files_info(self, bucket_name: Optional[str] = None) -> list:
         bucket_name = bucket_name or self.bucket_name
@@ -527,6 +558,12 @@ class S3(Component):
     ) -> Object:
         async with self._create_client() as client:
             return await client.get_object(object_name, bucket_name)
+
+    async def get_objects(
+        self, path: str, bucket_name: Optional[str] = None
+    ) -> list:
+        async with self._create_client() as client:
+            return await client.get_objects(path, bucket_name)
 
     async def generate_presigned_url(
         self,
