@@ -168,12 +168,10 @@ class Client:
 
             return buckets
 
-    async def move_object(
+    async def copy_object(
         self,
         bucket_name: Optional[str] = None,
-        file_path: Optional[str] = None,
-        from_bucket: Optional[str] = None,
-        from_file_path: Optional[str] = None,
+        file_path: Optional[str] = None
     ) -> None:
         bucket_name = bucket_name or self.bucket_name
 
@@ -186,16 +184,11 @@ class Client:
             app=self.component.app,
         ) as span:
 
-            try:
-                await self.base_client.copy_object(
-                    Bucket=from_bucket,
-                    CopySource=file_path,
-                    Key=from_file_path,
-                )
-            except Exception:
-                raise ErrorMoveFile()
-
-            delete_file = await self.base_client.delete_object(Bucket=bucket_name, Key=file_path.replace(f"{bucket_name}/", ''))  # type: ignore
+            await self.base_client.copy_object(
+                Bucket=from_bucket,
+                CopySource=file_path,
+                Key=from_file_path,
+            )
 
             span.annotate(S3ClientSpan.ANN_EVENT, delete_file)
 
@@ -513,16 +506,14 @@ class S3(Component):
         async with self._create_client() as client:
             return await client.list_files_info(bucket_name)
 
-    async def move_object(
+    async def copy_object(
         self,
         bucket_name: Optional[str] = None,
-        file_path: Optional[str] = None,
-        from_bucket: Optional[str] = None,
-        from_file_path: Optional[str] = None,
+        file_path: Optional[str] = None
     ) -> None:
         async with self._create_client() as client:
             return await client.move_object(
-                bucket_name, file_path, from_bucket, from_file_path
+                bucket_name, file_path
             )
 
     async def get_object(
