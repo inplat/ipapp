@@ -172,7 +172,8 @@ class Client:
     async def copy_object(
         self,
         bucket_name: Optional[str] = None,
-        file_path: Optional[str] = None,
+        in_file_path: Optional[str] = None,
+        out_file_path: Optional[str] = None,
     ) -> None:
         bucket_name = bucket_name or self.bucket_name
 
@@ -186,7 +187,7 @@ class Client:
         ) as span:
 
             copy = await self.base_client.copy_object(
-                Bucket=bucket_name, CopySource=file_path, Key=file_path,
+                Bucket=bucket_name, CopySource=in_file_path, Key=out_file_path,
             )
 
             span.annotate(S3ClientSpan.ANN_EVENT, copy)
@@ -198,7 +199,7 @@ class Client:
     ) -> None:
         bucket_name = bucket_name or self.bucket_name
 
-        self.component.app.log_debug("S3 copy object '%s'", bucket_name)
+        self.component.app.log_debug("S3 delete object '%s'", bucket_name)
 
         with wrap2span(
             name=S3ClientSpan.NAME_DELETE_OBJECT,
@@ -207,7 +208,9 @@ class Client:
             app=self.component.app,
         ) as span:
 
-            delete_file = await self.base_client.delete_object(Bucket=bucket_name, Key=file_path.replace(f"{bucket_name}/", ''))  # type: ignore
+            delete_file = await self.base_client.delete_object(
+                Bucket=bucket_name, Key=file_path
+            )
 
             span.annotate(S3ClientSpan.ANN_EVENT, delete_file)
 
@@ -239,7 +242,7 @@ class Client:
     ) -> list:
         bucket_name = bucket_name or self.bucket_name
 
-        self.component.app.log_debug("S3 file_exists '%s'", path)
+        self.component.app.log_debug("S3 get objects '%s'", path)
 
         result = []
 
@@ -267,7 +270,7 @@ class Client:
     async def list_files_info(self, bucket_name: Optional[str] = None) -> list:
         bucket_name = bucket_name or self.bucket_name
 
-        self.component.app.log_debug("S3 list_files '%s'", bucket_name)
+        self.component.app.log_debug("S3 list files '%s'", bucket_name)
 
         with wrap2span(
             name=S3ClientSpan.NAME_LIST_FILES_INFO,
@@ -540,10 +543,13 @@ class S3(Component):
     async def copy_object(
         self,
         bucket_name: Optional[str] = None,
-        file_path: Optional[str] = None,
+        in_file_path: Optional[str] = None,
+        out_file_path: Optional[str] = None,
     ) -> None:
         async with self._create_client() as client:
-            return await client.copy_object(bucket_name, file_path)
+            return await client.copy_object(
+                bucket_name, in_file_path, out_file_path
+            )
 
     async def delete_object(
         self,
