@@ -176,7 +176,9 @@ class Client:
     ) -> None:
         bucket_name = bucket_name or self.bucket_name
 
-        self.component.app.log_debug("S3 copy object '%s' to '%s'", in_file_path, out_file_path)
+        self.component.app.log_debug(
+            "S3 copy object '%s' to '%s'", in_file_path, out_file_path
+        )
 
         with wrap2span(
             name=S3ClientSpan.NAME_COPY_OBJECT,
@@ -241,7 +243,7 @@ class Client:
     ) -> list:
         bucket_name = bucket_name or self.bucket_name
 
-        self.component.app.log_debug("S3 copy object '%s' to '%s'", in_file_path, out_file_path)
+        self.component.app.log_debug("S3 list objects '%s'", bucket_name)
 
         result = []
 
@@ -528,7 +530,7 @@ class S3(Component):
         async with self._create_client() as client:
             return await client.delete_object(bucket_name, file_path)
 
-    async def list_object(
+    async def get_object(
         self, object_name: str, bucket_name: Optional[str] = None
     ) -> Object:
         async with self._create_client() as client:
