@@ -176,7 +176,7 @@ class Client:
     ) -> None:
         bucket_name = bucket_name or self.bucket_name
 
-        self.component.app.log_debug("S3 copy object '%s'", bucket_name)
+        self.component.app.log_debug("S3 copy object '%s' to '%s'", in_file_path, out_file_path)
 
         with wrap2span(
             name=S3ClientSpan.NAME_COPY_OBJECT,
@@ -246,21 +246,17 @@ class Client:
         result = []
 
         with wrap2span(
-            name=S3ClientSpan.NAME_GET_OBJECTS,
+            name=S3ClientSpan.NAME_LIST_OBJECTS,
             kind=S3ClientSpan.KIND_CLIENT,
             cls=S3ClientSpan,
             app=self.component.app,
         ) as span:
-            buckets = await self.list_buckets()
 
-            for bucket in buckets:
-
-                if bucket.name == bucket_name:
-                    response = await self.base_client.list_objects_v2(
-                        Bucket=bucket_name, Prefix=path
-                    )
-                    for obj in response.get('Contents', []):
-                        result.append(obj)
+            response = await self.base_client.list_objects_v2(
+                Bucket=bucket_name, Prefix=path
+            )
+            for obj in response.get('Contents', []):
+                result.append(obj)
 
             span.annotate(S3ClientSpan.ANN_EVENT, result)
 
@@ -538,11 +534,11 @@ class S3(Component):
         async with self._create_client() as client:
             return await client.get_object(object_name, bucket_name)
 
-    async def get_objects(
+    async def list_objects(
         self, path: str, bucket_name: Optional[str] = None
     ) -> list:
         async with self._create_client() as client:
-            return await client.get_objects(path, bucket_name)
+            return await client.list_objects(path, bucket_name)
 
     async def generate_presigned_url(
         self,
