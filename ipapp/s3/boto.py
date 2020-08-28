@@ -177,7 +177,10 @@ class Client:
         bucket_name = bucket_name or self.bucket_name
 
         self.component.app.log_debug(
-            "S3 copy object '%s': '%s' to '%s'", bucket_name, in_file_path, out_file_path
+            "S3 copy object '%s': '%s' to '%s'",
+            bucket_name,
+            in_file_path,
+            out_file_path,
         )
 
         with wrap2span(
@@ -217,6 +220,8 @@ class Client:
 
             span.annotate(S3ClientSpan.ANN_EVENT, delete_file)
 
+            return delete_file
+
     async def bucket_exists(self, bucket_name: Optional[str] = None) -> bool:
         bucket_name = bucket_name or self.bucket_name
 
@@ -245,9 +250,9 @@ class Client:
     ) -> list:
         bucket_name = bucket_name or self.bucket_name
 
-        self.component.app.log_debug("S3 list objects '%s' '%s'", bucket_name, path)
-
-        result = []
+        self.component.app.log_debug(
+            "S3 list objects '%s' '%s'", bucket_name, path
+        )
 
         with wrap2span(
             name=S3ClientSpan.NAME_LIST_OBJECTS,
@@ -259,12 +264,10 @@ class Client:
             response = await self.base_client.list_objects_v2(
                 Bucket=bucket_name, Prefix=path
             )
-            for obj in response.get('Contents', []):
-                result.append(obj)
 
-            span.annotate(S3ClientSpan.ANN_EVENT, result)
+            span.annotate(S3ClientSpan.ANN_EVENT, response)
 
-            return result
+            return response
 
     async def file_exists(
         self,
@@ -539,10 +542,10 @@ class S3(Component):
             return await client.get_object(object_name, bucket_name)
 
     async def list_objects(
-        self, path: str, bucket_name: Optional[str] = None
+        self, bucket_name: Optional[str] = None, path: str = None
     ) -> list:
         async with self._create_client() as client:
-            return await client.list_objects(path, bucket_name)
+            return await client.list_objects(bucket_name, path)
 
     async def generate_presigned_url(
         self,
