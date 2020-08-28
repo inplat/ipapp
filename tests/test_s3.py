@@ -46,8 +46,9 @@ async def copy(
         )
 
         copy_result = await s3.copy_object(
-            bucket_name=bucket_name,
-            in_file_path=f'{bucket_name}/{object_name}',
+            in_bucket_name=bucket_name,
+            out_bucket_name=bucket_name,
+            in_file_path=object_name,
             out_file_path=out_file_path,
         )
 
