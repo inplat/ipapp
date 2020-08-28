@@ -4,7 +4,3 @@ class BaseError(Exception):
 
 class FileTypeNotAllowedError(BaseError):
     pass
-
-
-class ErrorMoveFile(BaseError):
-    pass
