@@ -23,6 +23,34 @@ async def s3() -> AsyncGenerator[S3, None]:
     yield s3
     await app.stop()
 
+async def copy(
+    s3: S3,
+    uuid: str,
+    filepath: str,
+    bucket_name: str,
+    content_type: str,
+    metadata: Dict[str, Any],
+    out_file_path: str,
+) -> None:
+    with open(filepath, 'rb') as f:
+        if not await s3.bucket_exists(bucket_name):
+            await s3.create_bucket(bucket_name)
+
+        object_name = await s3.put_object(
+            data=f,
+            filename=uuid,
+            folder='folder',
+            metadata=metadata,
+            bucket_name=bucket_name,
+        )
+
+        path_object = await s3.copy_object(
+            bucket_name=bucket_name,
+            in_file_path=f'{bucket_name}/{object_name}',
+            out_file_path=out_file_path
+        )
+        
+        assert 'ETag' in path_object['CopyObjectResult'].keys()
 
 async def save(
     s3: S3,
@@ -102,6 +130,16 @@ async def test_s3(loop, s3: S3) -> None:
     assert await s3.bucket_exists(uuid) is True
     await s3.delete_bucket(uuid)
 
+
+async def test_s3_file_copy(loop, s3: S3) -> None:
+    # Copy
+    uuid = uuid4().hex
+    filepath = 'tests/files/test.pdf'
+    bucket_name = 'tests'
+    content_type = 'application/pdf'
+    metadata = {'foo': 'bar'}
+    out_file_path = 'tests/files/test.pdf'
+    await copy(s3, uuid, filepath, bucket_name, content_type, metadata, out_file_path)
 
 async def test_s3_file_save(loop, s3: S3) -> None:
     # Save PDF
