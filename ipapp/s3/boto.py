@@ -208,7 +208,9 @@ class Client:
     ) -> None:
         bucket_name = bucket_name or self.bucket_name
 
-        self.component.app.log_debug("S3 delete object '%s'", bucket_name)
+        self.component.app.log_debug(
+            "S3 delete object '%s' in '%s'", bucket_name, file_path
+        )
 
         with wrap2span(
             name=S3ClientSpan.NAME_DELETE_OBJECT,
