@@ -177,7 +177,7 @@ class Client:
         bucket_name = bucket_name or self.bucket_name
 
         self.component.app.log_debug(
-            "S3 copy object '%s' to '%s'", in_file_path, out_file_path
+            "S3 copy object '%s': '%s' to '%s'", bucket_name, in_file_path, out_file_path
         )
 
         with wrap2span(
@@ -192,6 +192,8 @@ class Client:
             )
 
             span.annotate(S3ClientSpan.ANN_EVENT, copy)
+
+            return copy
 
     async def delete_object(
         self,
@@ -243,7 +245,7 @@ class Client:
     ) -> list:
         bucket_name = bucket_name or self.bucket_name
 
-        self.component.app.log_debug("S3 list objects '%s'", bucket_name)
+        self.component.app.log_debug("S3 list objects '%s' '%s'", bucket_name, path)
 
         result = []
 
