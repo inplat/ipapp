@@ -174,7 +174,7 @@ class Client:
         out_bucket_name: Optional[str] = None,
         in_file_path: Optional[str] = None,
         out_file_path: Optional[str] = None,
-    ) -> None:
+    ) -> dict:
 
         self.component.app.log_debug(
             "S3 copy object '%s':'%s' to '%s':'%s'",
@@ -527,7 +527,7 @@ class S3(Component):
         out_bucket_name: Optional[str] = None,
         in_file_path: Optional[str] = None,
         out_file_path: Optional[str] = None,
-    ) -> None:
+    ) -> dict:
         async with self._create_client() as client:
             return await client.copy_object(
                 in_bucket_name, out_bucket_name, in_file_path, out_file_path
