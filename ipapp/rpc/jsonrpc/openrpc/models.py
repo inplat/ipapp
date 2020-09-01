@@ -195,7 +195,7 @@ class Method(BaseModel):
     servers: Optional[List[Server]]
     errors: Optional[List[Error]]
     links: Optional[List[Link]]
-    paramStructure: ParamStructure = ParamStructure.EITHER
+    paramStructure: ParamStructure = ParamStructure.BY_NAME
     examples: Optional[List[ExamplePairing]]
 
 
