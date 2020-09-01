@@ -207,6 +207,7 @@ class Client:
         self,
         bucket_name: Optional[str] = None,
         file_path: Optional[str] = None,
+        **kwargs: dict,
     ) -> dict:
         bucket_name = bucket_name or self.bucket_name
 
@@ -222,7 +223,7 @@ class Client:
         ) as span:
 
             delete_file = await self.base_client.delete_object(
-                Bucket=bucket_name, Key=file_path
+                Bucket=bucket_name, Key=file_path, **kwargs
             )
 
             span.annotate(S3ClientSpan.ANN_EVENT, delete_file)
@@ -540,9 +541,10 @@ class S3(Component):
         self,
         bucket_name: Optional[str] = None,
         file_path: Optional[str] = None,
+        **kwargs: dict,
     ) -> dict:
         async with self._create_client() as client:
-            return await client.delete_object(bucket_name, file_path)
+            return await client.delete_object(bucket_name, file_path, **kwargs)
 
     async def get_object(
         self, object_name: str, bucket_name: Optional[str] = None
