@@ -172,16 +172,17 @@ class Client:
         self,
         in_bucket_name: Optional[str] = None,
         out_bucket_name: Optional[str] = None,
-        in_file_path: Optional[str] = None,
-        out_file_path: Optional[str] = None,
+        src: Optional[str] = None,
+        dst: Optional[str] = None,
+        **kwargs: dict,
     ) -> dict:
 
         self.component.app.log_debug(
             "S3 copy object '%s':'%s' to '%s':'%s'",
             in_bucket_name,
-            in_file_path,
+            src,
             out_bucket_name,
-            out_file_path,
+            dst,
         )
 
         with wrap2span(
@@ -193,8 +194,9 @@ class Client:
 
             copy = await self.base_client.copy_object(
                 Bucket=out_bucket_name,
-                CopySource=f"{in_bucket_name}/{in_file_path}",
-                Key=out_file_path,
+                CopySource=f"{in_bucket_name}/{src}",
+                Key=dst,
+                **kwargs,
             )
 
             span.annotate(S3ClientSpan.ANN_EVENT, copy)
@@ -525,12 +527,13 @@ class S3(Component):
         self,
         in_bucket_name: Optional[str] = None,
         out_bucket_name: Optional[str] = None,
-        in_file_path: Optional[str] = None,
-        out_file_path: Optional[str] = None,
+        src: Optional[str] = None,
+        dst: Optional[str] = None,
+        **kwargs: dict,
     ) -> dict:
         async with self._create_client() as client:
             return await client.copy_object(
-                in_bucket_name, out_bucket_name, in_file_path, out_file_path
+                in_bucket_name, out_bucket_name, src, dst, **kwargs
             )
 
     async def delete_object(
