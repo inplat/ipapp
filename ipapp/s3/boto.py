@@ -254,7 +254,10 @@ class Client:
             return exists
 
     async def list_objects(
-        self, bucket_name: Optional[str] = None, path: Optional[str] = None
+        self,
+        bucket_name: Optional[str] = None,
+        path: Optional[str] = None,
+        **kwargs: dict,
     ) -> list:
         bucket_name = bucket_name or self.bucket_name
 
@@ -270,7 +273,7 @@ class Client:
         ) as span:
 
             response = await self.base_client.list_objects_v2(
-                Bucket=bucket_name, Prefix=path
+                Bucket=bucket_name, Prefix=path, **kwargs
             )
 
             span.annotate(S3ClientSpan.ANN_EVENT, response)
@@ -553,10 +556,13 @@ class S3(Component):
             return await client.get_object(object_name, bucket_name)
 
     async def list_objects(
-        self, bucket_name: Optional[str] = None, path: str = None
+        self,
+        bucket_name: Optional[str] = None,
+        path: str = None,
+        **kwargs: dict,
     ) -> list:
         async with self._create_client() as client:
-            return await client.list_objects(bucket_name, path)
+            return await client.list_objects(bucket_name, path, **kwargs)
 
     async def generate_presigned_url(
         self,
