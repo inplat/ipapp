@@ -48,8 +48,8 @@ async def copy(
         copy_result = await s3.copy_object(
             in_bucket_name=bucket_name,
             out_bucket_name=bucket_name,
-            in_file_path=object_name,
-            out_file_path=out_file_path,
+            src=object_name,
+            dst=out_file_path,
         )
 
         assert 'ETag' in copy_result['CopyObjectResult'].keys()
