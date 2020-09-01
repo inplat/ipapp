@@ -205,7 +205,7 @@ class Client:
         self,
         bucket_name: Optional[str] = None,
         file_path: Optional[str] = None,
-    ) -> None:
+    ) -> dict:
         bucket_name = bucket_name or self.bucket_name
 
         self.component.app.log_debug(
@@ -537,7 +537,7 @@ class S3(Component):
         self,
         bucket_name: Optional[str] = None,
         file_path: Optional[str] = None,
-    ) -> None:
+    ) -> dict:
         async with self._create_client() as client:
             return await client.delete_object(bucket_name, file_path)
 
