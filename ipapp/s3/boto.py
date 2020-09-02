@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from ipapp.component import Component
 from ipapp.s3.exceptions import FileTypeNotAllowedError
+from ipapp.s3.models.respouns_models import RespounsListObjets
 
 from ..logger import Span, wrap2span
 
@@ -258,7 +259,7 @@ class Client:
         bucket_name: Optional[str] = None,
         path: Optional[str] = None,
         **kwargs: dict,
-    ) -> list:
+    ) -> RespounsListObjets:
         bucket_name = bucket_name or self.bucket_name
 
         self.component.app.log_debug(
@@ -272,13 +273,13 @@ class Client:
             app=self.component.app,
         ) as span:
 
-            response = await self.base_client.list_objects_v2(
+            result = await self.base_client.list_objects_v2(
                 Bucket=bucket_name, Prefix=path, **kwargs
             )
 
-            span.annotate(S3ClientSpan.ANN_EVENT, response)
+            span.annotate(S3ClientSpan.ANN_EVENT, result)
 
-            return response
+            return RespounsListObjets.parse_obj(result)
 
     async def file_exists(
         self,
@@ -560,7 +561,7 @@ class S3(Component):
         bucket_name: Optional[str] = None,
         path: str = None,
         **kwargs: dict,
-    ) -> list:
+    ) -> RespounsListObjets:
         async with self._create_client() as client:
             return await client.list_objects(bucket_name, path, **kwargs)
 

@@ -110,7 +110,7 @@ async def list_objects(
             bucket_name=bucket_name, path=object_name
         )
 
-        assert object_name == result_objects['Contents'][0]['Key']
+        assert object_name == result_objects.Contents[0].Key
 
 
 async def save(
