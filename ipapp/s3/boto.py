@@ -12,7 +12,12 @@ from pydantic import BaseModel, Field
 
 from ipapp.component import Component
 from ipapp.s3.exceptions import FileTypeNotAllowedError
-from ipapp.s3.models.respouns_models import RespounsListObjets
+from ipapp.s3.models.respouns_models import (
+    ListObjects,
+    CopyObject,
+    DeleteObject,
+    GetObject,
+)
 
 from ..logger import Span, wrap2span
 
@@ -171,18 +176,18 @@ class Client:
 
     async def copy_object(
         self,
-        in_bucket_name: Optional[str] = None,
-        out_bucket_name: Optional[str] = None,
-        src: Optional[str] = None,
-        dst: Optional[str] = None,
-        **kwargs: dict,
-    ) -> dict:
-
+        src_bucket_name: str,
+        dst_bucket_name: str,
+        src: str,
+        dst: str,
+        **kwargs: Any,
+    ) -> CopyObject:
+        """ https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.copy_object """
         self.component.app.log_debug(
             "S3 copy object '%s':'%s' to '%s':'%s'",
-            in_bucket_name,
+            src_bucket_name,
             src,
-            out_bucket_name,
+            dst_bucket_name,
             dst,
         )
 
@@ -194,22 +199,21 @@ class Client:
         ) as span:
 
             copy = await self.base_client.copy_object(
-                Bucket=out_bucket_name,
-                CopySource=f"{in_bucket_name}/{src}",
+                Bucket=dst_bucket_name,
+                CopySource=f"{src_bucket_name}/{src}",
                 Key=dst,
                 **kwargs,
             )
 
             span.annotate(S3ClientSpan.ANN_EVENT, copy)
 
-            return copy
+            return CopyObject.parse_obj(copy)
 
     async def delete_object(
-        self,
-        bucket_name: Optional[str] = None,
-        file_path: Optional[str] = None,
-        **kwargs: dict,
-    ) -> dict:
+        self, bucket_name: str, file_path: str, **kwargs: Any
+    ) -> DeleteObject:
+        """ https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.delete_object """
+
         bucket_name = bucket_name or self.bucket_name
 
         self.component.app.log_debug(
@@ -229,7 +233,7 @@ class Client:
 
             span.annotate(S3ClientSpan.ANN_EVENT, delete_file)
 
-            return delete_file
+            return DeleteObject.parse_obj(delete_file)
 
     async def bucket_exists(self, bucket_name: Optional[str] = None) -> bool:
         bucket_name = bucket_name or self.bucket_name
@@ -255,11 +259,9 @@ class Client:
             return exists
 
     async def list_objects(
-        self,
-        bucket_name: Optional[str] = None,
-        path: Optional[str] = None,
-        **kwargs: dict,
-    ) -> RespounsListObjets:
+        self, bucket_name: str, path: str, **kwargs: Any
+    ) -> ListObjects:
+        """ https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.list_objects_v2 """
         bucket_name = bucket_name or self.bucket_name
 
         self.component.app.log_debug(
@@ -279,7 +281,7 @@ class Client:
 
             span.annotate(S3ClientSpan.ANN_EVENT, result)
 
-            return RespounsListObjets.parse_obj(result)
+            return ListObjects.parse_obj(result)
 
     async def file_exists(
         self,
@@ -394,7 +396,7 @@ class Client:
 
     async def get_object(
         self, object_name: str, bucket_name: Optional[str] = None
-    ) -> Object:
+    ) -> GetObject:
         bucket_name = bucket_name or self.bucket_name
         event = f"'{object_name}' from '{bucket_name}'"
         self.component.app.log_debug("S3 get_object %s", event)
@@ -414,16 +416,11 @@ class Client:
 
             span.annotate(S3ClientSpan.ANN_EVENT, event)
 
-            return Object(
+            return GetObject(
                 bucket_name=bucket_name,
                 object_name=object_name,
-                size=response.get('ContentLength'),
-                etag=response.get('Etag'),
-                content_type=response.get('ContentType'),
-                accept_ranges=response.get('AcceptRanges'),
-                last_modified=response.get('LastModified'),
                 body=body,
-                metadata=response.get('Metadata'),
+                **response,
             )
 
     async def generate_presigned_url(
@@ -530,22 +527,19 @@ class S3(Component):
 
     async def copy_object(
         self,
-        in_bucket_name: Optional[str] = None,
-        out_bucket_name: Optional[str] = None,
-        src: Optional[str] = None,
-        dst: Optional[str] = None,
-        **kwargs: dict,
-    ) -> dict:
+        src_bucket_name: str,
+        dst_bucket_name: str,
+        src: str,
+        dst: str,
+        **kwargs: Any,
+    ) -> CopyObject:
         async with self._create_client() as client:
             return await client.copy_object(
-                in_bucket_name, out_bucket_name, src, dst, **kwargs
+                src_bucket_name, dst_bucket_name, src, dst, **kwargs
             )
 
     async def delete_object(
-        self,
-        bucket_name: Optional[str] = None,
-        file_path: Optional[str] = None,
-        **kwargs: dict,
+        self, bucket_name: str, file_path: str, **kwargs: Any,
     ) -> dict:
         async with self._create_client() as client:
             return await client.delete_object(bucket_name, file_path, **kwargs)
@@ -557,11 +551,8 @@ class S3(Component):
             return await client.get_object(object_name, bucket_name)
 
     async def list_objects(
-        self,
-        bucket_name: Optional[str] = None,
-        path: str = None,
-        **kwargs: dict,
-    ) -> RespounsListObjets:
+        self, bucket_name: str, path: str, **kwargs: Any,
+    ) -> ListObjects:
         async with self._create_client() as client:
             return await client.list_objects(bucket_name, path, **kwargs)
 
