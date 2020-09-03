@@ -53,6 +53,7 @@ async def save(
         assert url.path == f'/bucket/folder/{uuid}.{file_type}'
 
         obj = await s3.get_object(object_name, bucket_name=bucket_name)
+
         assert obj.bucket_name == bucket_name
         assert obj.object_name == object_name
         assert obj.content_type == content_type
@@ -101,6 +102,95 @@ async def test_s3(loop, s3: S3) -> None:
     await s3.create_bucket(uuid)
     assert await s3.bucket_exists(uuid) is True
     await s3.delete_bucket(uuid)
+
+
+async def test_s3_file_copy(loop, s3: S3) -> None:
+    uuid = uuid4().hex
+    filepath = 'tests/files/test.pdf'
+    bucket_name = 'tests'
+    metadata = {'foo': 'bar'}
+    out_file_path = 'tests/files/test.pdf'
+
+    with open(filepath, 'rb') as f:
+        if not await s3.bucket_exists(bucket_name):
+            await s3.create_bucket(bucket_name)
+
+        object_name = await s3.put_object(
+            data=f,
+            filename=uuid,
+            folder='folder',
+            metadata=metadata,
+            bucket_name=bucket_name,
+        )
+
+        await s3.copy_object(
+            src_bucket_name=bucket_name,
+            dst_bucket_name=bucket_name,
+            src=object_name,
+            dst=out_file_path,
+        )
+
+        assert (
+            await s3.file_exists(
+                bucket_name=bucket_name, file_name=out_file_path
+            )
+            is True
+        )
+
+
+async def test_s3_list_objects(loop, s3: S3) -> None:
+    uuid = uuid4().hex
+    filepath = 'tests/files/test.pdf'
+    bucket_name = 'tests'
+    metadata = {'foo': 'bar'}
+
+    with open(filepath, 'rb') as f:
+        if not await s3.bucket_exists(bucket_name):
+            await s3.create_bucket(bucket_name)
+
+        object_name = await s3.put_object(
+            data=f,
+            filename=uuid,
+            folder='folder',
+            metadata=metadata,
+            bucket_name=bucket_name,
+        )
+
+        result_objects = await s3.list_objects(
+            bucket_name=bucket_name, path=object_name
+        )
+
+        assert object_name in [
+            object_name.key for object_name in result_objects.contents
+        ]
+
+
+async def test_s3_file_delete(loop, s3: S3) -> None:
+    uuid = uuid4().hex
+    filepath = 'tests/files/test.pdf'
+    bucket_name = 'tests'
+    metadata = {'foo': 'bar'}
+
+    with open(filepath, 'rb') as f:
+        if not await s3.bucket_exists(bucket_name):
+            await s3.create_bucket(bucket_name)
+
+        object_name = await s3.put_object(
+            data=f,
+            filename=uuid,
+            folder='folder',
+            metadata=metadata,
+            bucket_name=bucket_name,
+        )
+
+        await s3.delete_object(bucket_name=bucket_name, file_path=object_name)
+
+        assert (
+            await s3.file_exists(
+                bucket_name=bucket_name, file_name=object_name
+            )
+            is False
+        )
 
 
 async def test_s3_file_save(loop, s3: S3) -> None:
