@@ -123,8 +123,8 @@ class GetObject(S3Model):
     object_lock_legal_hold_status: Optional[str] = Field(
         None, alias='ObjectLockLegalHoldStatus'
     )
-    bucket_name: Optional[str]
-    object_name: Optional[str]
+    bucket_name: str
+    object_name: str
 
     class Config:
         extra = Extra.ignore
