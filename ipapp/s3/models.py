@@ -128,3 +128,11 @@ class GetObject(S3Model):
 
     class Config:
         extra = Extra.ignore
+
+
+class ListBuckets(S3Model):
+    name: Optional[str] = Field(None, alias='Name')
+    creation_date: Optional[datetime] = Field(None, alias='CreationDate')
+
+    class Config:
+        extra = Extra.ignore

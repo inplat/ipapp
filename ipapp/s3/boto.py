@@ -1,6 +1,5 @@
-from datetime import datetime
 from types import TracebackType
-from typing import IO, Any, Dict, List, NamedTuple, Optional, Type, Union
+from typing import IO, Any, Dict, List, Optional, Type, Union
 from urllib.parse import ParseResult, urlparse
 import json
 
@@ -18,6 +17,7 @@ from ipapp.s3.models import (
     CopyObject,
     DeleteObject,
     GetObject,
+    ListBuckets,
 )
 
 from ..logger import Span, wrap2span
@@ -39,23 +39,6 @@ class S3ClientSpan(Span):
     NAME_GENERATE_PRESIGNED_URL = "s3::generate_presigned_url"
 
     ANN_EVENT = "event"
-
-
-class Bucket(NamedTuple):
-    name: str
-    creation_date: datetime
-
-
-class Object(NamedTuple):
-    bucket_name: str
-    object_name: str
-    size: int
-    etag: Optional[str]
-    content_type: str
-    accept_ranges: str
-    last_modified: datetime
-    body: bytes
-    metadata: Dict[str, Any]
 
 
 class S3Config(BaseModel):
@@ -151,7 +134,7 @@ class Client:
     ) -> None:
         await self.base_client_creator.__aexit__(exc_type, exc_val, exc_tb)
 
-    async def list_buckets(self) -> List[Bucket]:
+    async def list_buckets(self) -> List[ListBuckets]:
         self.component.app.log_debug("S3 list_buckets")
 
         with wrap2span(
@@ -161,13 +144,8 @@ class Client:
             app=self.component.app,
         ) as span:
             response = await self.base_client.list_buckets()
-
             buckets = [
-                Bucket(
-                    name=bucket.get('Name'),
-                    creation_date=bucket.get('CreationDate'),
-                )
-                for bucket in response.get('Buckets', [])
+                ListBuckets(**bucket) for bucket in response.get('Buckets', [])
             ]
 
             if self.component.cfg.log_result:
@@ -514,7 +492,7 @@ class S3(Component):
     ) -> None:
         await self.client.base_client.close()
 
-    async def list_buckets(self) -> List[Bucket]:
+    async def list_buckets(self) -> List[ListBuckets]:
         async with self._create_client() as client:
             return await client.list_buckets()
 
