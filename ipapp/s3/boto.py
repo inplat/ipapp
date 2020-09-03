@@ -279,9 +279,7 @@ class Client:
 
             trace = {
                 "folder": f"{bucket_name}:{path}",
-                "contents": result_list_objects['Contents']
-                if "Contents" in result_list_objects.keys()
-                else None,
+                "contents": result_list_objects.get('Contents', None),
             }
 
             span.annotate(
