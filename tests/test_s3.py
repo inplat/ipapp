@@ -160,7 +160,9 @@ async def test_s3_list_objects(loop, s3: S3) -> None:
             bucket_name=bucket_name, path=object_name
         )
 
-        assert object_name in [object_name.key for object_name in result_objects.contents]
+        assert object_name in [
+            object_name.key for object_name in result_objects.contents
+        ]
 
 
 async def test_s3_file_delete(loop, s3: S3) -> None:
