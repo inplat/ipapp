@@ -17,7 +17,7 @@ from ipapp.s3.models import (
     CopyObject,
     DeleteObject,
     GetObject,
-    ListBuckets,
+    Bucket,
 )
 
 from ..logger import Span, wrap2span
@@ -134,7 +134,7 @@ class Client:
     ) -> None:
         await self.base_client_creator.__aexit__(exc_type, exc_val, exc_tb)
 
-    async def list_buckets(self) -> List[ListBuckets]:
+    async def list_buckets(self) -> List[Bucket]:
         self.component.app.log_debug("S3 list_buckets")
 
         with wrap2span(
@@ -145,7 +145,7 @@ class Client:
         ) as span:
             response = await self.base_client.list_buckets()
             buckets = [
-                ListBuckets(**bucket) for bucket in response.get('Buckets', [])
+                Bucket(**bucket) for bucket in response.get('Buckets', [])
             ]
 
             if self.component.cfg.log_result:
@@ -492,7 +492,7 @@ class S3(Component):
     ) -> None:
         await self.client.base_client.close()
 
-    async def list_buckets(self) -> List[ListBuckets]:
+    async def list_buckets(self) -> List[Bucket]:
         async with self._create_client() as client:
             return await client.list_buckets()
 
