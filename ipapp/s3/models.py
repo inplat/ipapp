@@ -16,20 +16,20 @@ class Contents(S3Model):
     key: Optional[str] = Field(None, alias='Key')
     last_modified: Optional[datetime] = Field(None, alias='LastModified')
     etag: Optional[str] = Field(None, alias='ETag')
-    size: int = Field(None, alias='Size')
+    size: Optional[int] = Field(None, alias='Size')
     storage_class: Optional[str] = Field(None, alias='StorageClass')
     owner: Owner = Field(None, alias='Owner')
 
 
 class ListObjects(S3Model):
-    is_truncated: bool = Field(None, alias='IsTruncated')
-    contents: List[Contents] = Field(None, alias='Contents')
+    is_truncated: Optional[bool] = Field(None, alias='IsTruncated')
+    contents: Optional[List[Contents]] = Field(None, alias='Contents')
     name: Optional[str] = Field(None, alias='Name')
     prefix: Optional[str] = Field(None, alias='Prefix')
     delimiter: Optional[str] = Field(None, alias='Delimiter')
-    max_keys: int = Field(None, alias='maxKeys')
+    max_keys: Optional[int] = Field(None, alias='maxKeys')
     encoding_type: Optional[str] = Field(None, alias='EncodingType')
-    key_count: int = Field(None, alias='KeyCount')
+    key_count: Optional[int] = Field(None, alias='KeyCount')
 
     class Config:
         extra = Extra.ignore
@@ -84,7 +84,7 @@ class GetObject(S3Model):
     expiration: Optional[str] = Field(None, alias='Expiration')
     restore: Optional[str] = Field(None, alias='Restore')
     last_modified: Optional[datetime] = Field(None, alias='LastModified')
-    size: int = Field(None, alias='ContentLength')
+    size: Optional[int] = Field(None, alias='ContentLength')
     etag: Optional[str] = Field(None, alias='ETag')
     missing_meta: Optional[str] = Field(None, alias='MissingMeta')
     version_id: Optional[str] = Field(None, alias='VersionId')
@@ -123,8 +123,8 @@ class GetObject(S3Model):
     object_lock_legal_hold_status: Optional[str] = Field(
         None, alias='ObjectLockLegalHoldStatus'
     )
-    bucket_name: str
-    object_name: str
+    bucket_name: Optional[str]
+    object_name: Optional[str]
 
     class Config:
         extra = Extra.ignore
