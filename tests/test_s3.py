@@ -53,10 +53,11 @@ async def save(
         assert url.path == f'/bucket/folder/{uuid}.{file_type}'
 
         obj = await s3.get_object(object_name, bucket_name=bucket_name)
+
         assert obj.bucket_name == bucket_name
         assert obj.object_name == object_name
         assert obj.content_type == content_type
-        assert obj.meta_data == metadata
+        assert obj.metadata == metadata
         assert obj.size > 0
 
         f.seek(0)
@@ -122,14 +123,19 @@ async def test_s3_file_copy(loop, s3: S3) -> None:
             bucket_name=bucket_name,
         )
 
-        copy_result = await s3.copy_object(
+        await s3.copy_object(
             src_bucket_name=bucket_name,
             dst_bucket_name=bucket_name,
             src=object_name,
             dst=out_file_path,
         )
 
-        assert copy_result.copy_object_result.etag
+        assert (
+            await s3.file_exists(
+                bucket_name=bucket_name, file_name=out_file_path
+            )
+            is True
+        )
 
 
 async def test_s3_list_objects(loop, s3: S3) -> None:
@@ -154,7 +160,7 @@ async def test_s3_list_objects(loop, s3: S3) -> None:
             bucket_name=bucket_name, path=object_name
         )
 
-        assert object_name == result_objects.contents[0].key
+        assert object_name in [object_name.key for object_name in result_objects.contents]
 
 
 async def test_s3_file_delete(loop, s3: S3) -> None:
