@@ -380,7 +380,7 @@ class TaskManager(Component):
                 return tasks, next_delay
 
         coros = [self._exec(span.trace_id, task) for task in tasks]
-        await asyncio.gather(*coros, loop=self.loop)
+        await asyncio.gather(*coros)
 
         return tasks, 0
 

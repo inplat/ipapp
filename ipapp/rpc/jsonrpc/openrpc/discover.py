@@ -43,6 +43,10 @@ def discover(
         )
         schemas[v] = model_schema
 
+        for key in model_definitions.keys():
+            if key not in schemas:
+                schemas[key] = model_definitions[key]
+
     version = '0'
     if hasattr(handler, '__version__'):
         version = getattr(handler, '__version__')

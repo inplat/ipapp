@@ -20,7 +20,7 @@ class SentryConfig(AbcConfig):
 
 
 class SentryAdapter(AbcAdapter):
-    name = 'prometheus'
+    name = 'sentry'
     cfg: SentryConfig
     logger: 'ipapp.logger.Logger'
 

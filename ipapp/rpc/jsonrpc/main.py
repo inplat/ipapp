@@ -190,9 +190,7 @@ class JsonRpcExecutor:
                     )
                 )
 
-        results = await asyncio.gather(
-            *batch, loop=self._loop, return_exceptions=True
-        )
+        results = await asyncio.gather(*batch, return_exceptions=True)
 
         if resp is None:
             return None
@@ -401,9 +399,11 @@ class JsonRpcCall:
         return self._convert_result(res)
 
     def _convert_result(self, res: Any) -> Any:
-        if self.model:
-            return self.model(**res)
-        return res
+        if res is not None:
+            if self.model:
+                return self.model(**res)
+            return res
+        return None
 
     def _encode(self) -> bytes:
         req = self.client._proto.create_request(

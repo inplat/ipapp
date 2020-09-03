@@ -22,7 +22,12 @@ from iprpc import (
     MethodNotFound,
 )
 from pydantic import BaseModel, Field, create_model
-from pydantic.schema import get_flat_models_from_models, model_process_schema
+from pydantic.schema import (
+    TypeModelOrEnum,
+    TypeModelSet,
+    get_flat_models_from_models,
+    model_process_schema,
+)
 
 from ipapp.http.server import Server as HttpServer
 from ipapp.openapi.models import (
@@ -86,9 +91,7 @@ def get_field_definitions(
     }
 
 
-def get_models_from_rpc_methods(
-    methods: Dict[str, Callable]
-) -> Set[Type[BaseModel]]:
+def get_models_from_rpc_methods(methods: Dict[str, Callable]) -> TypeModelSet:
     clean_models: List[Type[BaseModel]] = [
         create_model(
             "Health",
@@ -159,17 +162,20 @@ def fix_model_name(model: Type[BaseModel], name: str) -> None:
         setattr(model, "__name__", name)
 
 
-def get_long_model_name(model: Type[BaseModel]) -> str:
+def get_long_model_name(model: TypeModelOrEnum) -> str:
     return f"{model.__module__}__{model.__name__}".replace(".", "__")
 
 
 def get_model_name_map(
-    unique_models: Set[Type[BaseModel]],
-) -> Dict[Type[BaseModel], str]:
+    unique_models: Set[TypeModelOrEnum],
+) -> Dict[TypeModelOrEnum, str]:
     name_model_map = {}
     conflicting_names: Set[str] = set()
     for model in unique_models:
-        model_name = model.__config__.title or model.__name__
+        if issubclass(model, BaseModel):
+            model_name = model.__config__.title or model.__name__
+        else:
+            model_name = model.__name__
         model_name = re.sub(r"[^a-zA-Z0-9.\-_]", "_", model_name)
         if model_name in conflicting_names:
             model_name = get_long_model_name(model)
@@ -188,8 +194,8 @@ def get_model_name_map(
 
 def get_model_definitions(
     *,
-    models: Set[Type[BaseModel]],
-    model_name_map: Dict[Type[BaseModel], str],
+    models: Set[TypeModelOrEnum],
+    model_name_map: Dict[TypeModelOrEnum, str],
 ) -> Dict[str, Any]:
     definitions: Dict[str, Dict] = {}
     for model in models:

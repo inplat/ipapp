@@ -6,8 +6,8 @@ import sys
 from typing import List, Optional, Union
 
 try:
-    from watchdog.events import FileSystemEvent
     from watchdog import observers
+    from watchdog.events import FileSystemEvent
 except ImportError:
     observers = None
 

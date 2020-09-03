@@ -179,6 +179,7 @@ async def test_base_model():
             return user
 
     spec = discover(Api()).dict(exclude_unset=True)
+
     assert spec == {
         'openrpc': '1.2.4',
         'info': {'title': '', 'version': '0'},
@@ -226,9 +227,14 @@ async def test_base_model():
                     'required': ['type', 'value'],
                     'type': 'object',
                     'properties': {
-                        'type': {'title': 'Type', 'enum': ['phone', 'email']},
+                        'type': {"ref": "#/components/schemas/ContactType"},
                         'value': {'title': 'Value', 'type': 'string'},
                     },
+                },
+                "ContactType": {
+                    "title": "ContactType",
+                    "enum": ["phone", "email"],
+                    "description": "An enumeration.",
                 },
             }
         },
