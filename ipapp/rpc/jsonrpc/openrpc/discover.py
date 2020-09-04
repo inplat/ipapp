@@ -174,7 +174,7 @@ def _get_model_definition(
     )
 
     definitions.update(model_definitions)
-    # model_name = model_name_map[model]
+    _ = model_name_map[model]
     return model_schema
 
 
