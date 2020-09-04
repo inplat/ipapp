@@ -19,6 +19,7 @@ from .models import (
     OpenRPC,
     Schema,
     Server,
+    ParamStructure,
 )
 
 OPENRPC_VERSION = '1.2.4'
@@ -190,7 +191,9 @@ def _get_model_definition(
 def _get_method(func: Callable, model_name_map: ModelDict) -> Method:
     sig = inspect.signature(func)
     docstr = inspect.getdoc(func)
-    kwargs: Dict[str, Any] = {}
+    kwargs: Dict[str, Any] = {
+        'paramStructure': ParamStructure.BY_NAME,
+    }
 
     method_name: str = getattr(func, "__rpc_name__")
     request_params_model: Optional[Type[BaseModel]] = getattr(

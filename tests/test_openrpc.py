@@ -61,6 +61,7 @@ def test_openrpc():
         "methods": [
             {
                 "name": "echo",
+                "paramStructure": "by-name",
                 "params": [
                     {"name": "a", "required": True, "schema": {"title": "A"}}
                 ],
@@ -72,6 +73,7 @@ def test_openrpc():
             },
             {
                 "name": "sum",
+                "paramStructure": "by-name",
                 "summary": "Sum",
                 "description": "sum:\n  - a\n  - b",
                 "params": [

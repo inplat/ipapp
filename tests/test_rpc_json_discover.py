@@ -6,6 +6,7 @@ from pydantic.main import BaseModel
 
 from ipapp.rpc import method
 from ipapp.rpc.jsonrpc.openrpc.discover import discover
+from ipapp.rpc.jsonrpc.openrpc.models import ParamStructure
 
 
 def test_discover_api_desc_default():
@@ -91,12 +92,14 @@ async def test_method_descr_decorator():
             pass
 
     spec = discover(Api()).dict(exclude_unset=True)
+
     assert spec == {
         'openrpc': '1.2.4',
         'info': {'title': '', 'version': '0'},
         'methods': [
             {
                 'name': 'Meth',
+                'paramStructure': ParamStructure.BY_NAME,
                 'summary': 'Summary method',
                 'description': 'Description method',
                 'deprecated': True,
@@ -132,6 +135,7 @@ async def test_method_params_descr_by_field():
         'methods': [
             {
                 'name': 'meth',
+                'paramStructure': ParamStructure.BY_NAME,
                 'params': [
                     {
                         'name': 'a',
@@ -186,6 +190,7 @@ async def test_base_model():
         'methods': [
             {
                 'name': 'meth',
+                'paramStructure': ParamStructure.BY_NAME,
                 'params': [
                     {
                         'name': 'user',
@@ -268,6 +273,7 @@ async def test_conflict_base_model_name():
         'methods': [
             {
                 'name': 'test',
+                'paramStructure': ParamStructure.BY_NAME,
                 'params': [
                     {
                         'name': 'a',
@@ -341,6 +347,7 @@ async def test_base_model_decorator():
         'methods': [
             {
                 'name': 'some',
+                'paramStructure': ParamStructure.BY_NAME,
                 'params': [
                     {
                         'name': 'id',
@@ -414,6 +421,7 @@ async def test_examples():
         'methods': [
             {
                 'name': 'sum',
+                'paramStructure': ParamStructure.BY_NAME,
                 'params': [
                     {'name': 'a', 'required': True, 'schema': {'title': 'A'}},
                     {'name': 'b', 'required': True, 'schema': {'title': 'B'}},

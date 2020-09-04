@@ -610,6 +610,7 @@ async def test_discover():
                     },
                     'summary': 'Add user',
                     'name': 'add_user',
+                    'paramStructure': 'by-name',
                     'errors': [
                         {'code': 111, 'data': None, 'message': 'My Error 111'},
                         {'code': 222, 'data': None, 'message': 'My Error 222'},
@@ -638,6 +639,7 @@ async def test_discover():
                         }
                     ],
                     'name': 'echo',
+                    'paramStructure': 'by-name',
                 },
                 {
                     'result': {
@@ -653,6 +655,7 @@ async def test_discover():
                         }
                     ],
                     'name': 'get_user',
+                    'paramStructure': 'by-name',
                 },
             ],
             'components': {
