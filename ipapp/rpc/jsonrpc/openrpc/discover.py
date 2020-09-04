@@ -174,7 +174,16 @@ def _get_model_definition(
     )
 
     definitions.update(model_definitions)
+
+    # при обращении к элементу словаря, магия добавляет его в этот словарь и
+    # все его дочерние модели
     _ = model_name_map[model]
+
+    # хак для того чтоб в список components.schemas не попадали искусственно
+    # созданные классы запроса и ответа
+    # (MethodnameRequestParams и MethodnameResponse)
+    del model_name_map[model]
+
     return model_schema
 
 
