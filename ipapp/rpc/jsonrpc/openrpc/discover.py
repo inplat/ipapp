@@ -17,9 +17,9 @@ from .models import (
     Info,
     Method,
     OpenRPC,
+    ParamStructure,
     Schema,
     Server,
-    ParamStructure,
 )
 
 OPENRPC_VERSION = '1.2.4'
@@ -33,9 +33,11 @@ def discover(
 ) -> OpenRPC:
     methods = _get_methods(handler)
     model_name_map = ModelDict()
-    method_models = _get_methods_models(methods, model_name_map=model_name_map)
+    schemas: Dict[str, Dict] = {}
+    method_models = _get_methods_models(
+        methods, model_name_map=model_name_map, schemas=schemas
+    )
 
-    schemas = {}
     for k, v in model_name_map.items():
         model_schema, model_definitions, _ = model_process_schema(
             k,
@@ -122,11 +124,13 @@ def _get_methods(handler: object) -> Dict[str, Callable]:
 
 
 def _get_methods_models(
-    methods: Dict[str, Callable], model_name_map: ModelDict
+    methods: Dict[str, Callable],
+    model_name_map: ModelDict,
+    schemas: Dict[str, Dict],
 ) -> List[Method]:
     models: List[Method] = []
     for name, fn in methods.items():
-        method = _get_method(fn, model_name_map)
+        method = _get_method(fn, model_name_map, schemas)
         models.append(method)
     return models
 
@@ -164,17 +168,22 @@ def _get_long_model_name(model: Type[BaseModel]) -> str:
 
 
 def _get_model_definition(
-    model: Type[BaseModel], model_name_map: ModelDict
+    model: Type[BaseModel], model_name_map: ModelDict, schemas: Dict[str, Dict]
 ) -> Any:
-    definitions: Dict[str, Dict] = {}
+    """
+    ВАЖНО! Аргументы model_name_map и schemas модифицируются в процессе
+    выполнения функции
+    """
 
-    model_schema, model_definitions, _ = model_process_schema(
+    model_schema, model_definitions, a = model_process_schema(
         model,
         model_name_map=model_name_map,
         ref_prefix='#/components/schemas/',
     )
 
-    definitions.update(model_definitions)
+    # TODO тут стоит сверить с существющими моделями. Чтоб исключить дубликаты
+    # обновляем по ссылке все схемы связанных объектов
+    schemas.update(model_definitions)
 
     # при обращении к элементу словаря, магия добавляет его в этот словарь и
     # все его дочерние модели
@@ -188,7 +197,9 @@ def _get_model_definition(
     return model_schema
 
 
-def _get_method(func: Callable, model_name_map: ModelDict) -> Method:
+def _get_method(
+    func: Callable, model_name_map: ModelDict, schemas: Dict[str, Dict]
+) -> Method:
     sig = inspect.signature(func)
     docstr = inspect.getdoc(func)
     kwargs: Dict[str, Any] = {
@@ -247,7 +258,9 @@ def _get_method(func: Callable, model_name_map: ModelDict) -> Method:
     if getattr(RequestParamsModel, "__name__", "") == request_model_name:
         _fix_model_name(RequestParamsModel, request_params_model_name)
 
-    params_def = _get_model_definition(RequestParamsModel, model_name_map)
+    params_def = _get_model_definition(
+        RequestParamsModel, model_name_map, schemas
+    )
 
     kwargs['params'] = []
 
@@ -280,7 +293,9 @@ def _get_method(func: Callable, model_name_map: ModelDict) -> Method:
             response_model_name, **response  # type: ignore
         )
 
-        params_def = _get_model_definition(ResponseModel, model_name_map)
+        params_def = _get_model_definition(
+            ResponseModel, model_name_map, schemas
+        )
 
         result_schema = params_def['properties']['result']
     else:
