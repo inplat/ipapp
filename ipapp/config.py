@@ -70,7 +70,8 @@ class BaseConfig(BaseModel, Generic[T]):
                 )
 
             field_prefix = field.field_info.extra.get(
-                "env_prefix", f"{field.name}_",
+                "env_prefix",
+                f"{field.name}_",
             )
 
             if field.shape == SHAPE_SINGLETON and issubclass(

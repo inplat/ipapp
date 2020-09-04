@@ -99,7 +99,8 @@ DEFAULT_HISTOGRAM_DOCS = {
 
 class PrometheusConfig(AbcConfig):
     addr: str = Field(
-        "0.0.0.0", description="Адрес публикации Prometheus метрик",  # nosec
+        "0.0.0.0",  # nosec
+        description="Адрес публикации Prometheus метрик",
     )
     port: int = Field(9213, description="Порт публикации Prometheus метрик")
     hist_labels: LabelsCfg = {}

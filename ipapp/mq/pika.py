@@ -160,7 +160,8 @@ class _Connection:
         return self._state
 
     async def connect(
-        self, on_close: Callable[['_Connection', Exception], Awaitable[None]],
+        self,
+        on_close: Callable[['_Connection', Exception], Awaitable[None]],
     ) -> None:
         with wrap2span(
             name=AmqpSpan.NAME_CONNECT,

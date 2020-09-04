@@ -73,7 +73,10 @@ def _parse_argv(
     )
 
     parser.add_argument(
-        '--log-file', dest='log_file', type=str, help='Logging file name',
+        '--log-file',
+        dest='log_file',
+        type=str,
+        help='Logging file name',
     )
     parsed = parser.parse_args(args=options)
     return Args(

@@ -87,7 +87,9 @@ def pytest_configure(config: Config) -> None:
 
 
 def pytest_collection_modifyitems(
-    session: Session, config: Config, items: List[Item],
+    session: Session,
+    config: Config,
+    items: List[Item],
 ) -> None:
     for item in items:
         for marker in item.iter_markers(name="case_id"):
@@ -96,7 +98,9 @@ def pytest_collection_modifyitems(
 
 
 def pytest_terminal_summary(
-    terminalreporter: TerminalReporter, exitstatus: ExitCode, config: Config,
+    terminalreporter: TerminalReporter,
+    exitstatus: ExitCode,
+    config: Config,
 ) -> None:
     qase_enabled = config.option.qase_enabled
     qase_url = config.option.qase_url
@@ -197,7 +201,8 @@ def send_result(
 
     # получаем все существующие test run
     response = requests.get(
-        f"{qase_url}/v1/run/{project_id}", headers=headers,
+        f"{qase_url}/v1/run/{project_id}",
+        headers=headers,
     )
 
     if not response.ok:

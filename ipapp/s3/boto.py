@@ -1,7 +1,7 @@
+import json
 from types import TracebackType
 from typing import IO, Any, Dict, List, Optional, Type, Union
 from urllib.parse import ParseResult, urlparse
-import json
 
 import aiobotocore
 import magic
@@ -13,11 +13,11 @@ from pydantic import BaseModel, Field
 from ipapp.component import Component
 from ipapp.s3.exceptions import FileTypeNotAllowedError
 from ipapp.s3.models import (
-    ListObjects,
+    Bucket,
     CopyObject,
     DeleteObject,
     GetObject,
-    Bucket,
+    ListObjects,
 )
 
 from ..logger import Span, wrap2span
@@ -312,7 +312,8 @@ class Client:
 
                 if bucket.name == bucket_name:
                     response = await self.base_client.list_objects_v2(
-                        Bucket=bucket_name, Prefix=file_name,
+                        Bucket=bucket_name,
+                        Prefix=file_name,
                     )
 
                     for obj in response.get('Contents', []):
@@ -337,7 +338,8 @@ class Client:
             app=self.component.app,
         ) as span:
             response = await self.base_client.create_bucket(
-                ACL=acl, Bucket=bucket_name,
+                ACL=acl,
+                Bucket=bucket_name,
             )
             location = response.get('Location')
 
@@ -414,7 +416,8 @@ class Client:
             app=self.component.app,
         ) as span:
             response = await self.base_client.get_object(
-                Bucket=bucket_name, Key=object_name,
+                Bucket=bucket_name,
+                Key=object_name,
             )
 
             async with response['Body'] as f:
@@ -545,7 +548,10 @@ class S3(Component):
             )
 
     async def delete_object(
-        self, file_path: str, bucket_name: Optional[str] = None, **kwargs: Any,
+        self,
+        file_path: str,
+        bucket_name: Optional[str] = None,
+        **kwargs: Any,
     ) -> DeleteObject:
         async with self._create_client() as client:
             return await client.delete_object(file_path, bucket_name, **kwargs)
@@ -557,7 +563,10 @@ class S3(Component):
             return await client.get_object(object_name, bucket_name)
 
     async def list_objects(
-        self, path: str, bucket_name: Optional[str] = None, **kwargs: Any,
+        self,
+        path: str,
+        bucket_name: Optional[str] = None,
+        **kwargs: Any,
     ) -> ListObjects:
         async with self._create_client() as client:
             return await client.list_objects(path, bucket_name, **kwargs)

@@ -28,7 +28,8 @@ class App(BaseApplication):
     def __init__(self, cfg: Config) -> None:
         super().__init__(cfg)
         self.add(
-            'amqp', Pika(cfg.amqp, [lambda: RpcClientChannel(cfg.amqp_rpc)]),
+            'amqp',
+            Pika(cfg.amqp, [lambda: RpcClientChannel(cfg.amqp_rpc)]),
         )
         if cfg.log_prometheus.enabled:
             self.logger.add(PrometheusAdapter(cfg.log_prometheus))

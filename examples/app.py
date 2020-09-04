@@ -224,7 +224,9 @@ class App(BaseApplication):
         self.add('inplat', InplatSiteClient(base_url='https://inplat.ru/123'))
 
         self.add(
-            'db', Postgres(cfg.db), stop_after=['srv'],
+            'db',
+            Postgres(cfg.db),
+            stop_after=['srv'],
         )
 
         if cfg.log_prometheus.enabled:

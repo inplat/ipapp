@@ -118,7 +118,8 @@ def get_models_from_rpc_methods(methods: Dict[str, Callable]) -> TypeModelSet:
         response_result_model_name = f"{camel_method_name}ResponseResult"
 
         RequestParamsModel = request_params_model or create_model(
-            request_params_model_name, **get_field_definitions(sig.parameters),
+            request_params_model_name,
+            **get_field_definitions(sig.parameters),
         )
 
         if getattr(RequestParamsModel, "__name__", "") == request_model_name:
@@ -251,7 +252,8 @@ def make_rpc_path(
                     description="Failed operation",
                     content={
                         "application/json": MediaType(
-                            schema_=Reference(ref=response_ref), examples={},
+                            schema_=Reference(ref=response_ref),
+                            examples={},
                         ),
                     },
                 ),
@@ -282,5 +284,6 @@ def make_dev_server(
     )
     port = "" if server.cfg.port in (80, 443) else server.cfg.port
     return Server(
-        url=f"{schema}://{host}:{port}{path}", description=description,
+        url=f"{schema}://{host}:{port}{path}",
+        description=description,
     )

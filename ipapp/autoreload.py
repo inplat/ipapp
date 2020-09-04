@@ -85,9 +85,11 @@ def _reload() -> None:
             # Unfortunately the errno returned in this case does not
             # appear to be consistent, so we can't easily check for
             # this error specifically.
-            args: List[Union[bytes, str]] = ([sys.executable] + sys.argv)  # type: ignore
+            args: List[Union[bytes, str]] = [sys.executable] + sys.argv  # type: ignore
             os.spawnv(  # nosec  # type: ignore
-                os.P_NOWAIT, sys.executable, args,
+                os.P_NOWAIT,
+                sys.executable,
+                args,
             )
             # At this point the IOLoop has been closed and finally
             # blocks will experience errors if we allow the stack to

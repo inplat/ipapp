@@ -82,7 +82,8 @@ class SftpClientConfig(BaseModel):
         example="/root/.ssh/id_rsa",
     )
     passphrase: Optional[str] = Field(
-        None, description="Пароль для расшифровки приватных ключей",
+        None,
+        description="Пароль для расшифровки приватных ключей",
     )
     known_hosts: Optional[str] = Field(
         None,
@@ -187,7 +188,9 @@ class SftpClient(Component):
 
             try:
                 self.app.log_info(
-                    "Connecting %sto %s", counter, self.masked_url,
+                    "Connecting %sto %s",
+                    counter,
+                    self.masked_url,
                 )
                 await asyncio.wait_for(
                     self._connect(), timeout=self.cfg.connect_timeout

@@ -29,7 +29,9 @@ class OracleConfig(BaseModel):
         example="username",
     )
     password: Optional[str] = Field(
-        None, description="Пароль", example="password",
+        None,
+        description="Пароль",
+        example="password",
     )
     dsn: Optional[str] = Field(
         None,
@@ -231,11 +233,13 @@ class ConnectionContextManager:
 
         if pspan is None:
             span: OraSpan = self._db.app.logger.span_new(  # type: ignore
-                OraSpan.NAME_ACQUIRE, cls=OraSpan,
+                OraSpan.NAME_ACQUIRE,
+                cls=OraSpan,
             )
         else:
             span = pspan.new_child(  # type: ignore
-                OraSpan.NAME_ACQUIRE, cls=OraSpan,
+                OraSpan.NAME_ACQUIRE,
+                cls=OraSpan,
             )
         self._span = span
         span.set_name4adapter(

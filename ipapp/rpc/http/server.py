@@ -240,7 +240,8 @@ class OpenApiRpcHandler(RpcHandler):
 
         if self._cfg.license_name:
             self.openapi.info.license = License(
-                name=self._cfg.license_name, url=self._cfg.license_url,
+                name=self._cfg.license_name,
+                url=self._cfg.license_url,
             )
 
         if self._cfg.external_docs_url:
@@ -357,14 +358,17 @@ class OpenApiRpcHandler(RpcHandler):
                 x: definitions[x] for x in sorted(definitions)
             }
         self.server.web_app.router.add_get(
-            self.openapi_url, self.openapi_handler,
+            self.openapi_url,
+            self.openapi_handler,
         )
         self.server.web_app.router.add_get(
-            self.docs_url, self.docs_handler,
+            self.docs_url,
+            self.docs_handler,
         )
 
         self.server.web_app.router.add_get(
-            self.redoc_url, self.redoc_handler,
+            self.redoc_url,
+            self.redoc_handler,
         )
 
         for schema in self._cfg.openapi_schemas:

@@ -64,7 +64,9 @@ class ZipkinServer:
             self.err = err
 
 
-async def test_success(loop,):
+async def test_success(
+    loop,
+):
     async with ZipkinServer() as zs:
         cfg = ZipkinConfig(name='123', addr=zs.addr)
         adapter = ZipkinAdapter(cfg)
@@ -107,7 +109,9 @@ async def test_success(loop,):
     assert 'raise Exception()' in span2.annotations[0].value
 
 
-async def test_errors(loop,):
+async def test_errors(
+    loop,
+):
     app = BaseApplication(BaseConfig())
     lgr = app.logger
     cfg = ZipkinConfig(name='123')

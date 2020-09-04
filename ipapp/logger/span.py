@@ -277,7 +277,8 @@ class Span:
 
         if trace is not None:
             self.annotate(
-                self.ANN_TRACEBACK, trace,
+                self.ANN_TRACEBACK,
+                trace,
             )
 
         return self

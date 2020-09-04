@@ -349,11 +349,13 @@ class ConnectionContextManager:
 
         if pspan is None:
             span: PgSpan = self._db.app.logger.span_new(  # type: ignore
-                PgSpan.NAME_ACQUIRE, cls=PgSpan,
+                PgSpan.NAME_ACQUIRE,
+                cls=PgSpan,
             )
         else:
             span = pspan.new_child(  # type: ignore
-                PgSpan.NAME_ACQUIRE, cls=PgSpan,
+                PgSpan.NAME_ACQUIRE,
+                cls=PgSpan,
             )
         self._span = span
         span.set_name4adapter(

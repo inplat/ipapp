@@ -75,6 +75,9 @@ async def rabbitmq_url(request: FixtureRequest) -> AsyncGenerator[str, None]:
     if not url:
         url = COMPOSE_RABBITMQ_URL
     await wait_service(
-        url, TIMEOUT, check, 'Failed to connect to {url}. Last error: {err}',
+        url,
+        TIMEOUT,
+        check,
+        'Failed to connect to {url}. Last error: {err}',
     )
     yield url

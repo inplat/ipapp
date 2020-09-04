@@ -35,7 +35,8 @@ class App(BaseApplication):
     def __init__(self, cfg: Config) -> None:
         super().__init__(cfg)
         self.add(
-            'clt', JsonRpcHttpClient(cfg.rpc),
+            'clt',
+            JsonRpcHttpClient(cfg.rpc),
         )
         if cfg.log_prometheus.enabled:
             self.logger.add(PrometheusAdapter(cfg.log_prometheus))

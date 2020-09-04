@@ -52,7 +52,13 @@ class App(BaseApplication):
             ),
         )
 
-        self.logger.add(PrometheusAdapter(PrometheusConfig(port=9215,)))
+        self.logger.add(
+            PrometheusAdapter(
+                PrometheusConfig(
+                    port=9215,
+                )
+            )
+        )
 
         self.logger.add(
             ZipkinAdapter(
