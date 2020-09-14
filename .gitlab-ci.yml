@@ -25,76 +25,59 @@ venv:
   tags:
     - kube-test
 
-flake8:
+.linter:
   stage: test
+  dependencies:
+    - venv
+  tags:
+    - kube-test
+
+flake8:
+  extends: .linter
   script:
     - make flake8
-  dependencies:
-    - venv
-  tags:
-    - kube-test
 
 bandit:
-  stage: test
+  extends: .linter
   script:
     - make bandit
-  dependencies:
-    - venv
-  tags:
-    - kube-test
 
 mypy:
-  stage: test
+  extends: .linter
   script:
     - make mypy
-  dependencies:
-    - venv
-  tags:
-    - kube-test
 
 safety:
-  stage: test
+  extends: .linter
   script:
     - make safety
-  dependencies:
-    - venv
-  tags:
-    - kube-test
 
 black:
-  stage: test
+  extends: .linter
   script:
     - make black
-  dependencies:
-    - venv
-  tags:
-    - kube-test
 
 test:
-  stage: test
+  extends: .linter
   artifacts:
     paths:
       - coverage
     expire_in: 1 day
   before_script:
-    - chmod +x /usr/local/bin/docker-compose # TODO: fix it dind:python37
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
   script:
     - make test
   coverage: /\d+\%\s*$/
-  dependencies:
-    - venv
-  tags:
-    - kube-test
 
 build:
   stage: build
   script:
     - sed -i -E 's/^(__version__\s*=\s*)['"'"'"].*?+['"'"'"](.*)$/\1'"'"${CI_COMMIT_TAG:-$CI_COMMIT_REF_SLUG}"'"'\2/' ipapp/__init__.py
     - sed -i -E 's/^(__build_stamp__\s*=\s*)[0-9]+$/\1'`date +%s`'/' ipapp/__init__.py
+    - poetry version "${CI_COMMIT_TAG:-$CI_COMMIT_REF_SLUG}"
     - make build
-    - .venv/bin/twine upload -u __token__ -p "$PYPI_TOKEN" dist/*
-    - .venv/bin/twine upload -u pypi_ipapp -p "$PYPI_TOKEN_IPL" --repository-url "https://pip.sys.ipl" dist/*
+    - poetry publish -u __token__ -p "$PYPI_TOKEN" -v
+    - poetry publish -r "https://pip.sys.ipl" -u pypi_ipapp -p "$PYPI_TOKEN_IPL" -v
   dependencies:
     - venv
   artifacts:
@@ -112,7 +95,7 @@ build-master:
     - sed -i -E 's/^(__version__\s*=\s*)['"'"'"].*?+['"'"'"](.*)$/\1'"'"${CI_COMMIT_TAG:-$CI_COMMIT_REF_SLUG}"'"'\2/' ipapp/__init__.py
     - sed -i -E 's/^(__build_stamp__\s*=\s*)[0-9]+$/\1'`date +%s`'/' ipapp/__init__.py
     - make build
-    - .venv/bin/twine upload --verbose -u pypi_ipapp -p "$PYPI_TOKEN_IPL" --repository-url "https://pip.sys.ipl" dist/*
+    - poetry publish -r "https://pip.sys.ipl" -u pypi_ipapp -p "$PYPI_TOKEN_IPL" -v
   dependencies:
     - venv
   artifacts:

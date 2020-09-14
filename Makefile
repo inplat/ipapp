@@ -57,9 +57,8 @@ clean-venv:  ## Remove virtual environment
 $(VENV_PATH):  ## Create a virtual environment
 	virtualenv -p python3.7 $@
 
-$(VENV_PATH)/pip-status: requirements.txt requirements_dev.txt | $(VENV_PATH) ## Install (upgrade) all development requirements
-	$(VENV_BIN)/pip install --upgrade setuptools pip
-	$(VENV_BIN)/pip install --upgrade -r requirements_dev.txt
+$(VENV_PATH)/pip-status: pyproject.toml poetry.lock | $(VENV_PATH) ## Install (upgrade) all development requirements
+	poetry install -E fastapi -E iprpc -E oracle -E postgres -E rabbitmq -E s3 -E sftp -E testing
 	# fix CI error: Uploading artifacts to coordinator... too large archive
 	find . -type d -name __pycache__ -exec rm -rf {} \+
 	# keep a real file to be able to compare its mtime with mtimes of sources:
@@ -70,31 +69,31 @@ venv: $(VENV_PATH)/pip-status ## Install (upgrade) all development requirements
 
 .PHONY: flake8
 flake8: venv  ## Check style with flake8
-	$(VENV_BIN)/flake8 ipapp examples setup.py tests
+	$(VENV_BIN)/flake8 ipapp examples tests
 
 .PHONY: bandit
 bandit: venv  ## Find common security issues in code
-	$(VENV_BIN)/bandit -x ipapp/logic/db -r ipapp examples setup.py
+	$(VENV_BIN)/bandit -x ipapp/logic/db -r ipapp examples
 
 .PHONY: mypy
 mypy: venv  ## Static type check
-	$(VENV_BIN)/mypy ipapp examples setup.py --ignore-missing-imports
+	$(VENV_BIN)/mypy ipapp examples --ignore-missing-imports --sqlite-cache
 
 .PHONY: safety
 safety: venv  # checks your installed dependencies for known security vulnerabilities
-	$(VENV_BIN)/safety check -r requirements.txt
+	$(VENV_BIN)/safety check
 
 .PHONY: black
 black: venv  # checks imports order
-	$(VENV_BIN)/black -S -l 79 --target-version  py37 examples ipapp tests setup.py --check
+	$(VENV_BIN)/black examples ipapp tests --check
 
 .PHONY: lint
 lint: safety bandit mypy flake8 black  ## Run flake8, bandit, mypy
 
 .PHONY: format
 format: venv  ## Autoformat code
-	$(VENV_BIN)/isort -rc ipapp examples tests
-	$(VENV_BIN)/black -S -l 79 --target-version  py37 examples ipapp tests setup.py
+	$(VENV_BIN)/isort ipapp examples tests
+	$(VENV_BIN)/black examples ipapp tests
 
 .PHONY: test
 test: venv  ## Run tests
@@ -104,8 +103,7 @@ test: venv  ## Run tests
 
 .PHONY: build
 build: venv  ## Run tests
-	$(VENV_BIN)/python setup.py sdist
-	$(VENV_BIN)/python setup.py bdist_wheel
+	poetry build
 
 .PHONY: docs
 docs: venv clean-docs  ## Make documentation and open it in browser
