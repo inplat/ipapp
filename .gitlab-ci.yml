@@ -1,4 +1,4 @@
-image: registry.app.ipl/docker/images/dind:python37
+image: registry.app.ipl/docker/images/dind-python37:master
 
 variables:
   DOCKER_HOST: tcp://127.0.0.1:2375
