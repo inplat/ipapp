@@ -19,32 +19,31 @@
 Установка библиотеки
 --------------------
 
-Библиотеку можно установить через пакетный менеджер::
+Затем, установка производится так же, как установка любого другого пакета через `poetry <poetry_>`_::
 
-    pip install --extra-index-url https://pip.sys.ipl/simple --trusted-host pip.sys.ipl ipapp
+    poetry add ipapp
 
 Вы также можете установить дополнительные зависимости, если планируете использовать:
 
 1. СУБД PostgreSQl::
 
-    pip install --extra-index-url https://pip.sys.ipl/simple --trusted-host pip.sys.ipl ipapp[postgres]
+    poetry add "ipapp[postgres]"
 
 2. Брокер очередей RabbitMq::
 
-    pip install --extra-index-url https://pip.sys.ipl/simple --trusted-host pip.sys.ipl ipapp[rabbitmq]
+    poetry add "ipapp[rabbitmq]"
 
 3. RPC::
 
-    pip install --extra-index-url https://pip.sys.ipl/simple --trusted-host pip.sys.ipl ipapp[iprpc]
+    poetry add "ipapp[iprpc]"
 
 4. Инструменты для тестирования::
 
-    pip install --extra-index-url https://pip.sys.ipl/simple --trusted-host pip.sys.ipl ipapp[testing]
+    poetry add "ipapp[testing]"
 
 Или все вышеперечисленное сразу::
 
-    pip install --extra-index-url https://pip.sys.ipl/simple --trusted-host pip.sys.ipl ipapp[postgres,rabbitmq,iprpc,testing]
-
+    poetry add "ipapp[postgres,rabbitmq,iprpc,testing]"
 
 Начало работы
 -------------
@@ -121,3 +120,4 @@
 .. _asyncio: https://docs.python.org/3.7/library/asyncio.html
 .. _python37: https://docs.python.org/3.7/
 .. _cookiecutter: https://cookiecutter.readthedocs.io/en/latest/
+.. _poetry: https://python-poetry.org/
