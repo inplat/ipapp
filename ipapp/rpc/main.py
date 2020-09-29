@@ -44,48 +44,20 @@ def method(
     def decorator(func: Callable) -> Callable:
         func_name = name or func.__name__
 
-        if func_name is not None and not isinstance(func_name, str):
-            raise UserWarning('Method name must be a string')
-        if deprecated is not None and not isinstance(deprecated, bool):
-            raise UserWarning('Method deprecated must be a bool')
-        if summary is not None and not isinstance(summary, str):
-            raise UserWarning('Method summary must be a string')
-        if description is not None and not isinstance(description, str):
-            raise UserWarning('Method description must be a string')
-        if request_model is not None and (
-            not isinstance(request_model, type)
-            or not issubclass(request_model, BaseModel)
-        ):
-            raise UserWarning(
-                'Method request_model must be a subclass '
-                'of pydantic.BaseModel'
-            )
-        if response_model is not None and (
-            not isinstance(response_model, type)
-            or not issubclass(response_model, BaseModel)
-        ):
-            raise UserWarning(
-                'Method response_model must be a subclass '
-                'of pydantic.BaseModel'
-            )
-        if request_ref is not None and not isinstance(request_ref, str):
-            raise UserWarning('Method request_ref must be a string')
-        if response_ref is not None and not isinstance(response_ref, str):
-            raise UserWarning('Method response_ref must be a string')
-
-        if errors is not None:
-            for error in errors:
-                if not isinstance(error, type):
-                    raise UserWarning(
-                        'Method errors must be a list of RpcError subclasses'
-                    )
-                if not issubclass(error, RpcError):
-                    raise UserWarning(
-                        'Method errors must be a list of RpcError subclasses'
-                    )
-
-        if examples is not None:
-            _validate_examples(examples)
+        _validate_method(
+            func,
+            func_name,
+            errors,
+            deprecated,
+            summary,
+            description,
+            request_model,
+            response_model,
+            request_ref,
+            response_ref,
+            validators,
+            examples,
+        )
 
         setattr(func, "__rpc_name__", func_name)
         setattr(func, "__rpc_errors__", errors or [])
@@ -100,12 +72,6 @@ def method(
 
         if validators is not None:
             setattr(func, "__validators__", validators)
-            unknown = set(validators.keys()) - set(func.__code__.co_varnames)
-            if unknown:
-                raise UserWarning(
-                    "Found validator(s) for nonexistent argument(s): "
-                    ", ".join(unknown)
-                )
 
         @wraps(func)
         def wrapper(*args: Any, **kwrags: Any) -> Callable:
@@ -114,6 +80,73 @@ def method(
         return wrapper
 
     return decorator
+
+
+def _validate_method(
+    func: Callable,
+    func_name: str,
+    errors: Optional[List[Type[RpcError]]],
+    deprecated: Optional[bool],
+    summary: str,
+    description: str,
+    request_model: Optional[Any],
+    response_model: Optional[Any],
+    request_ref: Optional[str],
+    response_ref: Optional[str],
+    validators: Optional[Dict[str, dict]],
+    examples: Optional[List[Dict[str, Optional[str]]]],
+) -> None:
+    if func_name is not None and not isinstance(func_name, str):
+        raise UserWarning('Method name must be a string')
+    if deprecated is not None and not isinstance(deprecated, bool):
+        raise UserWarning('Method deprecated must be a bool')
+    if summary is not None and not isinstance(summary, str):
+        raise UserWarning('Method summary must be a string')
+    if description is not None and not isinstance(description, str):
+        raise UserWarning('Method description must be a string')
+    if hasattr(func.__code__, 'co_posonlyargcount'):
+        if getattr(func.__code__, 'co_posonlyargcount') > 0:
+            raise UserWarning('Positional-Only arguments are not supported')
+    if request_model is not None and (
+        not isinstance(request_model, type)
+        or not issubclass(request_model, BaseModel)
+    ):
+        raise UserWarning(
+            'Method request_model must be a subclass ' 'of pydantic.BaseModel'
+        )
+    if response_model is not None and (
+        not isinstance(response_model, type)
+        or not issubclass(response_model, BaseModel)
+    ):
+        raise UserWarning(
+            'Method response_model must be a subclass ' 'of pydantic.BaseModel'
+        )
+    if request_ref is not None and not isinstance(request_ref, str):
+        raise UserWarning('Method request_ref must be a string')
+    if response_ref is not None and not isinstance(response_ref, str):
+        raise UserWarning('Method response_ref must be a string')
+
+    if errors is not None:
+        for error in errors:
+            if not isinstance(error, type):
+                raise UserWarning(
+                    'Method errors must be a list of RpcError subclasses'
+                )
+            if not issubclass(error, RpcError):
+                raise UserWarning(
+                    'Method errors must be a list of RpcError subclasses'
+                )
+
+    if examples is not None:
+        _validate_examples(examples)
+
+    if validators is not None:
+        unknown = set(validators.keys()) - set(func.__code__.co_varnames)
+        if unknown:
+            raise UserWarning(
+                "Found validator(s) for nonexistent argument(s): "
+                ", ".join(unknown)
+            )
 
 
 def _validate_examples(examples: Any) -> None:

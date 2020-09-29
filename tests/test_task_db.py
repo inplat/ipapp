@@ -7,9 +7,7 @@ import asyncpg
 
 from ipapp import BaseApplication, BaseConfig
 from ipapp.db.pg import Postgres
-from ipapp.rpc import method
 from ipapp.task.db import (
-    CREATE_TABLE_QUERY,
     STATUS_CANCELED,
     STATUS_ERROR,
     STATUS_PENDING,
@@ -17,6 +15,7 @@ from ipapp.task.db import (
     Retry,
     TaskManager,
     TaskManagerConfig,
+    task,
 )
 
 
@@ -31,7 +30,6 @@ async def prepare(postgres_url) -> str:
     conn = await connect(postgres_url)
     await conn.execute('DROP SCHEMA IF EXISts %s CASCADE' % test_schema_name)
     await conn.execute('CREATE SCHEMA %s' % test_schema_name)
-    await conn.execute(CREATE_TABLE_QUERY.format(schema=test_schema_name))
     await conn.close()
     return test_schema_name
 
@@ -84,7 +82,7 @@ async def test_success(loop, postgres_url):
     fut = Future()
 
     class Api:
-        @method()
+        @task()
         async def test(self, arg):
             fut.set_result(arg)
             return arg
@@ -94,7 +92,11 @@ async def test_success(loop, postgres_url):
         'tm',
         TaskManager(
             Api(),
-            TaskManagerConfig(db_url=postgres_url, db_schema=test_schema_name),
+            TaskManagerConfig(
+                db_url=postgres_url,
+                db_schema=test_schema_name,
+                create_database_objects=True,
+            ),
         ),
     )
     await app.start()
@@ -144,7 +146,7 @@ async def test_reties_success(loop, postgres_url):
     class Api:
         attempts = 0
 
-        @method()
+        @task()
         async def test(self, arg):
             Api.attempts += 1
             if Api.attempts <= 2:
@@ -158,7 +160,11 @@ async def test_reties_success(loop, postgres_url):
         'tm',
         TaskManager(
             Api(),
-            TaskManagerConfig(db_url=postgres_url, db_schema=test_schema_name),
+            TaskManagerConfig(
+                db_url=postgres_url,
+                db_schema=test_schema_name,
+                create_database_objects=True,
+            ),
         ),
     )
     await app.start()
@@ -206,7 +212,7 @@ async def test_reties_error(loop, postgres_url):
     class Api:
         attempts = 0
 
-        @method(name='someTest')
+        @task(name='someTest')
         async def test(self, arg):
 
             Api.attempts += 1
@@ -221,7 +227,11 @@ async def test_reties_error(loop, postgres_url):
         'tm',
         TaskManager(
             Api(),
-            TaskManagerConfig(db_url=postgres_url, db_schema=test_schema_name),
+            TaskManagerConfig(
+                db_url=postgres_url,
+                db_schema=test_schema_name,
+                create_database_objects=True,
+            ),
         ),
     )
     await app.start()
@@ -274,7 +284,7 @@ async def test_tasks_by_ref(loop, postgres_url):
     fut = Future()
 
     class Api:
-        @method()
+        @task()
         async def test(self, arg):
             fut.set_result(arg)
             return arg
@@ -284,7 +294,11 @@ async def test_tasks_by_ref(loop, postgres_url):
         'tm',
         TaskManager(
             Api(),
-            TaskManagerConfig(db_url=postgres_url, db_schema=test_schema_name),
+            TaskManagerConfig(
+                db_url=postgres_url,
+                db_schema=test_schema_name,
+                create_database_objects=True,
+            ),
         ),
     )
     await app.start()
@@ -318,7 +332,7 @@ async def test_task_cancel(loop, postgres_url):
     fut = Future()
 
     class Api:
-        @method()
+        @task()
         async def test123(self, arg):
             fut.set_result(arg)
             return arg
@@ -328,7 +342,11 @@ async def test_task_cancel(loop, postgres_url):
         'tm',
         TaskManager(
             Api(),
-            TaskManagerConfig(db_url=postgres_url, db_schema=test_schema_name),
+            TaskManagerConfig(
+                db_url=postgres_url,
+                db_schema=test_schema_name,
+                create_database_objects=True,
+            ),
         ),
     )
     await app.start()
@@ -351,5 +369,89 @@ async def test_task_cancel(loop, postgres_url):
     assert len(tasks) == 1
     assert tasks[0]['name'] == 'test123'
     assert tasks[0]['status'] == STATUS_CANCELED
+
+    await app.stop()
+
+
+async def test_task_crontab(loop, postgres_url):
+    test_schema_name = await prepare(postgres_url)
+
+    fut = Future()
+    count = []
+
+    class Api:
+        @task(crontab='* * * * * * *')
+        async def test123(self):
+            count.append(None)
+            if len(count) == 2:
+                fut.set_result(111)
+
+    app = BaseApplication(BaseConfig())
+    app.add(
+        'tm',
+        TaskManager(
+            Api(),
+            TaskManagerConfig(
+                db_url=postgres_url,
+                db_schema=test_schema_name,
+                create_database_objects=True,
+            ),
+        ),
+    )
+    await app.start()
+
+    res = await wait_for(fut, 10)
+    assert res == 111
+
+    tasks = await get_tasks_arch(postgres_url, test_schema_name)
+    assert len(tasks) == 2
+
+    logs = await get_tasks_log(postgres_url, test_schema_name)
+    assert len(logs) == 2
+
+    assert len(await get_tasks_pending(postgres_url, test_schema_name)) == 0
+
+    await app.stop()
+
+
+async def test_task_crontab_with_date_attr(loop, postgres_url):
+    test_schema_name = await prepare(postgres_url)
+
+    fut = Future()
+    count = []
+
+    class Api:
+        @task(crontab='* * * * * * *', crontab_date_attr='date')
+        async def test123(self, date: datetime):
+            count.append(date)
+            if len(count) == 2:
+                fut.set_result(111)
+
+    app = BaseApplication(BaseConfig())
+    app.add(
+        'tm',
+        TaskManager(
+            Api(),
+            TaskManagerConfig(
+                db_url=postgres_url,
+                db_schema=test_schema_name,
+                create_database_objects=True,
+            ),
+        ),
+    )
+    await app.start()
+
+    res = await wait_for(fut, 10)
+    assert res == 111
+
+    assert count[0] < count[1]
+
+    tasks = await get_tasks_arch(postgres_url, test_schema_name)
+    assert len(tasks) == 2
+
+    logs = await get_tasks_log(postgres_url, test_schema_name)
+    assert len(logs) == 2
+
+    assert len(await get_tasks_pending(postgres_url, test_schema_name)) == 0
 
     await app.stop()

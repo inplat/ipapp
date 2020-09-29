@@ -5,17 +5,7 @@ import asyncpg
 
 from ipapp.app import BaseApplication, BaseConfig
 from ipapp.http import HttpSpan
-from ipapp.logger.adapters.requests import (
-    CREATE_TABLE_QUERY,
-    RequestsAdapter,
-    RequestsConfig,
-)
-
-
-async def create_table(postgres_url: str, table_name: str) -> None:
-    conn = await asyncpg.connect(postgres_url)
-    await conn.execute(CREATE_TABLE_QUERY.format(table_name=table_name))
-    await conn.close()
+from ipapp.logger.adapters.requests import RequestsAdapter, RequestsConfig
 
 
 async def get_requests(
@@ -34,8 +24,6 @@ async def test_success(loop, postgres_url: str):
     table_name = '_requests_log_table'
     max_hdrs_length = 5
     max_body_length = 4
-
-    await create_table(postgres_url, table_name)
 
     cfg = RequestsConfig(
         dsn=postgres_url,

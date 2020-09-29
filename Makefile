@@ -56,9 +56,10 @@ clean-venv:  ## Remove virtual environment
 
 $(VENV_PATH):  ## Create a virtual environment
 	virtualenv -p python3.7 $@
+	$(VENV_PATH)/bin/pip install -U pip setuptools
 
-$(VENV_PATH)/pip-status: pyproject.toml poetry.lock | $(VENV_PATH) ## Install (upgrade) all development requirements
-	poetry install -E fastapi -E iprpc -E oracle -E postgres -E rabbitmq -E s3 -E sftp -E testing
+$(VENV_PATH)/pip-status: pyproject.toml | $(VENV_PATH) ## Install (upgrade) all development requirements
+	poetry install -E fastapi -E iprpc -E oracle -E postgres -E rabbitmq -E s3 -E sftp -E dbtm -E testing
 	# fix CI error: Uploading artifacts to coordinator... too large archive
 	find . -type d -name __pycache__ -exec rm -rf {} \+
 	# keep a real file to be able to compare its mtime with mtimes of sources:

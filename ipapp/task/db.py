@@ -1,19 +1,27 @@
 import asyncio
 import time
 import traceback
+import warnings
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from functools import wraps
 from typing import (
     Any,
     AsyncContextManager,
     Callable,
+    Dict,
     List,
     Optional,
     Tuple,
+    Type,
     Union,
 )
 
 import asyncpg
+import asyncpg.exceptions
+import pytz
+from crontab import CronTab
 from pydantic import BaseModel, Field
 
 from ipapp import Component
@@ -23,6 +31,8 @@ from ipapp.error import PrepareError
 from ipapp.logger import Span, wrap2span
 from ipapp.misc import json_encode as default_json_encoder
 from ipapp.misc import mask_url_pwd
+from ipapp.rpc import method
+from ipapp.rpc.error import RpcError
 from ipapp.rpc.main import Executor
 
 TaskHandler = Union[Callable, str]
@@ -37,17 +47,33 @@ STATUS_CANCELED = 'canceled'
 
 
 CREATE_TABLE_QUERY = """\
-CREATE TYPE {schema}.task_status AS ENUM
-   ('pending',
-    'progress',
-    'successful',
-    'error',
-    'retry',
-    'canceled');
 
-CREATE SEQUENCE {schema}.task_id_seq;
 
-CREATE TABLE {schema}.task
+CREATE SCHEMA IF NOT EXISTS {schema};
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_type t
+      LEFT JOIN pg_namespace p ON t.typnamespace=p.oid
+      WHERE t.typname='task_status' AND p.nspname='{schema}'
+    ) THEN
+        CREATE TYPE {schema}.task_status AS ENUM
+       ('pending',
+        'progress',
+        'successful',
+        'error',
+        'retry',
+        'canceled');
+    END IF;
+END
+$$;
+
+
+
+CREATE SEQUENCE IF NOT EXISTS {schema}.task_id_seq;
+
+CREATE TABLE IF NOT EXISTS {schema}.task
 (
   id bigint NOT NULL DEFAULT nextval('{schema}.task_id_seq'::regclass),
   reference text,
@@ -65,7 +91,7 @@ CREATE TABLE {schema}.task
   CONSTRAINT task_params_check CHECK (jsonb_typeof(params) = 'object'::text)
 );
 
-CREATE TABLE {schema}.task_pending
+CREATE TABLE IF NOT EXISTS {schema}.task_pending
 (
   id bigint NOT NULL DEFAULT nextval('{schema}.task_id_seq'::regclass),
   status {schema}.task_status NOT NULL DEFAULT 'pending'::{schema}.task_status,
@@ -79,7 +105,7 @@ CREATE TABLE {schema}.task_pending
 )
 INHERITS ({schema}.task);
 
-CREATE TABLE {schema}.task_arch
+CREATE TABLE IF NOT EXISTS {schema}.task_arch
 (
   id bigint NOT NULL DEFAULT nextval('{schema}.task_id_seq'::regclass),
   status {schema}.task_status NOT NULL
@@ -94,7 +120,7 @@ CREATE TABLE {schema}.task_arch
 )
 INHERITS ({schema}.task);
 
-CREATE TABLE {schema}.task_log
+CREATE TABLE IF NOT EXISTS {schema}.task_log
 (
   id bigserial NOT NULL,
   task_id bigint NOT NULL,
@@ -108,24 +134,31 @@ CREATE TABLE {schema}.task_log
   CONSTRAINT task_log_pkey PRIMARY KEY (id)
 );
 
-CREATE INDEX task_pending_eta_idx
+CREATE TABLE IF NOT EXISTS {schema}.task_cron_tick (
+  id integer NOT NULL,
+  last_stamp timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT task_cron_tick_pkey PRIMARY KEY (id),
+  CONSTRAINT task_cron_tick_pkey_check CHECK (id=0)
+);
+
+CREATE INDEX IF NOT EXISTS task_pending_eta_idx
   ON {schema}.task_pending
   USING btree
   (eta)
   WHERE status = ANY (ARRAY['pending'::{schema}.task_status,
                             'retry'::{schema}.task_status]);
 
-CREATE INDEX task_pending_reference_idx
+CREATE INDEX IF NOT EXISTS task_pending_reference_idx
   ON {schema}.task_pending
   USING btree
   (reference);
 
-CREATE INDEX task_arch_reference_idx
+CREATE INDEX IF NOT EXISTS task_arch_reference_idx
   ON {schema}.task_arch
   USING btree
   (reference);
 
-CREATE INDEX task_log_task_id_idx
+CREATE INDEX IF NOT EXISTS task_log_task_id_idx
   ON {schema}.task_log
   USING btree
   (task_id);
@@ -141,6 +174,15 @@ class Task(BaseModel):
     retry_delay: timedelta
     status: str
     retries: Optional[int]
+
+
+@dataclass
+class PeriodicTask:
+    fn: Callable
+    name: str
+    crontab: CronTab
+    strict: bool = False
+    date_attr: Optional[str] = None
 
 
 class TaskManagerSpan(Span):
@@ -194,6 +236,14 @@ class TaskManagerConfig(BaseModel):
     idle: bool = Field(
         False, description="Пока включено задачи не берутся в работу"
     )
+    timezone: str = Field(
+        'UTC', description="Временная зона для периодических задач"
+    )
+    create_database_objects: bool = Field(
+        False,
+        description="При запуске будет попытка создать объекты базы данных, "
+        "если они не существуют",
+    )
 
 
 class TaskManager(Component):
@@ -205,21 +255,39 @@ class TaskManager(Component):
         self.stamp_early: float = 0.0
         self._lock: Optional[asyncio.Lock] = None
         self._db: Optional[Db] = None
+        self._tick_fut: Optional[asyncio.Future] = None
+        self._tick_lock: Optional[asyncio.Lock] = None
+        self._periodic_tasks: List[PeriodicTask] = []
+        self._find_periodic_tasks(api)
+        self._api = api
 
-    @property
-    def _masked_url(self) -> Optional[str]:
-        if self.cfg.db_url is not None:
-            return mask_url_pwd(self.cfg.db_url)
-        return None
+    def _check_deprecated_decorator(self) -> None:
+        for key in dir(self._api):
+            if callable(getattr(self._api, key)):
+                fn = getattr(self._api, key)
+                if hasattr(fn, '__rpc_name__'):
+                    if not hasattr(fn, '__task_decorator__'):
+                        warnings.warn(
+                            "Decorator @ipapp.rpc.method is deprecated for "
+                            "TaskManager tasks declaration. "
+                            "Use @ipapp.task.db.task instead",
+                            DeprecationWarning,
+                            stacklevel=2,
+                        )
 
     async def prepare(self) -> None:
         if self.app is None:  # pragma: no cover
             raise UserWarning('Unattached component')
 
+        self._check_deprecated_decorator()
+
         self._lock = asyncio.Lock(loop=self.loop)
 
         self._db = Db(self, self.cfg)
         await self._db.init()
+
+        self._tick_lock = asyncio.Lock()
+        self._tick_fut = asyncio.ensure_future(self._tick())
 
     async def start(self) -> None:
         if self.app is None:  # pragma: no cover
@@ -232,6 +300,15 @@ class TaskManager(Component):
 
     async def stop(self) -> None:
         self._stopping = True
+
+        # stop tick
+        if self._tick_lock is not None and self._tick_fut is not None:
+            await self._tick_lock.acquire()
+            self._tick_fut.cancel()
+            self._tick_lock.release()
+            self._tick_lock = None
+            self._tick_fut = None
+
         if self._lock is None:
             return
         await self._lock.acquire()
@@ -242,6 +319,99 @@ class TaskManager(Component):
     async def health(self) -> None:
         if self._db is not None:
             await self._db.health(lock=True)
+
+    def _find_periodic_tasks(self, api: object) -> None:
+        self._periodic_tasks = []
+        for attr in dir(api):
+            fn = getattr(api, attr, None)
+            if not fn or not callable(fn):
+                continue
+
+            if not hasattr(fn, '__crontab__'):
+                continue
+
+            if not hasattr(fn, '__rpc_name__'):
+                raise UserWarning
+
+            task = PeriodicTask(
+                fn=fn,
+                name=getattr(fn, '__rpc_name__'),
+                crontab=getattr(fn, '__crontab__'),
+                strict=getattr(fn, '__crontab_do_not_miss__', False),
+                date_attr=getattr(fn, '__crontab_date_attr__', None),
+            )
+
+            self._periodic_tasks.append(task)
+
+    async def _tick(self) -> None:
+        if not self._tick_lock:  # pragma: no cover
+            raise UserWarning
+        if self._db is None:  # pragma: no cover
+            raise UserWarning
+        tz = pytz.timezone(self.cfg.timezone)
+        boot = True
+        while True:
+            next_sleep: Optional[float] = None
+            to_exec: List[Tuple[Callable, datetime, Optional[str]]] = []
+            async with self._tick_lock:
+                try:
+                    async with self._db.transaction():
+                        await self._db.lock_tick_table()
+                        now, last = await self._db.get_last_tick_stamp(
+                            self.cfg.timezone
+                        )
+                        if last is None:
+                            now, last = await self._db.create_last_tick_stamp(
+                                self.cfg.timezone
+                            )
+                        if now is None:  # pragma: no cover
+                            raise RuntimeError
+
+                        now = tz.localize(now)
+                        last = tz.localize(last)
+
+                        # now = now + timedelta(microseconds=1)
+                        for task in self._periodic_tasks:
+                            if boot and not task.strict:
+                                next_dt = now + timedelta(
+                                    seconds=task.crontab.next(now)
+                                )
+                            else:
+                                next_dt = last + timedelta(
+                                    seconds=task.crontab.next(last)
+                                )
+                            # TODO pass next_dt to tasks as arg
+                            while next_dt <= now:
+                                to_exec.append(
+                                    (task.fn, next_dt, task.date_attr)
+                                )
+                                if not task.strict:
+                                    next_dt = now + timedelta(
+                                        seconds=task.crontab.next(now)
+                                    )
+                                    break
+                                next_dt += timedelta(
+                                    seconds=task.crontab.next(next_dt)
+                                )
+
+                            next_secs = (next_dt - now).total_seconds()
+                            if next_sleep is None or next_sleep > next_secs:
+                                if next_secs > 0:
+                                    next_sleep = next_secs
+
+                        await self._db.update_last_tick_stamp(now)
+                except Exception as err:
+                    self.app.log_err(err)
+                    to_exec = []
+
+            for fn, date_attr_val, date_attr_name in to_exec:
+                params = {}
+                if date_attr_name is not None:
+                    params = {date_attr_name: date_attr_val}
+                await self.schedule(fn, params)
+
+            await asyncio.sleep(next_sleep if next_sleep is not None else 1)
+            boot = False
 
     async def schedule(
         self,
@@ -493,6 +663,9 @@ class Db:
                     "Connecting to %s", self._masked_url
                 )
                 self._conn = await asyncpg.connect(self._cfg.db_url)
+
+                await self._check_or_create_database_objects()
+
                 await Postgres._conn_init(self._conn)  # noqa
                 self._tm.app.logger.app.log_info(
                     "Connected to %s", self._masked_url
@@ -505,6 +678,30 @@ class Db:
                     loop=self._tm.app.logger.app.loop,
                 )
         raise Exception("Could not connect to %s" % self._masked_url)
+
+    async def _check_or_create_database_objects(self) -> None:
+        # TODO сделать полноценное сравнение объектов в БД и их безопасную
+        #      модификацию при необходимости
+        if self._cfg.create_database_objects:
+            await self._create_database_objects()
+
+        # проверка наличия таблицы в БД, для поддержки совместимости
+        # со старой версией
+        try:
+            await self._execute('SELECT 1 FROM main.task_cron_tick')
+        except asyncpg.exceptions.UndefinedTableError:
+            await self._create_database_objects()
+
+    async def _create_database_objects(self) -> None:
+        try:
+            await self._execute(
+                CREATE_TABLE_QUERY.format(schema=self._cfg.db_schema)
+            )
+        except Exception as err:
+            raise Exception(
+                'Failed to create task manager objects at %s with error: %s'
+                '' % (self._masked_url, err)
+            )
 
     async def _fetch(
         self,
@@ -719,5 +916,130 @@ class Db:
             query, task_id, eta, started, finished, js, error, trace, lock=lock
         )
 
+    async def lock_tick_table(self) -> None:
+        query = (  # nosec
+            'LOCK TABLE %s.task_cron_tick ' 'IN SHARE UPDATE EXCLUSIVE MODE'
+        ) % self._cfg.db_schema
+        await self._execute(query)
+
+    async def get_last_tick_stamp(
+        self, tz: str
+    ) -> Tuple[Optional[datetime], Optional[datetime]]:
+        query = (  # nosec
+            'SELECT NOW()::timestamptz(6) at time zone $1 as now,'
+            ' last_stamp at time zone $1 as last_stamp '
+            'FROM %s.task_cron_tick'
+        ) % self._cfg.db_schema
+        res = await self._fetchrow(query, tz)
+        if res is None:
+            return None, None
+        return res['now'], res['last_stamp']
+
+    async def create_last_tick_stamp(
+        self, tz: str
+    ) -> Tuple[datetime, datetime]:
+        query = (  # nosec
+            'INSERT INTO %s.task_cron_tick(id, last_stamp) '
+            'VALUES (0, NOW()::timestamptz(0)) '
+            'RETURNING NOW() at time zone $1 as now,'
+            ' last_stamp at time zone $1 as last_stamp'
+        ) % self._cfg.db_schema
+        res = await self._fetchrow(query, tz)
+        if res is None:
+            raise RuntimeError
+        return res['now'], res['last_stamp']
+
+    async def update_last_tick_stamp(self, stamp: datetime) -> None:
+        query = (  # nosec
+            'UPDATE %s.task_cron_tick SET last_stamp=$1'
+        ) % self._cfg.db_schema
+        await self._execute(query, stamp)
+
     async def health(self, *, lock: bool = False) -> None:
         await self._execute('SELECT 1', lock=lock)
+
+
+def task(
+    *,
+    name: Optional[str] = None,
+    errors: Optional[List[Type[RpcError]]] = None,
+    deprecated: Optional[bool] = False,
+    summary: str = "",
+    description: str = "",
+    request_model: Optional[Any] = None,
+    response_model: Optional[Any] = None,
+    request_ref: Optional[str] = None,
+    response_ref: Optional[str] = None,
+    validators: Optional[Dict[str, dict]] = None,
+    examples: Optional[List[Dict[str, Optional[str]]]] = None,
+    crontab: Optional[str] = None,
+    crontab_do_not_miss: bool = False,
+    crontab_date_attr: Optional[str] = None,
+) -> Callable:
+    """
+    Декоратор для задач
+
+    :param name: название задачи. Должно Быть уникальным в разрезе всего Task Manager-а
+    :param errors:
+    :param deprecated:
+    :param summary:
+    :param description:
+    :param request_model:
+    :param response_model:
+    :param request_ref:
+    :param response_ref:
+    :param validators:
+    :param examples:
+    :param crontab: расписание запуска в формате crontab. См. https://github.com/josiahcarlson/parse-crontab#description
+    :param crontab_do_not_miss: Если установлен в true, то сервис не будет пропускать моменты запуска даже при downtime-е, т.е. все задачи за пропущенные периоды(в базе данных с момента last_stamp в теблице task_cron_tick по now) будут выполнены в момент запуска сервиса
+    :param crontab_date_attr: если не None, то в этот аргумент будет передано значение даты и времени тика, в который произошло(или должно было произойти, см. crontab_do_not_miss) срабатывание задачи
+    :return:
+    """
+
+    def decorator(func: Callable) -> Callable:
+        _validate_crontab_fn(
+            func, name, crontab, crontab_do_not_miss, crontab_date_attr
+        )
+        setattr(func, '__task_decorator__', True)
+
+        if crontab is not None:
+            setattr(func, '__crontab__', CronTab(crontab))
+            setattr(func, '__crontab_do_not_miss__', crontab_do_not_miss)
+            setattr(func, '__crontab_date_attr__', crontab_date_attr)
+
+        @wraps(func)
+        def wrapper(*args: Any, **kwrags: Any) -> Callable:
+            return func(*args, **kwrags)
+
+        return method(
+            name=name,
+            errors=errors,
+            deprecated=deprecated,
+            summary=summary,
+            description=description,
+            request_model=request_model,
+            response_model=response_model,
+            request_ref=request_ref,
+            response_ref=response_ref,
+            validators=validators,
+            examples=examples,
+        )(wrapper)
+
+    return decorator
+
+
+def _validate_crontab_fn(
+    fn: Callable,
+    name: Optional[str] = None,
+    crontab: Optional[str] = None,
+    crontab_do_not_miss: bool = False,
+    crontab_date_attr: Optional[str] = None,
+) -> None:
+    task_name = name or fn.__name__
+
+    if crontab_date_attr is not None:  # pragma: no cover
+        if crontab_date_attr not in fn.__code__.co_varnames:
+            raise UserWarning(
+                'Task "%s" has not required argument "%s" for crontab'
+                % (task_name, crontab_date_attr)
+            )

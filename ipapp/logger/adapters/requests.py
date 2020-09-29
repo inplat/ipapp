@@ -3,6 +3,7 @@ from collections import deque
 from typing import Any, Deque, Dict, List, Optional, Tuple
 
 import asyncpg
+import asyncpg.exceptions
 from pydantic import BaseModel, Field
 
 import ipapp.http as ht
@@ -20,6 +21,8 @@ except ImportError:
     amqp = None  # type: ignore
 
 CREATE_TABLE_QUERY = """\
+CREATE SCHEMA IF NOT EXISTS {schema_name};
+
 CREATE TABLE IF NOT EXISTS {table_name}
 (
     id bigserial PRIMARY KEY,
@@ -175,6 +178,11 @@ class RequestsConfig(AbcConfig):
             "Задержка перед повторной попыткой подключения к базе данных"
         ),
     )
+    create_database_objects: bool = Field(
+        True,
+        description="При запуске будет попытка создать объекты базы данных, "
+        "если они не существуют",
+    )
 
 
 class RequestsAdapter(AbcAdapter):
@@ -289,7 +297,24 @@ class RequestsAdapter(AbcAdapter):
             try:
                 self.logger.app.log_info("Connecting to %s", self._masked_url)
                 self._db = await asyncpg.connect(self.cfg.dsn)
-                await self._check_conn()
+                try:
+                    await self._check_conn()
+                except PrepareError:
+                    if not self.cfg.create_database_objects:
+                        raise
+                    # сервис пытается создать нужные объекты в БД
+                    spl = self.cfg.db_table_name.split('.', 1)
+                    schema_name = spl[0] if len(spl) == 2 else 'public'
+                    await self._db.execute(
+                        CREATE_TABLE_QUERY.format(
+                            schema_name=schema_name,
+                            table_name=self.cfg.db_table_name,
+                        )
+                    )
+                    # если все запросы выполнились, то делаем еще раз проверку,
+                    # т.к. в запросах есть IF NOT EXISTS
+                    await self._check_conn()
+
                 self.logger.app.log_info("Connected to %s", self._masked_url)
                 return self._db
             except Exception as err:
@@ -303,7 +328,10 @@ class RequestsAdapter(AbcAdapter):
         if self._db is None:  # pragma: no cover
             raise UserWarning
         query = CHECK_SQL.format(table_name=self.cfg.db_table_name)
-        res = await self._db.fetch(query)
+        try:
+            res = await self._db.fetch(query)
+        except asyncpg.exceptions.UndefinedTableError as err:
+            raise PrepareError(err)
         if len(res) > 0:
             msg = 'Invalid table "%s" for requests log  [%s]: %s' '' % (
                 self.cfg.db_table_name,

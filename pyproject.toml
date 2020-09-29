@@ -18,7 +18,7 @@ branch = true
 source = ["ipapp"]
 omit = ["site-packages", ".tox"]
 
-[tool.pytest]
+[tool.pytest.ini_options]
 addopts = "-s -v --cov --cov-report term --cov-report=html"
 testpaths = ["tests"]
 filterwarnings = ["ignore::DeprecationWarning:distutils"]
@@ -95,6 +95,7 @@ async-generator = {version = "^1.10", optional = true}
 docker-compose = {version = "^1.27.3", optional = true}
 watchdog = {version = "^0.10.3", optional = true}
 requests = {version = "^2.24.0", optional = true}
+crontab = {version = "^0.22.6", optional = true}
 
 [tool.poetry.dev-dependencies]
 
@@ -106,6 +107,7 @@ postgres = ["asyncpg"]
 rabbitmq = ["pika"]
 s3 = ["aiobotocore", "python-magic"]
 sftp = ["asyncssh"]
+dbtm = ["asyncpg", "crontab"]
 testing = ["idna", "black", "flake8", "mock", "mypy", "bandit", "isort", "safety", "pylint", "pytest-aiohttp", "pytest",
     "pytest-asyncio", "pytest-cov", "coverage", "Sphinx", "sphinx-rtd-theme", "pip", "wheel", "tox", "async-generator",
     "docker-compose", "watchdog", "requests"]
