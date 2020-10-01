@@ -500,7 +500,93 @@ async def test_clt_batch_empty():
     assert result == ()
 
 
-async def test_legacy_format_success():
+async def test_legacy_v1_format_success():
+    class H:
+        @method()
+        async def echo(self, text: str) -> dict:
+            return {"e": 'echo: %s' % text}
+
+    ex = JsonRpcExecutor(H(), get_app())
+    res = await ex.exec(b'{"method": "echo", "text": "123"}')
+
+    assert json.loads(res) == {
+        'code': 0,
+        'message': 'OK',
+        'e': 'echo: 123',
+    }
+
+
+async def test_legacy_v1_format_success_2():
+    class H:
+        @method()
+        async def noop(self, text: str) -> None:
+            pass
+
+    ex = JsonRpcExecutor(H(), get_app())
+    res = await ex.exec(b'{"method": "noop", "text": "123"}')
+
+    assert json.loads(res) == {
+        'code': 0,
+        'message': 'OK',
+    }
+
+
+async def test_legacy_v1_custom_error():
+    class MyJsonRpcError(JsonRpcError):
+        jsonrpc_error_code = 1
+        message = 'Something wrong'
+
+    class H:
+        @method()
+        async def echo(self, text: str) -> None:
+            raise MyJsonRpcError()
+
+    ex = JsonRpcExecutor(H(), get_app())
+    res = await ex.exec(b'{"method": "echo", "text": ""}')
+
+    assert json.loads(res) == {
+        'code': 1,
+        'message': 'Something wrong',
+    }
+
+
+async def test_legacy_v1_custom_error_2():
+    class MyJsonRpcError(JsonRpcError):
+        jsonrpc_error_code = 2
+        message = 'Something wrong'
+
+    class H:
+        @method()
+        async def echo(self, text: str) -> None:
+            raise MyJsonRpcError(data={'reason': 'some reason'})
+
+    ex = JsonRpcExecutor(H(), get_app())
+    res = await ex.exec(b'{"method": "echo", "text": ""}')
+
+    assert json.loads(res) == {
+        'code': 2,
+        'message': 'Something wrong',
+        'reason': 'some reason',
+    }
+
+
+async def test_legacy_v1_format_error():
+    class H:
+        @method()
+        async def echo(self, text: str) -> None:
+            return None
+
+    ex = JsonRpcExecutor(H(), get_app())
+    res = await ex.exec(b'{"method": "echo", "int": 1}')
+
+    assert json.loads(res) == {
+        'code': -32602,
+        'message': 'Invalid params',
+        'info': 'Got an unexpected argument: int',
+    }
+
+
+async def test_legacy_v2_format_success():
     class H:
         @method()
         async def echo(self, text: str) -> str:
@@ -516,7 +602,7 @@ async def test_legacy_format_success():
     }
 
 
-async def test_legacy_format_error():
+async def test_legacy_v2_format_error():
     class H:
         @method()
         async def echo(self, text: str) -> str:
@@ -527,7 +613,7 @@ async def test_legacy_format_error():
 
     assert json.loads(res) == {
         'code': -32602,
-        'details': None,
+        'details': {'info': 'Missing 1 required argument(s):  text'},
         'message': 'Invalid params',
     }
 

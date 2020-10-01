@@ -48,6 +48,20 @@ SPAN_TAG_JSONRPC_METHOD = 'rpc.method'
 SPAN_TAG_JSONRPC_CODE = 'rpc.code'
 SPAN_TAG_JSONRPC_IS_BATCH = 'rpc.is_batch'
 
+# не легаси, потокол в соответствии со спецификацией json-rpc 2.0
+REG_PROTO_JSON_RPC = 0
+
+# легси где параметры на том же уровне, что и method, результат на том же
+# уровне, что и code/message
+# {"method": "name", "a": 1, "b": 2}
+# {"code": 0, "message": "Ok", "any": "object", "another": "value"}
+REG_PROTO_LEGACY_V1 = 1
+
+# легси где method и params в разных аргументах, есть code и message
+# {"method": "name", "params": {"a": 1, "b": 2}}
+# {"code": 0, "message": "Ok", "result": {"any": "object"}}
+REG_PROTO_LEGACY_V2 = 2
+
 
 class JsonRpcExecutor:
     def __init__(
@@ -100,20 +114,44 @@ class JsonRpcExecutor:
             resp = await self._exec_batch(req)
         elif isinstance(req, rpc.JSONRPCRequest):
             resp = await self._exec_single(req)
-            if hasattr(req, 'legacy'):
+            code: int
+            proto_ver = getattr(req, 'proto_ver', REG_PROTO_JSON_RPC)
+            if proto_ver == REG_PROTO_LEGACY_V2:
                 if isinstance(resp, JSONRPCSuccessResponse):
                     return json.dumps(
                         {'result': resp.result, 'code': 0, 'message': 'OK'}
                     ).encode()
                 if isinstance(resp, JSONRPCErrorResponse):
-                    code: int = int(resp._jsonrpc_error_code)
-                    return json.dumps(
-                        {
-                            "code": code,
-                            "message": str(resp.error),
-                            "details": None,
-                        }
-                    ).encode()
+                    code = int(resp._jsonrpc_error_code)
+                    res = {
+                        "code": code,
+                        "message": str(resp.error),
+                        "details": None,
+                    }
+                    if hasattr(resp, 'data'):
+                        res['details'] = resp.data
+                    return json.dumps(res).encode()
+                raise RuntimeError
+            elif proto_ver == REG_PROTO_LEGACY_V1:
+                if isinstance(resp, JSONRPCSuccessResponse):
+                    res = {'code': 0, 'message': 'OK'}
+                    if isinstance(resp.result, dict):
+                        res.update(resp.result)
+                    elif resp.result is None:
+                        pass
+                    else:
+                        raise NotImplementedError
+
+                    return json.dumps(res).encode()
+                if isinstance(resp, JSONRPCErrorResponse):
+                    code = int(resp._jsonrpc_error_code)
+                    res = {
+                        "code": code,
+                        "message": str(resp.error),
+                    }
+                    if hasattr(resp, 'data') and isinstance(resp.data, dict):
+                        res.update(resp.data)
+                    return json.dumps(res).encode()
                 raise RuntimeError
         else:  # pragma: no cover
             raise NotImplementedError
@@ -155,15 +193,26 @@ class JsonRpcExecutor:
 
         if not isinstance(data, dict) or 'method' not in data:
             return None
-        if 'params' in data and not isinstance(data['params'], dict):
-            return None
 
-        req = rpc.JSONRPCRequest()
-        req.method = data.get('method')
-        req.kwargs = data.get('params')
-        req.one_way = False
-        req.unique_id = 1
-        req.legacy = True
+        method = data.pop('method')
+
+        if (len(data) == 1 and 'params' in data) or len(data) == 0:
+            if 'params' in data and not isinstance(data['params'], dict):
+                return None
+
+            req = rpc.JSONRPCRequest()
+            req.method = method
+            req.kwargs = data.get('params')
+            req.one_way = False
+            req.unique_id = 1
+            req.proto_ver = REG_PROTO_LEGACY_V2
+        else:
+            req = rpc.JSONRPCRequest()
+            req.method = method
+            req.kwargs = data
+            req.one_way = False
+            req.unique_id = 1
+            req.proto_ver = REG_PROTO_LEGACY_V1
 
         return req
 
