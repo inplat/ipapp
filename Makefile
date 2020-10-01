@@ -16,7 +16,7 @@ VENV_BIN=$(VENV_PATH)/bin
 BROWSER := $(VENV_BIN)/python -c "$$BROWSER_PYSCRIPT"
 
 .PHONY: clean
-clean: clean-pyc clean-build clean-test clean-venv clean-docs clean-mypy  ## Remove all build, test, coverage and Python artifacts
+clean: clean-pyc clean-build clean-test clean-venv clean-poetry clean-docs clean-mypy  ## Remove all build, test, coverage and Python artifacts
 
 .PHONY: clean-build
 clean-build:  ## Remove build artifacts
@@ -53,6 +53,10 @@ clean-mypy:  ## Remove mypy cache
 .PHONY: clean-venv
 clean-venv:  ## Remove virtual environment
 	-rm -rf $(VENV_PATH)
+
+.PHONY: clean-poetry
+clean-poetry:  ## Remove poetry.lock
+	-rm poetry.lock
 
 $(VENV_PATH):  ## Create a virtual environment
 	virtualenv -p python3.7 $@
