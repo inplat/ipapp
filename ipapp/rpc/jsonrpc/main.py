@@ -271,6 +271,8 @@ class JsonRpcExecutor:
             )
             return req.respond(self.cast2dump(res))
         except Exception as e:
+            if not hasattr(e, 'jsonrpc_error_code'):
+                app.log_err(e)
             return req.error_respond(e)
         finally:
             if req.one_way:
