@@ -688,7 +688,11 @@ class Db:
         # проверка наличия таблицы в БД, для поддержки совместимости
         # со старой версией
         try:
-            await self._execute('SELECT 1 FROM main.task_cron_tick')
+            await self._execute(
+                'SELECT 1 FROM {schema}.task_cron_tick'.format(  # nosec
+                    schema=self._cfg.db_schema
+                )
+            )
         except asyncpg.exceptions.UndefinedTableError:
             await self._create_database_objects()
 
