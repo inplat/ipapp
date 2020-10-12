@@ -1,5 +1,5 @@
 import asyncio
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from aiohttp import web
 from pydantic import BaseModel
@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from ipapp.http.server import ServerHandler as _ServerHandler
 from ipapp.rpc.jsonrpc.main import JsonRpcExecutor
 from ipapp.rpc.jsonrpc.openrpc.models import ExternalDocs, Server
+from ipapp.rpc.main import RpcRegistry
 
 
 class JsonRpcHttpHandlerConfig(BaseModel):
@@ -23,19 +24,19 @@ class JsonRpcHttpHandler(_ServerHandler):
 
     def __init__(
         self,
-        api: object,
+        registry: Union[RpcRegistry, object],
         cfg: JsonRpcHttpHandlerConfig,
         servers: Optional[List[Server]] = None,
         external_docs: Optional[ExternalDocs] = None,
     ) -> None:
         self._cfg = cfg
-        self._api = api
+        self._registry = registry
         self._servers = servers
         self._external_docs = external_docs
 
     async def prepare(self) -> None:
         self._rpc = JsonRpcExecutor(
-            self._api,
+            self._registry,
             self.app,
             discover_enabled=self._cfg.discover_enabled,
             servers=self._servers,

@@ -12,7 +12,7 @@ from ipapp.logger.adapters.requests import RequestsAdapter, RequestsConfig
 from ipapp.logger.adapters.sentry import SentryAdapter, SentryConfig
 from ipapp.logger.adapters.zipkin import ZipkinAdapter, ZipkinConfig
 from ipapp.mq.pika import Pika, PikaConfig
-from ipapp.rpc.mq.pika import RpcClientChannel, RpcClientChannelConfig
+from ipapp.rpc.jsonrpc.mq.pika import RpcClientChannel, RpcClientChannelConfig
 
 
 class Config(BaseConfig):
@@ -42,7 +42,7 @@ class App(BaseApplication):
 
     async def start(self) -> None:
         await super().start()
-        res = await self.rpc_client.call('test', {})
+        res = await self.rpc_client.exec('test', {})
         print('=' * 80)
         print('RESULT:', res)
         print('=' * 80)
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     Usage:
 
 APP_AMQP_URL=amqp://guest:guest@localhost:9004/ APP_AMQP_RPC_QUEUE=rpcqueue \
-APP_LOG_REQUESTS_ENABLED=1 \
+APP_LOG_REQUESTS_ENABLED=0 \
 APP_LOG_REQUESTS_DSN=postgres://ipapp:secretpwd@localhost:9001/ipapp \
 APP_LOG_ZIPKIN_ENABLED=1 \
 APP_LOG_ZIPKIN_ADDR=http://127.0.0.1:9002/api/v2/spans \

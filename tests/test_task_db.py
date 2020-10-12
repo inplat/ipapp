@@ -15,7 +15,7 @@ from ipapp.task.db import (
     Retry,
     TaskManager,
     TaskManagerConfig,
-    task,
+    TaskRegistry,
 )
 
 
@@ -81,17 +81,18 @@ async def test_success(loop, postgres_url):
 
     fut = Future()
 
-    class Api:
-        @task()
-        async def test(self, arg):
-            fut.set_result(arg)
-            return arg
+    reg = TaskRegistry()
+
+    @reg.task()
+    async def test(arg):
+        fut.set_result(arg)
+        return arg
 
     app = BaseApplication(BaseConfig())
     app.add(
         'tm',
         TaskManager(
-            Api(),
+            reg,
             TaskManagerConfig(
                 db_url=postgres_url,
                 db_schema=test_schema_name,
@@ -102,7 +103,7 @@ async def test_success(loop, postgres_url):
     await app.start()
     tm: TaskManager = app.get('tm')  # type: ignore
 
-    await tm.schedule(Api.test, {'arg': 123}, eta=time.time() + 3)
+    await tm.schedule(test, {'arg': 123}, eta=time.time() + 3)
     tasks = await get_tasks_pending(postgres_url, test_schema_name)
     assert len(tasks) == 1
     assert tasks[0]['name'] == 'test'
@@ -146,20 +147,22 @@ async def test_reties_success(loop, postgres_url):
     class Api:
         attempts = 0
 
-        @task()
-        async def test(self, arg):
-            Api.attempts += 1
-            if Api.attempts <= 2:
-                raise Retry(Exception('Attempt %s' % Api.attempts))
+    reg = TaskRegistry()
 
-            fut.set_result(arg)
-            return arg
+    @reg.task()
+    async def test(arg):
+        Api.attempts += 1
+        if Api.attempts <= 2:
+            raise Retry(Exception('Attempt %s' % Api.attempts))
+
+        fut.set_result(arg)
+        return arg
 
     app = BaseApplication(BaseConfig())
     app.add(
         'tm',
         TaskManager(
-            Api(),
+            reg,
             TaskManagerConfig(
                 db_url=postgres_url,
                 db_schema=test_schema_name,
@@ -170,7 +173,7 @@ async def test_reties_success(loop, postgres_url):
     await app.start()
     tm: TaskManager = app.get('tm')  # type: ignore
 
-    await tm.schedule(Api.test, {'arg': 234}, max_retries=2, retry_delay=0.2)
+    await tm.schedule(test, {'arg': 234}, max_retries=2, retry_delay=0.2)
 
     res = await wait_for(fut, 10)
     assert res == 234
@@ -212,21 +215,23 @@ async def test_reties_error(loop, postgres_url):
     class Api:
         attempts = 0
 
-        @task(name='someTest')
-        async def test(self, arg):
+    reg = TaskRegistry()
 
-            Api.attempts += 1
-            if Api.attempts <= 2:
-                raise Retry(Exception('Attempt %s' % Api.attempts))
+    @reg.task(name='someTest')
+    async def test(arg):
 
-            fut.set_result(arg)
-            return arg
+        Api.attempts += 1
+        if Api.attempts <= 2:
+            raise Retry(Exception('Attempt %s' % Api.attempts))
+
+        fut.set_result(arg)
+        return arg
 
     app = BaseApplication(BaseConfig())
     app.add(
         'tm',
         TaskManager(
-            Api(),
+            reg,
             TaskManagerConfig(
                 db_url=postgres_url,
                 db_schema=test_schema_name,
@@ -282,18 +287,18 @@ async def test_tasks_by_ref(loop, postgres_url):
     test_schema_name = await prepare(postgres_url)
 
     fut = Future()
+    reg = TaskRegistry()
 
-    class Api:
-        @task()
-        async def test(self, arg):
-            fut.set_result(arg)
-            return arg
+    @reg.task()
+    async def test(arg):
+        fut.set_result(arg)
+        return arg
 
     app = BaseApplication(BaseConfig())
     app.add(
         'tm',
         TaskManager(
-            Api(),
+            reg,
             TaskManagerConfig(
                 db_url=postgres_url,
                 db_schema=test_schema_name,
@@ -306,9 +311,7 @@ async def test_tasks_by_ref(loop, postgres_url):
 
     ref = str(uuid.uuid4())
 
-    await tm.schedule(
-        Api.test, {'arg': 123}, eta=time.time() + 3, reference=ref
-    )
+    await tm.schedule(test, {'arg': 123}, eta=time.time() + 3, reference=ref)
     tasks = await get_tasks_by_reference(postgres_url, test_schema_name, ref)
     assert len(tasks) == 1
     assert tasks[0]['name'] == 'test'
@@ -331,17 +334,18 @@ async def test_task_cancel(loop, postgres_url):
 
     fut = Future()
 
-    class Api:
-        @task()
-        async def test123(self, arg):
-            fut.set_result(arg)
-            return arg
+    reg = TaskRegistry()
+
+    @reg.task()
+    async def test123(arg):
+        fut.set_result(arg)
+        return arg
 
     app = BaseApplication(BaseConfig())
     app.add(
         'tm',
         TaskManager(
-            Api(),
+            reg,
             TaskManagerConfig(
                 db_url=postgres_url,
                 db_schema=test_schema_name,
@@ -352,9 +356,7 @@ async def test_task_cancel(loop, postgres_url):
     await app.start()
     tm: TaskManager = app.get('tm')  # type: ignore
 
-    task_id = await tm.schedule(
-        Api.test123, {'arg': 123}, eta=time.time() + 600
-    )
+    task_id = await tm.schedule(test123, {'arg': 123}, eta=time.time() + 600)
 
     tasks = await get_tasks_pending(postgres_url, test_schema_name)
     assert len(tasks) == 1
@@ -378,19 +380,19 @@ async def test_task_crontab(loop, postgres_url):
 
     fut = Future()
     count = []
+    reg = TaskRegistry()
 
-    class Api:
-        @task(crontab='* * * * * * *')
-        async def test123(self):
-            count.append(None)
-            if len(count) == 2:
-                fut.set_result(111)
+    @reg.task(crontab='* * * * * * *')
+    async def test123():
+        count.append(None)
+        if len(count) == 2:
+            fut.set_result(111)
 
     app = BaseApplication(BaseConfig())
     app.add(
         'tm',
         TaskManager(
-            Api(),
+            reg,
             TaskManagerConfig(
                 db_url=postgres_url,
                 db_schema=test_schema_name,
@@ -420,18 +422,19 @@ async def test_task_crontab_with_date_attr(loop, postgres_url):
     fut = Future()
     count = []
 
-    class Api:
-        @task(crontab='* * * * * * *', crontab_date_attr='date')
-        async def test123(self, date: datetime):
-            count.append(date)
-            if len(count) == 2:
-                fut.set_result(111)
+    reg = TaskRegistry()
+
+    @reg.task(crontab='* * * * * * *', crontab_date_attr='date')
+    async def test123(date: datetime):
+        count.append(date)
+        if len(count) == 2:
+            fut.set_result(111)
 
     app = BaseApplication(BaseConfig())
     app.add(
         'tm',
         TaskManager(
-            Api(),
+            reg,
             TaskManagerConfig(
                 db_url=postgres_url,
                 db_schema=test_schema_name,

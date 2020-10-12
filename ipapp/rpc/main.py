@@ -1,17 +1,20 @@
 import asyncio
 import inspect
+import warnings
 from functools import wraps
 from types import MethodType
 from typing import (
     Any,
     Callable,
     Dict,
+    Generator,
     Iterable,
     List,
     Mapping,
     Optional,
     Tuple,
     Type,
+    Union,
 )
 
 from jsonschema import FormatChecker as JSONFormatChecker
@@ -25,6 +28,72 @@ from .error import InvalidArguments, MethodNotFound, RpcError
 
 class _PydanticConfig(BaseConfig):
     arbitrary_types_allowed = True
+
+
+class RpcRegistry(list):
+    def __init__(
+        self,
+        *,
+        title: Optional[str] = None,
+        description: Optional[str] = None,
+        version: Optional[str] = None,
+    ) -> None:
+        super().__init__()
+        self.title = title
+        self.description = description
+        self.version = version
+
+    def method(
+        self,
+        *,
+        name: Optional[str] = None,
+        errors: Optional[List[Type[RpcError]]] = None,
+        deprecated: Optional[bool] = False,
+        summary: str = "",
+        description: str = "",
+        request_model: Optional[Any] = None,
+        response_model: Optional[Any] = None,
+        request_ref: Optional[str] = None,
+        response_ref: Optional[str] = None,
+        validators: Optional[Dict[str, dict]] = None,
+        examples: Optional[List[Dict[str, Optional[str]]]] = None,
+    ) -> Callable:
+        def decorator(func: Callable) -> Callable:
+            func_name = name or func.__name__
+
+            _validate_method(
+                func,
+                func_name,
+                errors,
+                deprecated,
+                summary,
+                description,
+                request_model,
+                response_model,
+                request_ref,
+                response_ref,
+                validators,
+                examples,
+            )
+
+            setattr(func, '__rpc_registry__', self)
+            setattr(func, "__rpc_name__", func_name)
+            setattr(func, "__rpc_errors__", errors or [])
+            setattr(func, "__rpc_deprecated__", deprecated)
+            setattr(func, "__rpc_summary__", summary)
+            setattr(func, "__rpc_description__", description)
+            setattr(func, "__rpc_request_model__", request_model)
+            setattr(func, "__rpc_response_model__", response_model)
+            setattr(func, "__rpc_request_ref__", request_ref)
+            setattr(func, "__rpc_response_ref__", response_ref)
+            setattr(func, "__rpc_examples__", examples)
+
+            if validators is not None:
+                setattr(func, "__validators__", validators)
+            self.append(func)
+            return func
+
+        return decorator
 
 
 def method(
@@ -41,6 +110,20 @@ def method(
     validators: Optional[Dict[str, dict]] = None,
     examples: Optional[List[Dict[str, Optional[str]]]] = None,
 ) -> Callable:
+    warnings.warn(
+        "@method decorator is deprecated. User RpcRegistry instead.\n"
+        "Also use RpcRegistry as handler object.\n"
+        "Example:\n\n"
+        "reg = RpcRegistry()\n"
+        "\n"
+        "@reg.method()\n"
+        "def some_method(): pass\n\n"
+        "IMPORTANT! Do not use \"self\" argument! "
+        "Function can not be a method",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
     def decorator(func: Callable) -> Callable:
         func_name = name or func.__name__
 
@@ -328,20 +411,34 @@ class _Method:
 
 class Executor:
     def __init__(
-        self, handler: object, loop: Optional[asyncio.AbstractEventLoop] = None
+        self,
+        registry: Union[RpcRegistry, object],
+        loop: Optional[asyncio.AbstractEventLoop] = None,
     ) -> None:
-        self._handler = handler
+        self._handler = registry
         self._loop = loop
         self._methods: Dict[str, _Method] = {}
-        for key in dir(self._handler):
-            if callable(getattr(self._handler, key)):
-                fn = getattr(self._handler, key)
-                if hasattr(fn, '__rpc_name__'):
-                    if fn.__rpc_name__ in self._methods:
-                        raise UserWarning(
-                            'Method %s duplicated' '' % fn.__rpc_name__
-                        )
-                    self._methods[fn.__rpc_name__] = _Method(fn)
+        for fn in self.iter_handler(registry):
+            name = getattr(fn, '__rpc_name__', fn.__name__)
+            if getattr(fn, '__rpc_name__') in self._methods:
+                raise UserWarning('Method %s duplicated' '' % name)
+            self._methods[name] = _Method(fn)
+
+    @staticmethod
+    def iter_handler(
+        registry: Union[RpcRegistry, object]
+    ) -> Generator[Callable, None, None]:
+        if isinstance(registry, RpcRegistry):
+            for fn in registry:
+                if not hasattr(fn, '__rpc_name__'):
+                    raise UserWarning('Invalid handler %s' % fn)
+                yield fn
+        else:
+            for key in dir(registry):
+                if callable(getattr(registry, key)):
+                    fn = getattr(registry, key)
+                    if hasattr(fn, '__rpc_name__'):
+                        yield fn
 
     async def exec(
         self,

@@ -4,7 +4,7 @@ from typing import Optional
 from pydantic.main import BaseModel
 
 from ipapp import BaseApplication, BaseConfig
-from ipapp.rpc import method
+from ipapp.rpc import RpcRegistry
 from ipapp.rpc.jsonrpc import JsonRpcClient, JsonRpcError, JsonRpcExecutor
 
 
@@ -12,23 +12,24 @@ def get_app():
     return BaseApplication(BaseConfig())
 
 
-def get_clt(api_cls):
+def get_clt(reg: RpcRegistry):
     app = get_app()
 
     async def transport(request: bytes, timeout: Optional[float]) -> bytes:
-        ex = JsonRpcExecutor(api_cls(), app)
+        ex = JsonRpcExecutor(reg, app)
         return await ex.exec(request)
 
     return JsonRpcClient(transport, app)
 
 
 async def test_success_by_name():
-    class H:
-        @method()
-        async def echo(self, text: str) -> str:
-            return 'echo: %s' % text
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def echo(text: str) -> str:
+        return 'echo: %s' % text
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(
         b'{"jsonrpc": "2.0",'
         b' "method": "echo", "params": {"text": "123"}, "id": 10}'
@@ -42,12 +43,13 @@ async def test_success_by_name():
 
 
 async def test_success_by_pos():
-    class H:
-        @method()
-        async def sum(self, a: int, b: int) -> int:
-            return a + b
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def sum(a: int, b: int) -> int:
+        return a + b
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(
         b'{"jsonrpc": "2.0",' b' "method": "sum", "params": [1,2], "id": 10}'
     )
@@ -60,12 +62,13 @@ async def test_success_by_pos():
 
 
 async def test_success_by_name_default():
-    class H:
-        @method()
-        async def sum(self, a: int, b: int, c: int = 3) -> int:
-            return a + b + c
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def sum(a: int, b: int, c: int = 3) -> int:
+        return a + b + c
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(
         b'{"jsonrpc": "2.0",'
         b' "method": "sum", "params": {"a":1,"b":2}, "id": 10}'
@@ -79,12 +82,13 @@ async def test_success_by_name_default():
 
 
 async def test_success_by_pos_default():
-    class H:
-        @method()
-        async def sum(self, a: int, b: int, c: int = 3) -> int:
-            return a + b + c
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def sum(a: int, b: int, c: int = 3) -> int:
+        return a + b + c
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(
         b'{"jsonrpc": "2.0",' b' "method": "sum", "params": [1,2], "id": 10}'
     )
@@ -97,10 +101,9 @@ async def test_success_by_pos_default():
 
 
 async def test_err_parse_1():
-    class H:
-        pass
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(b'eeeee')
     assert json.loads(res) == {
         "jsonrpc": "2.0",
@@ -110,10 +113,9 @@ async def test_err_parse_1():
 
 
 async def test_err_invalid_req_2():
-    class H:
-        pass
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(b'{"params": []}')
     assert json.loads(res) == {
         "jsonrpc": "2.0",
@@ -123,12 +125,13 @@ async def test_err_invalid_req_2():
 
 
 async def test_error():
-    class H:
-        @method()
-        async def echo(self, text: str) -> str:
-            raise Exception('Ex')
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def echo(text: str) -> str:
+        raise Exception('Ex')
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(
         b'{"jsonrpc": "2.0",'
         b' "method": "echo", "params": {"text": "123"}, "id": 10}'
@@ -141,12 +144,13 @@ async def test_error():
 
 
 async def test_error_with_data():
-    class H:
-        @method()
-        async def echo(self, text: str) -> str:
-            raise Exception('Ex', 'some data')
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def echo(text: str) -> str:
+        raise Exception('Ex', 'some data')
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(
         b'{"jsonrpc": "2.0",'
         b' "method": "echo", "params": {"text": "123"}, "id": 10}'
@@ -159,10 +163,9 @@ async def test_error_with_data():
 
 
 async def test_error_method():
-    class H:
-        pass
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(
         b'{"jsonrpc": "2.0",'
         b' "method": "echo", "params": {"text": "123"}, "id": 10}'
@@ -175,12 +178,13 @@ async def test_error_method():
 
 
 async def test_error_params():
-    class H:
-        @method()
-        async def echo(self, text: str, a: int) -> str:
-            raise Exception('Ex')
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def echo(text: str, a: int) -> str:
+        raise Exception('Ex')
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(
         b'{"jsonrpc": "2.0",' b' "method": "echo", "params": {}, "id": 10}'
     )
@@ -196,12 +200,13 @@ async def test_error_params():
 
 
 async def test_error_unexpected_params():
-    class H:
-        @method()
-        async def echo(self, a: int) -> str:
-            raise Exception('Ex')
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def echo(a: int) -> str:
+        raise Exception('Ex')
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(
         b'{"jsonrpc": "2.0",'
         b' "method": "echo", '
@@ -219,12 +224,13 @@ async def test_error_unexpected_params():
 
 
 async def test_error_params_by_pos():
-    class H:
-        @method()
-        async def echo(self, text: str, a: int) -> str:
-            raise Exception('Ex')
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def echo(text: str, a: int) -> str:
+        raise Exception('Ex')
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(
         b'{"jsonrpc": "2.0",' b' "method": "echo", "params": [], "id": 10}'
     )
@@ -240,12 +246,13 @@ async def test_error_params_by_pos():
 
 
 async def test_error_unexpected_params_by_pos():
-    class H:
-        @method()
-        async def echo(self, a: int, b: int = 2) -> str:
-            raise Exception('Ex')
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def echo(a: int, b: int = 2) -> str:
+        raise Exception('Ex')
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(
         b'{"jsonrpc": "2.0",'
         b' "method": "echo", '
@@ -265,12 +272,13 @@ async def test_error_unexpected_params_by_pos():
 
 
 async def test_notification():
-    class H:
-        @method()
-        async def echo(self, text: str) -> str:
-            return text
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def echo(self, text: str) -> str:
+        return text
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(
         b'{"jsonrpc": "2.0",' b' "method": "echo", "params": {"text": "123"}}'
     )
@@ -278,16 +286,17 @@ async def test_notification():
 
 
 async def test_batch():
-    class H:
-        @method()
-        async def echo(self, text: str) -> str:
-            return 'echo: %s' % text
+    reg = RpcRegistry()
 
-        @method()
-        async def err(self) -> None:
-            raise Exception('some error', {'pay': 'load'})
+    @reg.method()
+    async def echo(text: str) -> str:
+        return 'echo: %s' % text
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def err() -> None:
+        raise Exception('some error', {'pay': 'load'})
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(
         b'[{"jsonrpc": "2.0", '
         b'"method": "echo", "params": {"text": "1"}, "id": 1},'
@@ -312,16 +321,17 @@ async def test_batch():
 
 
 async def test_batch_notification():
-    class H:
-        @method()
-        async def echo(self, text: str) -> str:
-            return 'echo: %s' % text
+    reg = RpcRegistry()
 
-        @method()
-        async def err(self) -> None:
-            raise Exception('some error', {'pay': 'load'})
+    @reg.method()
+    async def echo(text: str) -> str:
+        return 'echo: %s' % text
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def err() -> None:
+        raise Exception('some error', {'pay': 'load'})
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(
         b'[{"jsonrpc": "2.0", "method": "echo", "params": {"text": "1"}},'
         b'{"jsonrpc": "2.0", "method": "err", "params": {}}]'
@@ -330,16 +340,17 @@ async def test_batch_notification():
 
 
 async def test_batch_complicated():
-    class H:
-        @method()
-        async def echo(self, text: str) -> str:
-            return 'echo: %s' % text
+    reg = RpcRegistry()
 
-        @method()
-        async def err(self) -> None:
-            raise Exception('some error', {'pay': 'load'})
+    @reg.method()
+    async def echo(text: str) -> str:
+        return 'echo: %s' % text
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def err() -> None:
+        raise Exception('some error', {'pay': 'load'})
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(
         b'[{"jsonrpc": "2.0", '
         b'"method": "echo", "params": {"text": "1"},"id":"1"},'
@@ -376,24 +387,26 @@ async def test_batch_complicated():
 
 
 async def test_clt_single():
-    class Api:
-        @method()
-        async def sum(self, a: int, b: int) -> int:
-            return a + b
+    reg = RpcRegistry()
 
-    clt = get_clt(Api)
+    @reg.method()
+    async def sum(a: int, b: int) -> int:
+        return a + b
+
+    clt = get_clt(reg)
 
     result = await clt.exec('sum', [1, 2])
     assert result == 3
 
 
 async def test_clt_batch():
-    class Api:
-        @method()
-        async def sum(self, a: int, b: int) -> int:
-            return a + b
+    reg = RpcRegistry()
 
-    clt = get_clt(Api)
+    @reg.method()
+    async def sum(a: int, b: int) -> int:
+        return a + b
+
+    clt = get_clt(reg)
 
     result = await clt.exec_batch(
         clt.exec('sum', [1, 2]), clt.exec('sum', [3, 4])
@@ -402,12 +415,13 @@ async def test_clt_batch():
 
 
 async def test_clt_single_err_params():
-    class Api:
-        @method()
-        async def sum(self, a: int, b: int) -> int:
-            return a + b
+    reg = RpcRegistry()
 
-    clt = get_clt(Api)
+    @reg.method()
+    async def sum(a: int, b: int) -> int:
+        return a + b
+
+    clt = get_clt(reg)
 
     try:
         await clt.exec('sum', [1])
@@ -422,12 +436,13 @@ async def test_clt_single_err_params():
 
 
 async def test_clt_single_err_method():
-    class Api:
-        @method()
-        async def sum(self, a: int, b: int) -> int:
-            return a + b
+    reg = RpcRegistry()
 
-    clt = get_clt(Api)
+    @reg.method()
+    async def sum(a: int, b: int) -> int:
+        return a + b
+
+    clt = get_clt(reg)
 
     try:
         await clt.exec('sum2', [1, 2, 3])
@@ -439,12 +454,13 @@ async def test_clt_single_err_method():
 
 
 async def test_clt_batch_err():
-    class Api:
-        @method()
-        async def sum(self, a: int, b: int) -> int:
-            return a + b
+    reg = RpcRegistry()
 
-    clt = get_clt(Api)
+    @reg.method()
+    async def sum(a: int, b: int) -> int:
+        return a + b
+
+    clt = get_clt(reg)
 
     result = await clt.exec_batch(
         clt.exec('sum2', [3, 4]),
@@ -464,24 +480,26 @@ async def test_clt_batch_err():
 
 
 async def test_clt_single_notification():
-    class Api:
-        @method()
-        async def sum(self, a: int, b: int) -> int:
-            return a + b
+    reg = RpcRegistry()
 
-    clt = get_clt(Api)
+    @reg.method()
+    async def sum(a: int, b: int) -> int:
+        return a + b
+
+    clt = get_clt(reg)
 
     result = await clt.exec('sum', [1, 2], one_way=True)
     assert result is None
 
 
 async def test_clt_batch_notification():
-    class Api:
-        @method()
-        async def sum(self, a: int, b: int) -> int:
-            return a + b
+    reg = RpcRegistry()
 
-    clt = get_clt(Api)
+    @reg.method()
+    async def sum(a: int, b: int) -> int:
+        return a + b
+
+    clt = get_clt(reg)
 
     result = await clt.exec_batch(
         clt.exec('sum', [1, 2], one_way=True),
@@ -491,22 +509,22 @@ async def test_clt_batch_notification():
 
 
 async def test_clt_batch_empty():
-    class Api:
-        pass
+    reg = RpcRegistry()
 
-    clt = get_clt(Api)
+    clt = get_clt(reg)
 
     result = await clt.exec_batch()
     assert result == ()
 
 
 async def test_legacy_v1_format_success():
-    class H:
-        @method()
-        async def echo(self, text: str) -> dict:
-            return {"e": 'echo: %s' % text}
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def echo(text: str) -> dict:
+        return {"e": 'echo: %s' % text}
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(b'{"method": "echo", "text": "123"}')
 
     assert json.loads(res) == {
@@ -517,12 +535,13 @@ async def test_legacy_v1_format_success():
 
 
 async def test_legacy_v1_format_success_2():
-    class H:
-        @method()
-        async def noop(self, text: str) -> None:
-            pass
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def noop(text: str) -> None:
+        pass
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(b'{"method": "noop", "text": "123"}')
 
     assert json.loads(res) == {
@@ -536,12 +555,13 @@ async def test_legacy_v1_custom_error():
         jsonrpc_error_code = 1
         message = 'Something wrong'
 
-    class H:
-        @method()
-        async def echo(self, text: str) -> None:
-            raise MyJsonRpcError()
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def echo(text: str) -> None:
+        raise MyJsonRpcError()
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(b'{"method": "echo", "text": ""}')
 
     assert json.loads(res) == {
@@ -555,12 +575,13 @@ async def test_legacy_v1_custom_error_2():
         jsonrpc_error_code = 2
         message = 'Something wrong'
 
-    class H:
-        @method()
-        async def echo(self, text: str) -> None:
-            raise MyJsonRpcError(data={'reason': 'some reason'})
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def echo(text: str) -> None:
+        raise MyJsonRpcError(data={'reason': 'some reason'})
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(b'{"method": "echo", "text": ""}')
 
     assert json.loads(res) == {
@@ -571,12 +592,13 @@ async def test_legacy_v1_custom_error_2():
 
 
 async def test_legacy_v1_format_error():
-    class H:
-        @method()
-        async def echo(self, text: str) -> None:
-            return None
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def echo(text: str) -> None:
+        return None
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(b'{"method": "echo", "int": 1}')
 
     assert json.loads(res) == {
@@ -587,12 +609,13 @@ async def test_legacy_v1_format_error():
 
 
 async def test_legacy_v2_format_success():
-    class H:
-        @method()
-        async def echo(self, text: str) -> str:
-            return 'echo: %s' % text
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def echo(text: str) -> str:
+        return 'echo: %s' % text
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(b'{"method": "echo", "params": {"text": "123"}}')
 
     assert json.loads(res) == {
@@ -603,12 +626,13 @@ async def test_legacy_v2_format_success():
 
 
 async def test_legacy_v2_format_error():
-    class H:
-        @method()
-        async def echo(self, text: str) -> str:
-            return 'echo: %s' % text
+    reg = RpcRegistry()
 
-    ex = JsonRpcExecutor(H(), get_app())
+    @reg.method()
+    async def echo(text: str) -> str:
+        return 'echo: %s' % text
+
+    ex = JsonRpcExecutor(reg, get_app())
     res = await ex.exec(b'{"method": "echo", "params": {}}')
 
     assert json.loads(res) == {
@@ -635,42 +659,38 @@ async def test_discover():
         jsonrpc_error_code = 222
         message = "My Error 222"
 
-    class H:
+    reg = RpcRegistry(
+        title='Api for tests',
+        description='Log description\nof api',
+        version='1.0',
+    )
+
+    @reg.method(deprecated=True)
+    async def echo(text: str) -> str:
+        return 'echo: %s' % text
+
+    @reg.method()
+    async def get_user(id: int) -> User:
+        return User(
+            name='test',
+            address={'inline': 'Moscow, Kremlin, 1', 'index': '123456'},
+        )
+
+    @reg.method(errors=[Err111, Err222])
+    async def add_user(user: User) -> int:
         """
-        Api for tests
+        Add user
 
-        Log description
-        of api
+        Метод добавляет нового
+        пользователи и возвращает его
+        идентификатор
+
+        :param user: объект пользователя
+        :return: идентифиатор пользователя
         """
+        return 1
 
-        __version__ = '1.0'
-
-        @method(deprecated=True)
-        async def echo(self, text: str) -> str:
-            return 'echo: %s' % text
-
-        @method()
-        async def get_user(self, id: int) -> User:
-            return User(
-                name='test',
-                address={'inline': 'Moscow, Kremlin, 1', 'index': '123456'},
-            )
-
-        @method(errors=[Err111, Err222])
-        async def add_user(self, user: User) -> int:
-            """
-            Add user
-
-            Метод добавляет нового
-            пользователи и возвращает его
-            идентификатор
-
-            :param user: объект пользователя
-            :return: идентифиатор пользователя
-            """
-            return 1
-
-    ex = JsonRpcExecutor(H(), get_app(), discover_enabled=True)
+    ex = JsonRpcExecutor(reg, get_app(), discover_enabled=True)
     res = await ex.exec(
         b'{"jsonrpc": "2.0",' b' "method": "rpc.discover", "id": 10}'
     )

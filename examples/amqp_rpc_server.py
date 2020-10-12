@@ -1,8 +1,6 @@
 import logging
 import sys
 
-from iprpc import method
-
 from ipapp import BaseApplication, BaseConfig, main
 from ipapp.logger.adapters.prometheus import (
     PrometheusAdapter,
@@ -12,7 +10,10 @@ from ipapp.logger.adapters.requests import RequestsAdapter, RequestsConfig
 from ipapp.logger.adapters.sentry import SentryAdapter, SentryConfig
 from ipapp.logger.adapters.zipkin import ZipkinAdapter, ZipkinConfig
 from ipapp.mq.pika import Pika, PikaConfig
-from ipapp.rpc.mq.pika import RpcServerChannel, RpcServerChannelConfig
+from ipapp.rpc import RpcRegistry
+from ipapp.rpc.jsonrpc.mq.pika import RpcServerChannel, RpcServerChannelConfig
+
+api = RpcRegistry()
 
 
 class Config(BaseConfig):
@@ -24,11 +25,10 @@ class Config(BaseConfig):
     log_requests: RequestsConfig
 
 
-class Api:
-    @method()
-    async def test(self) -> str:
-        print('EXEC')
-        return 'OK'
+@api.method()
+async def test() -> str:
+    print('EXEC')
+    return 'OK'
 
 
 class App(BaseApplication):
@@ -36,7 +36,7 @@ class App(BaseApplication):
         super().__init__(cfg)
         self.add(
             'amqp',
-            Pika(cfg.amqp, [lambda: RpcServerChannel(Api(), cfg.amqp_rpc)]),
+            Pika(cfg.amqp, [lambda: RpcServerChannel(api, cfg.amqp_rpc)]),
         )
         if cfg.log_prometheus.enabled:
             self.logger.add(PrometheusAdapter(cfg.log_prometheus))
@@ -54,7 +54,7 @@ if __name__ == "__main__":
 
 APP_AMQP_URL=amqp://guest:guest@localhost:9004/ \
 APP_AMQP_RPC_QUEUE=rpcqueue \
-APP_LOG_REQUESTS_ENABLED=1 \
+APP_LOG_REQUESTS_ENABLED=0 \
 APP_LOG_REQUESTS_DSN=postgres://ipapp:secretpwd@localhost:9001/ipapp \
 APP_LOG_ZIPKIN_ENABLED=1 \
 APP_LOG_ZIPKIN_ADDR=http://127.0.0.1:9002/api/v2/spans \

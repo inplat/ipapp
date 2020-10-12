@@ -1,6 +1,8 @@
+from typing import Union
+
 from ipapp import BaseApplication, BaseConfig
 from ipapp.mq.pika import Pika, PikaConfig
-from ipapp.rpc import method
+from ipapp.rpc import RpcRegistry, method
 from ipapp.rpc.jsonrpc.error import JsonRpcError
 from ipapp.rpc.jsonrpc.mq.pika import (
     RpcClientChannel,
@@ -22,7 +24,7 @@ class RunAppCtx:
         await self.app.stop()
 
 
-def runapp(rabbitmq_url: str, handler: object):
+def runapp(rabbitmq_url: str, registry: Union[RpcRegistry, object]):
     class Cfg(BaseConfig):
         amqp: PikaConfig
         amqp_srv: RpcServerChannelConfig
@@ -36,7 +38,7 @@ def runapp(rabbitmq_url: str, handler: object):
                 Pika(
                     cfg.amqp,
                     [
-                        lambda: RpcServerChannel(handler, cfg.amqp_srv),
+                        lambda: RpcServerChannel(registry, cfg.amqp_srv),
                         lambda: RpcClientChannel(cfg.amqp_clt),
                     ],
                 ),
@@ -57,7 +59,7 @@ def runapp(rabbitmq_url: str, handler: object):
     return RunAppCtx(app)
 
 
-async def test_rpc(loop, rabbitmq_url):
+async def test_rpc_legacy(loop, rabbitmq_url):
     class Api:
         @method()
         def method1(self, val: str) -> str:
@@ -70,16 +72,31 @@ async def test_rpc(loop, rabbitmq_url):
             assert res == 'ok %s' % val
 
 
+async def test_rpc(loop, rabbitmq_url):
+    reg = RpcRegistry()
+
+    @reg.method()
+    def method1(val: str) -> str:
+        return 'ok %s' % val
+
+    async with runapp(rabbitmq_url, reg) as app:
+        with app.logger.span_new():
+            val = 123
+            res = await app.clt.exec('method1', {'val': val}, timeout=2)
+            assert res == 'ok %s' % val
+
+
 async def test_rpc_error(loop, rabbitmq_url):
     class MyError(JsonRpcError):
         jsonrpc_error_code = 111
 
-    class Api:
-        @method()
-        def method1(self) -> str:
-            raise MyError()
+    reg = RpcRegistry()
 
-    async with runapp(rabbitmq_url, Api()) as app:
+    @reg.method()
+    def method1() -> str:
+        raise MyError()
+
+    async with runapp(rabbitmq_url, reg) as app:
         with app.logger.span_new():
             try:
                 await app.clt.exec('method1', {}, timeout=2)
@@ -88,12 +105,13 @@ async def test_rpc_error(loop, rabbitmq_url):
 
 
 async def test_rpc_batch(loop, rabbitmq_url):
-    class Api:
-        @method()
-        def method1(self, val: str) -> str:
-            return 'ok %s' % val
+    reg = RpcRegistry()
 
-    async with runapp(rabbitmq_url, Api()) as app:
+    @reg.method()
+    def method1(val: str) -> str:
+        return 'ok %s' % val
+
+    async with runapp(rabbitmq_url, reg) as app:
         with app.logger.span_new():
             res1, res2 = await app.clt.exec_batch(
                 app.clt.exec('method1', {'val': 123}),

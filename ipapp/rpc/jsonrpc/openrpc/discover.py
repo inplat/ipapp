@@ -1,14 +1,26 @@
 import collections
 import inspect
 import re
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Type
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+)
 
 import docstring_parser
 from pydantic import BaseModel, create_model
 from pydantic.schema import model_process_schema
 
+from ipapp.rpc import RpcRegistry
 from ipapp.rpc.error import RpcError
 from ipapp.rpc.jsonrpc.error import JsonRpcError
+from ipapp.rpc.main import Executor
 
 from .models import (
     ContentDescriptor,
@@ -26,12 +38,12 @@ OPENRPC_VERSION = '1.2.4'
 
 
 def discover(
-    handler: object,
+    registry: Union[RpcRegistry, object],
     *,
     servers: Optional[List[Server]] = None,
     external_docs: Optional[ExternalDocs] = None,
 ) -> OpenRPC:
-    methods = _get_methods(handler)
+    methods = _get_methods(registry)
     model_name_map = ModelDict()
     schemas: Dict[str, Dict] = {}
     method_models = _get_methods_models(
@@ -50,21 +62,30 @@ def discover(
             if key not in schemas:
                 schemas[key] = model_definitions[key]
 
-    version = '0'
-    if hasattr(handler, '__version__'):
-        version = getattr(handler, '__version__')
+    if isinstance(registry, RpcRegistry):
 
-    info_kwargs = {
-        'title': '',
-        'version': version,
-    }
+        info_kwargs = {'title': '', 'version': registry.version or '0'}
+        if registry.title is not None:
+            info_kwargs['title'] = registry.title
+        if registry.description:
+            info_kwargs['description'] = registry.description
+    else:
+        # legacy
+        version = '0'
+        if hasattr(registry, '__version__'):
+            version = getattr(registry, '__version__')
 
-    if handler.__doc__:
-        docstr = docstring_parser.parse(handler.__doc__)
-        if docstr.short_description:
-            info_kwargs['title'] = docstr.short_description
-        if docstr.long_description:
-            info_kwargs['description'] = docstr.long_description
+        info_kwargs = {
+            'title': '',
+            'version': version,
+        }
+
+        if not isinstance(registry, list) and registry.__doc__:
+            docstr = docstring_parser.parse(registry.__doc__)
+            if docstr.short_description:
+                info_kwargs['title'] = docstr.short_description
+            if docstr.long_description:
+                info_kwargs['description'] = docstr.long_description
 
     orpc_kwargs = {
         'openrpc': OPENRPC_VERSION,
@@ -109,17 +130,15 @@ class ModelDict(collections.defaultdict):
         return model_name
 
 
-def _get_methods(handler: object) -> Dict[str, Callable]:
+def _get_methods(registry: Union[RpcRegistry, object]) -> Dict[str, Callable]:
     methods: Dict[str, Callable] = {}
-    for key in sorted(dir(handler)):
-        if callable(getattr(handler, key)):
-            fn = getattr(handler, key)
-            if hasattr(fn, '__rpc_name__'):
-                if fn.__rpc_name__ in methods:
-                    raise UserWarning(
-                        'Method %s duplicated' '' % fn.__rpc_name__
-                    )
-                methods[key] = fn
+
+    for fn in Executor.iter_handler(registry):
+        if hasattr(fn, '__rpc_name__'):
+            name = getattr(fn, '__rpc_name__')
+            if name in methods:
+                raise UserWarning('Method %s duplicated' '' % name)
+            methods[name] = fn
     return methods
 
 
@@ -129,7 +148,8 @@ def _get_methods_models(
     schemas: Dict[str, Dict],
 ) -> List[Method]:
     models: List[Method] = []
-    for name, fn in methods.items():
+    for name in sorted(methods.keys()):
+        fn = methods[name]
         method = _get_method(fn, model_name_map, schemas)
         models.append(method)
     return models

@@ -38,6 +38,7 @@ from ipapp.logger import Span
 from ipapp.rpc.error import InvalidArguments as _InvalidArguments
 from ipapp.rpc.error import MethodNotFound as _MethodNotFound
 from ipapp.rpc.main import Executor as _Executor
+from ipapp.rpc.main import RpcRegistry
 
 from ..const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
 from .error import JsonRpcError
@@ -66,7 +67,7 @@ REG_PROTO_LEGACY_V2 = 2
 class JsonRpcExecutor:
     def __init__(
         self,
-        handler: object,
+        registry: Union[RpcRegistry, object],
         app: BaseApplication,
         discover_enabled: bool = True,
         loop: Optional[asyncio.AbstractEventLoop] = None,
@@ -74,11 +75,11 @@ class JsonRpcExecutor:
         servers: Optional[List[Server]] = None,
         external_docs: Optional[ExternalDocs] = None,
     ) -> None:
-        self._handler = handler
+        self._registry = registry
         self._app = app
         self._discover_enabled = discover_enabled
         self._discover_result: Optional[Dict[str, Any]] = None
-        self._ex = _Executor(handler, loop=loop)
+        self._ex = _Executor(registry, loop=loop)
         self._loop = loop
         self._protocol = rpc.JSONRPCProtocol()
         self._scheduler: Optional[aiojobs.Scheduler] = None
@@ -332,7 +333,7 @@ class JsonRpcExecutor:
             return self._discover_result
 
         result = discover(
-            self._handler,
+            self._registry,
             servers=self._servers,
             external_docs=self._external_docs,
         )

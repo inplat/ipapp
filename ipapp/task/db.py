@@ -5,7 +5,6 @@ import warnings
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from functools import wraps
 from typing import (
     Any,
     AsyncContextManager,
@@ -31,9 +30,8 @@ from ipapp.error import PrepareError
 from ipapp.logger import Span, wrap2span
 from ipapp.misc import json_encode as default_json_encoder
 from ipapp.misc import mask_url_pwd
-from ipapp.rpc import method
 from ipapp.rpc.error import RpcError
-from ipapp.rpc.main import Executor
+from ipapp.rpc.main import Executor, RpcRegistry
 
 TaskHandler = Union[Callable, str]
 ETA = Union[datetime, float, int]
@@ -247,8 +245,20 @@ class TaskManagerConfig(BaseModel):
 
 
 class TaskManager(Component):
-    def __init__(self, api: object, cfg: TaskManagerConfig) -> None:
-        self._executor: Executor = Executor(api)
+    def __init__(
+        self,
+        registry: Union['TaskRegistry', object],
+        cfg: TaskManagerConfig,
+    ) -> None:
+        if not isinstance(registry, TaskRegistry):
+            warnings.warn(
+                "Task manager handler as object is deprecated. "
+                "Use TaskRegistry instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        self._executor: Executor = Executor(registry)
         self.cfg = cfg
         self._stopping = False
         self._scan_fut: Optional[asyncio.Future] = None
@@ -258,22 +268,19 @@ class TaskManager(Component):
         self._tick_fut: Optional[asyncio.Future] = None
         self._tick_lock: Optional[asyncio.Lock] = None
         self._periodic_tasks: List[PeriodicTask] = []
-        self._find_periodic_tasks(api)
-        self._api = api
+        self._find_periodic_tasks(registry)
+        self._registry = registry
 
     def _check_deprecated_decorator(self) -> None:
-        for key in dir(self._api):
-            if callable(getattr(self._api, key)):
-                fn = getattr(self._api, key)
-                if hasattr(fn, '__rpc_name__'):
-                    if not hasattr(fn, '__task_decorator__'):
-                        warnings.warn(
-                            "Decorator @ipapp.rpc.method is deprecated for "
-                            "TaskManager tasks declaration. "
-                            "Use @ipapp.task.db.task instead",
-                            DeprecationWarning,
-                            stacklevel=2,
-                        )
+        for fn in Executor.iter_handler(self._registry):
+            if not hasattr(fn, '__task_decorator__'):
+                warnings.warn(
+                    "Decorator @ipapp.rpc.method is deprecated for "
+                    "TaskManager tasks declaration. "
+                    "Use TaskRegistry instead",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
 
     async def prepare(self) -> None:
         if self.app is None:  # pragma: no cover
@@ -320,18 +327,14 @@ class TaskManager(Component):
         if self._db is not None:
             await self._db.health(lock=True)
 
-    def _find_periodic_tasks(self, api: object) -> None:
+    def _find_periodic_tasks(
+        self, registry: Union['TaskRegistry', object]
+    ) -> None:
         self._periodic_tasks = []
-        for attr in dir(api):
-            fn = getattr(api, attr, None)
-            if not fn or not callable(fn):
-                continue
+        for fn in Executor.iter_handler(registry):
 
             if not hasattr(fn, '__crontab__'):
                 continue
-
-            if not hasattr(fn, '__rpc_name__'):
-                raise UserWarning
 
             task = PeriodicTask(
                 fn=fn,
@@ -963,73 +966,72 @@ class Db:
         await self._execute('SELECT 1', lock=lock)
 
 
-def task(
-    *,
-    name: Optional[str] = None,
-    errors: Optional[List[Type[RpcError]]] = None,
-    deprecated: Optional[bool] = False,
-    summary: str = "",
-    description: str = "",
-    request_model: Optional[Any] = None,
-    response_model: Optional[Any] = None,
-    request_ref: Optional[str] = None,
-    response_ref: Optional[str] = None,
-    validators: Optional[Dict[str, dict]] = None,
-    examples: Optional[List[Dict[str, Optional[str]]]] = None,
-    crontab: Optional[str] = None,
-    crontab_do_not_miss: bool = False,
-    crontab_date_attr: Optional[str] = None,
-) -> Callable:
-    """
-    Декоратор для задач
+class TaskRegistry(RpcRegistry):
+    def task(
+        self,
+        *,
+        name: Optional[str] = None,
+        errors: Optional[List[Type[RpcError]]] = None,
+        deprecated: Optional[bool] = False,
+        summary: str = "",
+        description: str = "",
+        request_model: Optional[Any] = None,
+        response_model: Optional[Any] = None,
+        request_ref: Optional[str] = None,
+        response_ref: Optional[str] = None,
+        validators: Optional[Dict[str, dict]] = None,
+        examples: Optional[List[Dict[str, Optional[str]]]] = None,
+        crontab: Optional[str] = None,
+        crontab_do_not_miss: bool = False,
+        crontab_date_attr: Optional[str] = None,
+    ) -> Callable:
+        def decorator(func: Callable) -> Callable:
+            _validate_crontab_fn(
+                func, name, crontab, crontab_do_not_miss, crontab_date_attr
+            )
+            if crontab is not None:
+                setattr(func, '__crontab__', CronTab(crontab))
+                setattr(func, '__crontab_do_not_miss__', crontab_do_not_miss)
+                setattr(func, '__crontab_date_attr__', crontab_date_attr)
 
-    :param name: название задачи. Должно Быть уникальным в разрезе всего Task Manager-а
-    :param errors:
-    :param deprecated:
-    :param summary:
-    :param description:
-    :param request_model:
-    :param response_model:
-    :param request_ref:
-    :param response_ref:
-    :param validators:
-    :param examples:
-    :param crontab: расписание запуска в формате crontab. См. https://github.com/josiahcarlson/parse-crontab#description
-    :param crontab_do_not_miss: Если установлен в true, то сервис не будет пропускать моменты запуска даже при downtime-е, т.е. все задачи за пропущенные периоды(в базе данных с момента last_stamp в теблице task_cron_tick по now) будут выполнены в момент запуска сервиса
-    :param crontab_date_attr: если не None, то в этот аргумент будет передано значение даты и времени тика, в который произошло(или должно было произойти, см. crontab_do_not_miss) срабатывание задачи
-    :return:
-    """
+            return super(TaskRegistry, self).method(
+                name=name,
+                errors=errors,
+                deprecated=deprecated,
+                summary=summary,
+                description=description,
+                request_model=request_model,
+                response_model=response_model,
+                request_ref=request_ref,
+                response_ref=response_ref,
+                validators=validators,
+                examples=examples,
+            )(func)
 
-    def decorator(func: Callable) -> Callable:
-        _validate_crontab_fn(
-            func, name, crontab, crontab_do_not_miss, crontab_date_attr
-        )
-        setattr(func, '__task_decorator__', True)
+        return decorator
 
-        if crontab is not None:
-            setattr(func, '__crontab__', CronTab(crontab))
-            setattr(func, '__crontab_do_not_miss__', crontab_do_not_miss)
-            setattr(func, '__crontab_date_attr__', crontab_date_attr)
+    def method(self, *args: Any, **kwargs: Any) -> Callable:
+        raise UserWarning('Use "task" method instead "method"')
 
-        @wraps(func)
-        def wrapper(*args: Any, **kwrags: Any) -> Callable:
-            return func(*args, **kwrags)
 
-        return method(
-            name=name,
-            errors=errors,
-            deprecated=deprecated,
-            summary=summary,
-            description=description,
-            request_model=request_model,
-            response_model=response_model,
-            request_ref=request_ref,
-            response_ref=response_ref,
-            validators=validators,
-            examples=examples,
-        )(wrapper)
+global_tr = TaskRegistry()
 
-    return decorator
+
+def task(*args: Any, **kwargs: Any) -> Callable:
+    warnings.warn(
+        "@task decorator is deprecated. User TaskRegistry instead.\n"
+        "Also use TaskRegistry as handler object.\n"
+        "Example:\n\n"
+        "reg = TaskRegistry()\n"
+        "\n"
+        "@reg.task()\n"
+        "def some_task(): pass\n\n"
+        "IMPORTANT! Do not use \"self\" argument! "
+        "Function can not be a method",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return global_tr.task(*args, **kwargs)
 
 
 def _validate_crontab_fn(

@@ -1,7 +1,6 @@
 import logging
 import sys
 
-from iprpc import method
 from pydantic.main import BaseModel
 
 from ipapp import BaseApplication, BaseConfig, main
@@ -13,8 +12,11 @@ from ipapp.logger.adapters.prometheus import (
 from ipapp.logger.adapters.requests import RequestsAdapter, RequestsConfig
 from ipapp.logger.adapters.sentry import SentryAdapter, SentryConfig
 from ipapp.logger.adapters.zipkin import ZipkinAdapter, ZipkinConfig
+from ipapp.rpc import RpcRegistry
 from ipapp.rpc.jsonrpc import JsonRpcError
 from ipapp.rpc.jsonrpc.http import JsonRpcHttpHandler, JsonRpcHttpHandlerConfig
+
+api = RpcRegistry()
 
 
 class Config(BaseConfig):
@@ -36,33 +38,31 @@ class User(BaseModel):
     name: str
 
 
-class Api:
-    @method()
-    async def test(self) -> str:
-        # await asyncio.sleep(0.5)
-        # with span.new_child('sleep'):
-        #     await asyncio.sleep(5)
-        return 'ok'
+@api.method()
+async def test() -> str:
+    return 'ok'
 
-    @method()
-    async def sum(self, a: int, b: int) -> int:
-        return a + b
 
-    @method()
-    async def err(self) -> str:
-        raise MyError
+@api.method()
+async def sum(a: int, b: int) -> int:
+    return a + b
 
-    @method()
-    async def find(self, id: int) -> User:
-        print('**')
-        return User(id=id, name='User%d' % id)
+
+@api.method()
+async def err() -> str:
+    raise MyError
+
+
+@api.method()
+async def find(id: int) -> User:
+    return User(id=id, name='User%d' % id)
 
 
 class App(BaseApplication):
     def __init__(self, cfg: Config) -> None:
         super().__init__(cfg)
         self.add(
-            'srv', Server(cfg.rpc, JsonRpcHttpHandler(Api(), cfg.rpc_handler))
+            'srv', Server(cfg.rpc, JsonRpcHttpHandler(api, cfg.rpc_handler))
         )
         if cfg.log_prometheus.enabled:
             self.logger.add(PrometheusAdapter(cfg.log_prometheus))

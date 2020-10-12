@@ -29,6 +29,7 @@ from ipapp.rpc.jsonrpc import (
     JsonRpcError,
     JsonRpcExecutor,
 )
+from ipapp.rpc.main import RpcRegistry
 
 
 class RpcServerChannelConfig(PikaChannelConfig):
@@ -68,11 +69,11 @@ class RpcServerChannel(PikaChannel):
 
     def __init__(
         self,
-        api: object,
+        registry: Union[RpcRegistry, object],
         cfg: RpcServerChannelConfig,
         json_encode: Callable[[Any], str] = default_json_encode,
     ) -> None:
-        self.api = api
+        self.registry = registry
         super().__init__(cfg, json_encode=json_encode)
 
     async def prepare(self) -> None:
@@ -86,7 +87,7 @@ class RpcServerChannel(PikaChannel):
         )
         await self.qos(prefetch_count=self.cfg.prefetch_count)
         self._lock = asyncio.Lock(loop=self.amqp.loop)
-        self._rpc = JsonRpcExecutor(self.api, self.amqp.app)
+        self._rpc = JsonRpcExecutor(self.registry, self.amqp.app)
 
     async def start(self) -> None:
         await self.consume(self.cfg.queue, self._message)
@@ -195,7 +196,7 @@ class RpcClientChannel(PikaChannel):
         try:
             with self.amqp.app.logger.capture_span(AmqpSpan) as trap:
                 headers: Dict[str, str] = {}
-                if self.cfg.propagate_trace:
+                if self.cfg.propagate_trace and span:
                     headers = span.to_headers()
                 await self.publish(
                     '',
@@ -208,21 +209,25 @@ class RpcClientChannel(PikaChannel):
                     ),
                     propagate_trace=False,
                 )
+                if span:
+                    anns = trap.span.annotations.get(AmqpSpan.ANN_OUT_PROPS)
+                    if anns is not None and len(anns) > 0:
+                        ann_body, ann_stamp = anns[0]
+                        span.annotate(
+                            AmqpSpan.ANN_IN_PROPS, ann_body, ann_stamp
+                        )
 
-                anns = trap.span.annotations.get(AmqpSpan.ANN_OUT_PROPS)
-                if anns is not None and len(anns) > 0:
-                    ann_body, ann_stamp = anns[0]
-                    span.annotate(AmqpSpan.ANN_IN_PROPS, ann_body, ann_stamp)
+                    anns = trap.span.annotations.get(AmqpSpan.ANN_OUT_BODY)
+                    if anns is not None and len(anns) > 0:
+                        ann_body, ann_stamp = anns[0]
+                        span.annotate(
+                            AmqpSpan.ANN_IN_BODY, ann_body, ann_stamp
+                        )
 
-                anns = trap.span.annotations.get(AmqpSpan.ANN_OUT_BODY)
-                if anns is not None and len(anns) > 0:
-                    ann_body, ann_stamp = anns[0]
-                    span.annotate(AmqpSpan.ANN_IN_BODY, ann_body, ann_stamp)
-
-                trap.span.copy_to(
-                    span, annotations=False, tags=True, error=True
-                )
-                trap.span.skip()
+                    trap.span.copy_to(
+                        span, annotations=False, tags=True, error=True
+                    )
+                    trap.span.skip()
 
             return await asyncio.wait_for(
                 fut, timeout=timeout or self.cfg.timeout

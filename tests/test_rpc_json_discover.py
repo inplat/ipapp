@@ -4,16 +4,15 @@ from typing import List
 from pydantic import Field
 from pydantic.main import BaseModel
 
-from ipapp.rpc import method
+from ipapp.rpc import RpcRegistry
 from ipapp.rpc.jsonrpc.openrpc.discover import discover
 from ipapp.rpc.jsonrpc.openrpc.models import ParamStructure
 
 
 def test_discover_api_desc_default():
-    class Api:
-        pass
+    reg = RpcRegistry()
 
-    spec = discover(Api()).dict()
+    spec = discover(reg).dict()
     assert spec == {
         'openrpc': '1.2.4',
         'info': {
@@ -32,6 +31,29 @@ def test_discover_api_desc_default():
 
 
 def test_discover_api_desc_docstr():
+    reg = RpcRegistry(
+        title='Summyry desc', description='Long multiline\ndescription'
+    )
+
+    spec = discover(reg).dict()
+    assert spec == {
+        'openrpc': '1.2.4',
+        'info': {
+            'title': 'Summyry desc',
+            'description': 'Long multiline\ndescription',
+            'termsOfService': None,
+            'version': '0',
+            'contact': None,
+            'license': None,
+        },
+        'servers': None,
+        'methods': [],
+        'components': None,
+        'externalDocs': None,
+    }
+
+
+def test_discover_api_desc_docstr_legacy():
     class Api:
         """
         Summyry desc
@@ -59,10 +81,9 @@ def test_discover_api_desc_docstr():
 
 
 def test_discover_api_version():
-    class Api:
-        __version__ = '1.0'
+    reg = RpcRegistry(version='1.0')
 
-    spec = discover(Api()).dict()
+    spec = discover(reg).dict()
     assert spec == {
         'openrpc': '1.2.4',
         'info': {
@@ -81,17 +102,55 @@ def test_discover_api_version():
 
 
 async def test_method_descr_decorator():
-    class Api:
-        @method(
-            name="Meth",
-            summary='Summary method',
-            description="Description method",
-            deprecated=True,
-        )
-        async def meth(self, a):
-            pass
+    reg = RpcRegistry()
 
-    spec = discover(Api()).dict(exclude_unset=True)
+    @reg.method(
+        name="Meth",
+        summary='Summary method',
+        description="Description method",
+        deprecated=True,
+    )
+    async def meth(a):
+        pass
+
+    spec = discover(reg).dict(exclude_unset=True)
+
+    assert spec == {
+        'openrpc': '1.2.4',
+        'info': {'title': '', 'version': '0'},
+        'methods': [
+            {
+                'name': 'Meth',
+                'paramStructure': ParamStructure.BY_NAME,
+                'summary': 'Summary method',
+                'description': 'Description method',
+                'deprecated': True,
+                'params': [
+                    {'name': 'a', 'required': True, 'schema_': {'title': 'A'}}
+                ],
+                'result': {
+                    'name': 'result',
+                    'required': True,
+                    'schema_': {'title': 'Result'},
+                },
+            }
+        ],
+    }
+
+
+async def test_method_descr_decorator_api_as_list():
+    reg = RpcRegistry()
+
+    @reg.method(
+        name="Meth",
+        summary='Summary method',
+        description="Description method",
+        deprecated=True,
+    )
+    async def meth(a):
+        pass
+
+    spec = discover(reg).dict(exclude_unset=True)
 
     assert spec == {
         'openrpc': '1.2.4',
@@ -117,17 +176,17 @@ async def test_method_descr_decorator():
 
 
 async def test_method_params_descr_by_field():
-    class Api:
-        @method()
-        async def meth(
-            self,
-            a: int = Field(
-                123, title='Some title', description='Long description'
-            ),
-        ):
-            pass
+    reg = RpcRegistry()
 
-    spec = discover(Api()).dict(exclude_unset=True)
+    @reg.method()
+    async def meth(
+        a: int = Field(
+            123, title='Some title', description='Long description'
+        ),
+    ):
+        pass
+
+    spec = discover(reg).dict(exclude_unset=True)
 
     assert spec == {
         'openrpc': '1.2.4',
@@ -173,16 +232,17 @@ async def test_base_model():
         contacts: List[Contact]
         name: str = ''
 
-    class Api:
-        @method()
-        async def meth(self, user: User) -> User:
-            """
-            :param user: пользователь
-            :return: новый пользователь
-            """
-            return user
+    reg = RpcRegistry()
 
-    spec = discover(Api()).dict(exclude_unset=True)
+    @reg.method()
+    async def meth(user: User) -> User:
+        """
+        :param user: пользователь
+        :return: новый пользователь
+        """
+        return user
+
+    spec = discover(reg).dict(exclude_unset=True)
 
     assert spec == {
         'openrpc': '1.2.4',
@@ -261,12 +321,13 @@ async def test_conflict_base_model_name():
     assert c_cls is not b_cls
     assert c_cls is not a_cls
 
-    class Api:
-        @method()
-        async def test(self, a: a_cls, b: b_cls, c: c_cls):
-            pass
+    reg = RpcRegistry()
 
-    spec = discover(Api()).dict(exclude_unset=True)
+    @reg.method()
+    async def test(a: a_cls, b: b_cls, c: c_cls):
+        pass
+
+    spec = discover(reg).dict(exclude_unset=True)
     assert spec == {
         'openrpc': '1.2.4',
         'info': {'title': '', 'version': '0'},
@@ -335,12 +396,13 @@ async def test_base_model_decorator():
     class SomeResponse(BaseModel):
         status: str
 
-    class Api:
-        @method(request_model=SomeRequest, response_model=SomeResponse)
-        async def some(self, id, name):
-            pass
+    reg = RpcRegistry()
 
-    spec = discover((Api())).dict(exclude_unset=True)
+    @reg.method(request_model=SomeRequest, response_model=SomeResponse)
+    async def some(id, name):
+        pass
+
+    spec = discover((reg)).dict(exclude_unset=True)
     assert spec == {
         'openrpc': '1.2.4',
         'info': {'title': '', 'version': '0'},
@@ -385,35 +447,36 @@ async def test_base_model_decorator():
 
 
 async def test_examples():
-    class Api:
-        @method(
-            examples=[
-                {
-                    'name': 'somebasic 1',
-                    'description': 'some descr',
-                    'summary': 'some summary',
-                    'params': [
-                        {'value': 1, 'name': ''},
-                        {'value': 2, 'name': ''},
-                    ],
-                    'result': {'value': 3, 'name': ''},
-                },
-                {
-                    'name': 'somebasic 2',
-                    'description': 'some descr',
-                    'summary': 'some summary',
-                    'params': [
-                        {'value': 3, 'name': ''},
-                        {'value': 4, 'name': ''},
-                    ],
-                    'result': {'value': 7, 'name': ''},
-                },
-            ]
-        )
-        async def sum(self, a, b):
-            return a + b
+    reg = RpcRegistry()
 
-    spec = discover(Api()).dict(exclude_unset=True, by_alias=True)
+    @reg.method(
+        examples=[
+            {
+                'name': 'somebasic 1',
+                'description': 'some descr',
+                'summary': 'some summary',
+                'params': [
+                    {'value': 1, 'name': ''},
+                    {'value': 2, 'name': ''},
+                ],
+                'result': {'value': 3, 'name': ''},
+            },
+            {
+                'name': 'somebasic 2',
+                'description': 'some descr',
+                'summary': 'some summary',
+                'params': [
+                    {'value': 3, 'name': ''},
+                    {'value': 4, 'name': ''},
+                ],
+                'result': {'value': 7, 'name': ''},
+            },
+        ]
+    )
+    async def sum(a, b):
+        return a + b
+
+    spec = discover(reg).dict(exclude_unset=True, by_alias=True)
 
     assert spec == {
         'openrpc': '1.2.4',

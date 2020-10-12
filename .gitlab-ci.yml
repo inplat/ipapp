@@ -108,6 +108,7 @@ build-master:
     - build
   only:
     - master
+    - merge_requests
 
 pages:
   stage: build

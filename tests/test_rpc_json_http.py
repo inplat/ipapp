@@ -5,7 +5,7 @@ from aiohttp import ClientSession
 
 from ipapp import BaseApplication, BaseConfig
 from ipapp.http.server import Server, ServerConfig
-from ipapp.rpc import method
+from ipapp.rpc import RpcRegistry
 from ipapp.rpc.jsonrpc import JsonRpcError
 from ipapp.rpc.jsonrpc.http import (
     JsonRpcHttpClient,
@@ -54,13 +54,14 @@ def runapp(port, handler):
 
 
 async def test_rpc(loop, unused_tcp_port):
-    class Api:
-        @method()
-        def method1(self):
-            return 'ok'
+    reg = RpcRegistry()
+
+    @reg.method()
+    def method1():
+        return 'ok'
 
     async with runapp(
-        unused_tcp_port, JsonRpcHttpHandler(Api(), JsonRpcHttpHandlerConfig())
+        unused_tcp_port, JsonRpcHttpHandler(reg, JsonRpcHttpHandlerConfig())
     ):
         async with ClientSession() as sess:
             resp = await sess.request(
@@ -78,13 +79,14 @@ async def test_rpc_error(loop, unused_tcp_port):
         jsonrpc_error_code = 100
         message = 'Err'
 
-    class Api:
-        @method()
-        def method1(self):
-            raise MyError(data={'a': 1})
+    reg = RpcRegistry()
+
+    @reg.method()
+    def method1():
+        raise MyError(data={'a': 1})
 
     async with runapp(
-        unused_tcp_port, JsonRpcHttpHandler(Api(), JsonRpcHttpHandlerConfig())
+        unused_tcp_port, JsonRpcHttpHandler(reg, JsonRpcHttpHandlerConfig())
     ):
         async with ClientSession() as sess:
             resp = await sess.request(
@@ -101,13 +103,14 @@ async def test_rpc_error(loop, unused_tcp_port):
 
 
 async def test_batch(loop, unused_tcp_port):
-    class Api:
-        @method()
-        def method1(self):
-            return 'ok'
+    reg = RpcRegistry()
+
+    @reg.method()
+    def method1():
+        return 'ok'
 
     async with runapp(
-        unused_tcp_port, JsonRpcHttpHandler(Api(), JsonRpcHttpHandlerConfig())
+        unused_tcp_port, JsonRpcHttpHandler(reg, JsonRpcHttpHandlerConfig())
     ):
         async with ClientSession() as sess:
             resp = await sess.request(
@@ -126,25 +129,26 @@ async def test_batch(loop, unused_tcp_port):
 
 
 async def test_batch_complicated(loop, unused_tcp_port):
-    class Api:
-        @method()
-        def sum(self, a: int, b: int):
-            return a + b
+    reg = RpcRegistry()
 
-        @method()
-        def subtract(self, a: int, b: int):
-            return a - b
+    @reg.method()
+    def sum(a: int, b: int):
+        return a + b
 
-        @method()
-        def notify(self, msg: str):
-            return 'ok'
+    @reg.method()
+    def subtract(a: int, b: int):
+        return a - b
 
-        @method()
-        def get_data(self):
-            return [1, 2, 3]
+    @reg.method()
+    def notify(msg: str):
+        return 'ok'
+
+    @reg.method()
+    def get_data():
+        return [1, 2, 3]
 
     async with runapp(
-        unused_tcp_port, JsonRpcHttpHandler(Api(), JsonRpcHttpHandlerConfig())
+        unused_tcp_port, JsonRpcHttpHandler(reg, JsonRpcHttpHandlerConfig())
     ):
         async with ClientSession() as sess:
             resp = await sess.request(
@@ -198,30 +202,32 @@ async def test_batch_complicated(loop, unused_tcp_port):
 
 
 async def test_rpc_client(loop, unused_tcp_port):
-    class Api:
-        @method()
-        def method1(self):
-            return 'ok'
+    reg = RpcRegistry()
+
+    @reg.method()
+    def method1():
+        return 'ok'
 
     async with runapp(
-        unused_tcp_port, JsonRpcHttpHandler(Api(), JsonRpcHttpHandlerConfig())
+        unused_tcp_port, JsonRpcHttpHandler(reg, JsonRpcHttpHandlerConfig())
     ) as app:
         result = await app.clt.exec('method1')
         assert result == 'ok'
 
 
 async def test_rpc_client_batch(loop, unused_tcp_port):
-    class Api:
-        @method()
-        def method1(self, a: int):
-            return 'ok%s' % a
+    reg = RpcRegistry()
 
-        @method()
-        def method2(self, a: int):
-            return 'ok%s' % a
+    @reg.method()
+    def method1(a: int):
+        return 'ok%s' % a
+
+    @reg.method()
+    def method2(a: int):
+        return 'ok%s' % a
 
     async with runapp(
-        unused_tcp_port, JsonRpcHttpHandler(Api(), JsonRpcHttpHandlerConfig())
+        unused_tcp_port, JsonRpcHttpHandler(reg, JsonRpcHttpHandlerConfig())
     ) as app:
         res1, res2 = await app.clt.exec_batch(
             app.clt.exec('method1', {'a': 1}), app.clt.exec('method2', (2,))
@@ -231,17 +237,18 @@ async def test_rpc_client_batch(loop, unused_tcp_port):
 
 
 async def test_rpc_client_timeout(loop, unused_tcp_port):
-    class Api:
-        @method()
-        async def method1(self):
-            await asyncio.sleep(10)
+    reg = RpcRegistry()
 
-        @method()
-        async def method2(self):
-            await asyncio.sleep(0.2)
+    @reg.method()
+    async def method1():
+        await asyncio.sleep(10)
+
+    @reg.method()
+    async def method2():
+        await asyncio.sleep(0.2)
 
     async with runapp(
-        unused_tcp_port, JsonRpcHttpHandler(Api(), JsonRpcHttpHandlerConfig())
+        unused_tcp_port, JsonRpcHttpHandler(reg, JsonRpcHttpHandlerConfig())
     ) as app:
         with pytest.raises(asyncio.TimeoutError):
             await app.clt.exec('method1', timeout=0.2)
@@ -254,13 +261,14 @@ async def test_rpc_client_custom_error(loop, unused_tcp_port):
         jsonrpc_error_code = 100
         message = "My err {some_var} {some_else}"
 
-    class Api:
-        @method()
-        async def method(self):
-            raise MyErrr(some_var=123, data={'a': 1})
+    reg = RpcRegistry()
+
+    @reg.method()
+    async def method():
+        raise MyErrr(some_var=123, data={'a': 1})
 
     async with runapp(
-        unused_tcp_port, JsonRpcHttpHandler(Api(), JsonRpcHttpHandlerConfig())
+        unused_tcp_port, JsonRpcHttpHandler(reg, JsonRpcHttpHandlerConfig())
     ) as app:
         try:
             await app.clt.exec('method')
@@ -270,3 +278,24 @@ async def test_rpc_client_custom_error(loop, unused_tcp_port):
             assert err.data == {'a': 1}
         else:
             assert False
+
+
+async def test_rpc_as_list(loop, unused_tcp_port):
+    reg = RpcRegistry()
+
+    @reg.method()
+    def method1():
+        return 'ok'
+
+    async with runapp(
+        unused_tcp_port, JsonRpcHttpHandler(reg, JsonRpcHttpHandlerConfig())
+    ):
+        async with ClientSession() as sess:
+            resp = await sess.request(
+                'POST',
+                'http://127.0.0.1:%s/' % unused_tcp_port,
+                json={'method': 'method1', 'jsonrpc': '2.0', 'id': 1},
+            )
+
+            result = await resp.json()
+            assert result == {'id': 1, 'jsonrpc': '2.0', 'result': 'ok'}
