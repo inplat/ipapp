@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import json
 import time
@@ -452,7 +454,7 @@ class TransactionContextManager:
             if self._xact_lock is not None:
                 await self._xact_lock.acquire()
 
-            with await self._conn._lock:
+            async with self._conn._lock:
                 self._tr = self._conn._conn.transaction(
                     isolation=self._isolation_level,
                     readonly=self._readonly,
@@ -483,7 +485,7 @@ class TransactionContextManager:
                     PgSpan.P8S_NAME_XACT_COMMITED,
                 )
 
-        with await self._conn._lock:
+        async with self._conn._lock:
             if self._span is not None:
                 self._span.annotate(
                     PgSpan.ANN_XACT_END,
@@ -549,7 +551,7 @@ class PreparedStatement:
             )
             if self._query_name is not None:
                 span.tag(PgSpan.TAG_QUERY_NAME, self._query_name)
-            with await self._conn._lock:
+            async with self._conn._lock:
                 if self._conn._db.cfg.log_query:
                     args_enc = self._json_encode(args)
                     span.annotate(PgSpan.ANN_PARAMS, args_enc)
@@ -600,7 +602,7 @@ class PreparedStatement:
             )
             if self._query_name is not None:
                 span.tag(PgSpan.TAG_QUERY_NAME, self._query_name)
-            with await self._conn._lock:
+            async with self._conn._lock:
                 if self._conn._db.cfg.log_query:
                     args_enc = self._json_encode(args)
                     span.annotate(PgSpan.ANN_PARAMS, args_enc)
@@ -675,7 +677,7 @@ class Connection:
             )
             if query_name is not None:
                 span.tag(PgSpan.TAG_QUERY_NAME, query_name)
-            with await self._lock:
+            async with self._lock:
                 span.annotate(PgSpan.ANN_PID, self.pid)
                 span.annotate4adapter(
                     self._db.app.logger.ADAPTER_ZIPKIN,
@@ -726,7 +728,7 @@ class Connection:
             )
             if query_name is not None:
                 span.tag(PgSpan.TAG_QUERY_NAME, query_name)
-            with await self._lock:
+            async with self._lock:
                 span.annotate(PgSpan.ANN_PID, self.pid)
                 span.annotate4adapter(
                     self._db.app.logger.ADAPTER_ZIPKIN,
@@ -780,7 +782,7 @@ class Connection:
             )
             if query_name is not None:
                 span.tag(PgSpan.TAG_QUERY_NAME, query_name)
-            with await self._lock:
+            async with self._lock:
                 span.annotate(PgSpan.ANN_PID, self.pid)
                 span.annotate4adapter(
                     self._db.app.logger.ADAPTER_ZIPKIN,
@@ -838,7 +840,7 @@ class Connection:
             )
             if query_name is not None:
                 span.tag(PgSpan.TAG_QUERY_NAME, query_name)
-            with await self._lock:
+            async with self._lock:
                 span.annotate(PgSpan.ANN_PID, self.pid)
                 span.annotate4adapter(
                     self._db.app.logger.ADAPTER_ZIPKIN,
@@ -893,7 +895,7 @@ class Connection:
             )
             if query_name is not None:
                 span.tag(PgSpan.TAG_QUERY_NAME, query_name)
-            with await self._lock:
+            async with self._lock:
                 span.annotate(PgSpan.ANN_PID, self.pid)
                 span.annotate4adapter(
                     self._db.app.logger.ADAPTER_ZIPKIN,

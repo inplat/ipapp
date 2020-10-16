@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import time
 import traceback
@@ -7,7 +9,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import (
     Any,
-    AsyncContextManager,
     Callable,
     Dict,
     List,
@@ -15,6 +16,7 @@ from typing import (
     Tuple,
     Type,
     Union,
+    AsyncGenerator,
 )
 
 import asyncpg
@@ -477,7 +479,7 @@ class TaskManager(Component):
     async def cancel(self, task_id: int) -> bool:
         if self._db is None or self._lock is None:  # pragma: no cover
             raise UserWarning
-        with await self._lock:
+        async with self._lock:
             async with self._db.transaction():
                 if await self._db.task_search4cancel(task_id, lock=False):
                     await self._db.task_move_arch(
@@ -758,13 +760,13 @@ class Db:
         else:
             await conn.execute(query, *args, timeout=timeout)
 
-    @asynccontextmanager  # type: ignore
+    @asynccontextmanager
     async def transaction(
         self,
         isolation: str = 'read_committed',
         readonly: bool = False,
         deferrable: bool = False,
-    ) -> AsyncContextManager['Db']:
+    ) -> AsyncGenerator[Db, None]:
         conn = await self.get_conn(can_reconnect=True)
         async with self._lock:
             async with conn.transaction(

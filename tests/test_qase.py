@@ -1,6 +1,9 @@
+import re
+
 import _pytest
 from _pytest.fixtures import FixtureRequest
 from _pytest.main import ExitCode
+from pytest_httpserver import HTTPServer
 
 CONFTEST = '''
 pytest_plugins = ["ipapp.pytest.qase.plugin"]
@@ -8,8 +11,15 @@ pytest_plugins = ["ipapp.pytest.qase.plugin"]
 
 
 def test_run_exists(
-    testdir: '_pytest.pytester.Testdir', request: FixtureRequest, capsys
+    testdir: '_pytest.pytester.Testdir', capsys, httpserver: HTTPServer
 ) -> None:
+    httpserver.expect_request(re.compile("/v1/run/.+")).respond_with_json(
+        {"status": True}
+    )
+    httpserver.expect_request(re.compile("/v1/result/.+")).respond_with_json(
+        {"status": True}
+    )
+
     testdir.makeconftest(CONFTEST)
     testdir.makepyfile(
         """
@@ -20,6 +30,7 @@ def test_run_exists(
             assert True is True
     """
     )
+    testdir._method = "subprocess"
 
     result = testdir.runpytest(
         "--verbose",
@@ -27,7 +38,7 @@ def test_run_exists(
         "no:pytest_qase",
         "--assert=plain",
         "--qase",
-        "--qase-url=http://localhost:58974",
+        f"--qase-url={httpserver.url_for('/')}",
         "--qase-project-id=1",
         "--qase-token=secret",
         "--qase-member-id=7",
@@ -46,8 +57,18 @@ def test_run_exists(
 
 # olga
 def test_run_not_exists(
-    testdir: '_pytest.pytester.Testdir', request: FixtureRequest, capsys
+    testdir: '_pytest.pytester.Testdir',
+    request: FixtureRequest,
+    capsys,
+    httpserver,
 ) -> None:
+    httpserver.expect_request(re.compile("/v1/run/.+")).respond_with_json(
+        {"status": True}
+    )
+    httpserver.expect_request(re.compile("/v1/result/.+")).respond_with_json(
+        {"status": True}
+    )
+
     testdir.makeconftest(CONFTEST)
     testdir.makepyfile(
         """
@@ -58,6 +79,7 @@ def test_run_not_exists(
             assert True is False
     """
     )
+    testdir._method = "subprocess"
 
     result = testdir.runpytest(
         "--verbose",
@@ -65,7 +87,7 @@ def test_run_not_exists(
         "no:pytest_qase",
         "--assert=plain",
         "--qase",
-        "--qase-url=http://localhost:58974",
+        f"--qase-url={httpserver.url_for('')}",
         "--qase-project-id=1",
         "--qase-token=secret",
         "--qase-member-id=7",
