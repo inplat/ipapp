@@ -202,7 +202,7 @@ class BaseConfig(BaseModel, Generic[T]):
             raise ValueError
 
     @classmethod  # noqa: C901
-    def to_env_schema(
+    def to_env_schema(  # noqa: C901
         cls: Type[T],
         prefix: str,
         model: Optional[Type[BaseModel]] = None,
