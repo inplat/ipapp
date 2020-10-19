@@ -21,6 +21,9 @@ project = 'IPAPP'
 copyright = '2019, InPlat'
 author = 'InPlat'
 
+# specify the master doc, otherwise the build at read the docs fails
+master_doc = 'index'
+
 
 # -- General configuration ---------------------------------------------------
 
