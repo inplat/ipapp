@@ -47,10 +47,6 @@ classifiers = [
 readme = "README.md"
 homepage = "https://gitlab.app.ipl/inplat/ipapp"
 
-[[tool.poetry.source]]
-name = "inplat"
-url = "https://pip.sys.ipl/simple/"
-
 [tool.poetry.dependencies]
 python = "^3.7"
 pydantic = "^1.6.1"
