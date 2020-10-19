@@ -29,7 +29,7 @@ jobs:
       run: |
         python3 -m pip install --upgrade pip
         pip install poetry${USING_POETRY_VERSION}
-        poetry install -E fastapi -E iprpc -E oracle -E postgres -E rabbitmq -E s3 -E sftp -E dbtm -E testing -v
+        poetry install -E fastapi -E oracle -E postgres -E rabbitmq -E s3 -E sftp -E dbtm -E testing -v
     - name: Spin up environment
       run: poetry run docker-compose -f tests/docker-compose.yml up -d
     - name: Run tests
