@@ -1,7 +1,7 @@
-Inplat application framework
+InPlat application framework
 ============================
 
-Докумментация в [GitLab Pages](https://inplat.pages.app.ipl/ipapp/).
+[Докумментация](https://ipapp.readthedocs.io/ru/latest/)
 
 
 
