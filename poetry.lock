@@ -581,7 +581,7 @@ name = "iprpc"
 version = "0.2.3"
 description = "InPlat JSON RPC library"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.6,<4.0"
 
 [package.dependencies]
@@ -1293,7 +1293,7 @@ name = "strict-rfc3339"
 version = "0.7"
 description = "Strict, simple, lightweight RFC3339 functions"
 category = "main"
-optional = true
+optional = false
 python-versions = "*"
 
 [[package]]
@@ -1492,7 +1492,6 @@ testing = ["pytest (>=3.5,<3.7.3 || >3.7.3)", "pytest-checkdocs (>=1.2.3)", "pyt
 [extras]
 dbtm = ["asyncpg", "crontab"]
 fastapi = ["uvicorn", "fastapi"]
-iprpc = ["iprpc"]
 oracle = ["cx-Oracle"]
 postgres = ["asyncpg"]
 rabbitmq = ["pika"]
@@ -1503,7 +1502,7 @@ testing = ["black", "flake8", "mock", "mypy", "bandit", "isort", "safety", "pyli
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "e9ad0dc18aad5df09841c3395178e9a788d18c5eb254820a83090b26b009631a"
+content-hash = "42dfea71789708fffa1f177d35abc3340a5721ef13dc9aab5751f1e6bc1e993d"
 
 [metadata.files]
 aiobotocore = [
