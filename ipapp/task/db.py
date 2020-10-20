@@ -991,6 +991,7 @@ class TaskRegistry(RpcRegistry):
             _validate_crontab_fn(
                 func, name, crontab, crontab_do_not_miss, crontab_date_attr
             )
+            setattr(func, '__task_decorator__', True)
             if crontab is not None:
                 setattr(func, '__crontab__', CronTab(crontab))
                 setattr(func, '__crontab_do_not_miss__', crontab_do_not_miss)
