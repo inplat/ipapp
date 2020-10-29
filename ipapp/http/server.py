@@ -252,9 +252,7 @@ class Server(Component, ClientServerAnnotator):
                         encoding=request.charset,
                     )
 
-                resource = request.match_info.route.resource
-                # available only in aiohttp >= 3.3.1
-                if getattr(resource, 'canonical', None) is not None:
+                if request.match_info.route.resource is not None:
                     route = request.match_info.route.resource.canonical
                     span.tag(HttpSpan.TAG_HTTP_ROUTE, route)
 
