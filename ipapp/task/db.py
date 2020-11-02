@@ -489,19 +489,18 @@ class TaskManager(Component):
                 return False
 
     async def _scan(self) -> List[int]:
-        with wrap2span(
-            name=TaskManagerSpan.NAME_SCAN,
-            kind=Span.KIND_SERVER,
-            ignore_ctx=True,
-            cls=TaskManagerSpan,
-            app=self.app,
-        ) as span:
-            if self.app is None or self._lock is None:  # pragma: no cover
-                raise UserWarning
-            if self._stopping:
-                return []
-
-            async with self._lock:
+        if self.app is None or self._lock is None:  # pragma: no cover
+            raise UserWarning
+        if self._stopping:
+            return []
+        async with self._lock:
+            with wrap2span(
+                name=TaskManagerSpan.NAME_SCAN,
+                kind=Span.KIND_SERVER,
+                ignore_ctx=True,
+                cls=TaskManagerSpan,
+                app=self.app,
+            ) as span:
                 delay = 1.0  # default: 1 second
                 try:
                     tasks, delay = await self._search_and_exec()
