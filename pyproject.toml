@@ -47,6 +47,9 @@ classifiers = [
 readme = "README.md"
 homepage = "https://github.com/inplat/ipapp"
 
+[tool.poetry.plugins.pytest11]
+pytest_qase = "ipapp.pytest.qase.plugin"
+
 [tool.poetry.dependencies]
 python = "^3.7"
 pydantic = "^1.6.1"
