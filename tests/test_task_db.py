@@ -1,4 +1,5 @@
 import time
+from functools import wraps
 import uuid
 from asyncio import Future, wait_for
 from datetime import datetime, timezone
@@ -454,6 +455,77 @@ async def test_task_crontab_with_date_attr(loop, postgres_url):
 
     logs = await get_tasks_log(postgres_url, test_schema_name)
     assert len(logs) == 2
+
+    assert len(await get_tasks_pending(postgres_url, test_schema_name)) == 0
+
+    await app.stop()
+
+
+async def test_decorator(loop, postgres_url):
+    test_schema_name = await prepare(postgres_url)
+
+    fut = Future()
+
+    reg = TaskRegistry()
+
+    def dec(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            assert kwargs['arg'] == 123
+            return await func(*args, **kwargs)
+        return wrapper
+
+    @reg.task()
+    @dec
+    async def test(arg):
+        fut.set_result(arg)
+        return arg
+
+    app = BaseApplication(BaseConfig())
+    app.add(
+        'tm',
+        TaskManager(
+            reg,
+            TaskManagerConfig(
+                db_url=postgres_url,
+                db_schema=test_schema_name,
+                create_database_objects=True,
+            ),
+        ),
+    )
+    await app.start()
+    tm: TaskManager = app.get('tm')  # type: ignore
+
+    await tm.schedule(test, {'arg': 123}, eta=time.time() + 3)
+    tasks = await get_tasks_pending(postgres_url, test_schema_name)
+    assert len(tasks) == 1
+    assert tasks[0]['name'] == 'test'
+    assert tasks[0]['params'] == {'arg': 123}
+    assert tasks[0]['eta'] > datetime.now(tz=timezone.utc)
+    assert tasks[0]['last_stamp'] < datetime.now(tz=timezone.utc)
+    assert tasks[0]['status'] == STATUS_PENDING
+    assert tasks[0]['retries'] is None
+
+    res = await wait_for(fut, 10)
+    assert res == 123
+
+    tasks = await get_tasks_arch(postgres_url, test_schema_name)
+    assert len(tasks) == 1
+    assert tasks[0]['name'] == 'test'
+    assert tasks[0]['params'] == {'arg': 123}
+    assert tasks[0]['eta'] < datetime.now(tz=timezone.utc)
+    assert tasks[0]['last_stamp'] < datetime.now(tz=timezone.utc)
+    assert tasks[0]['status'] == STATUS_SUCCESSFUL
+    assert tasks[0]['retries'] == 0
+
+    logs = await get_tasks_log(postgres_url, test_schema_name)
+    assert len(logs) == 1
+    assert logs[0]['eta'] < datetime.now(tz=timezone.utc)
+    assert logs[0]['started'] < datetime.now(tz=timezone.utc)
+    assert logs[0]['finished'] < datetime.now(tz=timezone.utc)
+    assert logs[0]['result'] == 123
+    assert logs[0]['error'] is None
+    assert logs[0]['traceback'] is None
 
     assert len(await get_tasks_pending(postgres_url, test_schema_name)) == 0
 

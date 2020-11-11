@@ -1,5 +1,5 @@
 import pytest
-
+from functools import wraps
 from ipapp.rpc import Executor, InvalidArguments, RpcRegistry, method
 
 
@@ -169,3 +169,25 @@ async def test_duplicate_methods():
 
     with pytest.raises(UserWarning):
         Executor(reg)
+
+
+async def test_decorator():
+    reg = RpcRegistry()
+
+    def dec(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            assert kwargs['a'] == 3
+            return await func(*args, **kwargs)
+
+        return wrapper
+
+    @reg.method()
+    @dec
+    async def sum(a: int, b: int, c: int = 0) -> int:
+        return a + b + c
+
+    ex = Executor(reg)
+
+    res = await ex.exec('sum', kwargs={'a': 3, 'b': 4})
+    assert res == 7
