@@ -48,7 +48,6 @@ class ZipkinAdapter(AbcAdapter):
         transport = azt.Transport(
             self.cfg.addr,
             send_interval=self.cfg.send_interval,
-            loop=logger.app.loop,
         )
         self.tracer = az.Tracer(transport, sampler, endpoint)
 

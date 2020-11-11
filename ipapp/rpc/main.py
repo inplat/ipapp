@@ -410,13 +410,8 @@ class _Method:
 
 
 class Executor:
-    def __init__(
-        self,
-        registry: Union[RpcRegistry, object],
-        loop: Optional[asyncio.AbstractEventLoop] = None,
-    ) -> None:
+    def __init__(self, registry: Union[RpcRegistry, object]) -> None:
         self._handler = registry
-        self._loop = loop
         self._methods: Dict[str, _Method] = {}
         for fn in self.iter_handler(registry):
             name = getattr(fn, '__rpc_name__', fn.__name__)

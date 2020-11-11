@@ -129,7 +129,6 @@ class Client(Component, ClientServerAnnotator):
                 headers['User-Agent'] = USER_AGENT
 
             async with ClientSession(
-                loop=self.app.loop,
                 timeout=timeout,
                 **(session_kwargs or {}),  # type: ignore
             ) as session:

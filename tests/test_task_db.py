@@ -1,8 +1,8 @@
 import time
-from functools import wraps
 import uuid
 from asyncio import Future, wait_for
 from datetime import datetime, timezone
+from functools import wraps
 
 import asyncpg
 
@@ -473,6 +473,7 @@ async def test_decorator(loop, postgres_url):
         async def wrapper(*args, **kwargs):
             assert kwargs['arg'] == 123
             return await func(*args, **kwargs)
+
         return wrapper
 
     @reg.task()

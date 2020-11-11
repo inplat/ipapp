@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import (
     Any,
+    AsyncGenerator,
     Callable,
     Dict,
     List,
@@ -16,7 +17,6 @@ from typing import (
     Tuple,
     Type,
     Union,
-    AsyncGenerator,
 )
 
 import asyncpg
@@ -290,7 +290,7 @@ class TaskManager(Component):
 
         self._check_deprecated_decorator()
 
-        self._lock = asyncio.Lock(loop=self.loop)
+        self._lock = asyncio.Lock()
 
         self._db = Db(self, self.cfg)
         await self._db.init()
@@ -303,9 +303,7 @@ class TaskManager(Component):
             raise UserWarning('Unattached component')
 
         if not self.cfg.idle:
-            self._scan_fut = asyncio.ensure_future(
-                self._scan(), loop=self.loop
-            )
+            self._scan_fut = asyncio.ensure_future(self._scan())
 
     async def stop(self) -> None:
         self._stopping = True
@@ -531,9 +529,7 @@ class TaskManager(Component):
         if self._stopping:
             return
         if not self.cfg.idle:
-            self._scan_fut = asyncio.ensure_future(
-                self._scan(), loop=self.loop
-            )
+            self._scan_fut = asyncio.ensure_future(self._scan())
 
     async def _search_and_exec(self) -> Tuple[List[Task], float]:
         if self._db is None:  # pragma: no cover
@@ -677,10 +673,7 @@ class Db:
                 return self._conn
             except Exception as err:
                 self._tm.app.logger.app.log_err(err)
-                await asyncio.sleep(
-                    self._cfg.db_connect_retry_delay,
-                    loop=self._tm.app.logger.app.loop,
-                )
+                await asyncio.sleep(self._cfg.db_connect_retry_delay)
         raise Exception("Could not connect to %s" % self._masked_url)
 
     async def _check_or_create_database_objects(self) -> None:

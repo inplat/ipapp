@@ -176,7 +176,6 @@ class Postgres(Component):
                     self.cfg.pool_max_inactive_connection_lifetime
                 ),
                 init=Postgres._conn_init,
-                loop=self.app.loop,
             )
         self.app.log_info("Connected to %s", self._masked_url)
 
@@ -241,7 +240,6 @@ class Postgres(Component):
         if len(xact_locks) > 0:
             await asyncio.wait(
                 xact_locks,
-                loop=self.loop,
                 timeout=max(stop_timeout - stop_start + stop_start, 0.001),
             )
 
@@ -253,7 +251,6 @@ class Postgres(Component):
         if len(conn_locks):
             await asyncio.wait(
                 conn_locks,
-                loop=self.loop,
                 timeout=max(stop_timeout - stop_start + stop_start, 0.001),
             )
 
@@ -637,8 +634,8 @@ class Connection:
         self._db = db
         self._conn = conn
         self._pid = conn.get_server_pid()
-        self._lock = asyncio.Lock(loop=db.loop)
-        self._xact_lock = asyncio.Lock(loop=db.loop)
+        self._lock = asyncio.Lock()
+        self._xact_lock = asyncio.Lock()
         self._json_encode = json_encode
 
     @property

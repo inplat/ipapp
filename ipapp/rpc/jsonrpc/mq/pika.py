@@ -86,7 +86,7 @@ class RpcServerChannel(PikaChannel):
             self.cfg.queue_arguments,
         )
         await self.qos(prefetch_count=self.cfg.prefetch_count)
-        self._lock = asyncio.Lock(loop=self.amqp.loop)
+        self._lock = asyncio.Lock()
         self._rpc = JsonRpcExecutor(self.registry, self.amqp.app)
 
     async def start(self) -> None:
@@ -144,7 +144,7 @@ class RpcClientChannel(PikaChannel):
     async def prepare(self) -> None:
         res = await self.queue_declare('', exclusive=True)
         self._queue = res.method.queue
-        self._lock = asyncio.Lock(loop=self.amqp.loop)
+        self._lock = asyncio.Lock()
         self._clt = JsonRpcClient(
             self._transport, self.amqp.app, self._exception_mapping_callback
         )
@@ -191,7 +191,7 @@ class RpcClientChannel(PikaChannel):
         self, request: bytes, timeout: Optional[float]
     ) -> bytes:
         correlation_id = str(uuid.uuid4())
-        fut: asyncio.Future = asyncio.Future(loop=self.amqp.app.loop)
+        fut: asyncio.Future = asyncio.Future()
         self._futs[correlation_id] = (fut, span)
         try:
             with self.amqp.app.logger.capture_span(AmqpSpan) as trap:

@@ -319,9 +319,7 @@ class RequestsAdapter(AbcAdapter):
                 return self._db
             except Exception as err:
                 self.logger.app.log_err(err)
-                await asyncio.sleep(
-                    self.cfg.connect_retry_delay, loop=self.logger.app.loop
-                )
+                await asyncio.sleep(self.cfg.connect_retry_delay)
         raise PrepareError("Could not connect to %s" % self._masked_url)
 
     async def _check_conn(self) -> None:

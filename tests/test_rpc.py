@@ -1,5 +1,7 @@
-import pytest
 from functools import wraps
+
+import pytest
+
 from ipapp.rpc import Executor, InvalidArguments, RpcRegistry, method
 
 

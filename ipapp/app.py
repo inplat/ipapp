@@ -33,7 +33,7 @@ class BaseApplication(object):
         self._version = ''
         self._build_stamp: float = 0.0
         self._start_stamp: Optional[float] = None
-        self._shutdown_fut: asyncio.Future = asyncio.Future(loop=self.loop)
+        self._shutdown_fut: asyncio.Future = asyncio.Future()
 
     @property
     def version(self) -> str:
@@ -126,7 +126,7 @@ class BaseApplication(object):
 
             try:
                 self.loop.run_until_complete(
-                    asyncio.wait([self._shutdown_fut], loop=self.loop)
+                    asyncio.wait([self._shutdown_fut])
                 )
                 print('*' * 80)
                 print(self._shutdown_fut.result())

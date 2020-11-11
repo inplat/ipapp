@@ -93,7 +93,7 @@ class RpcServerChannel(PikaChannel):
             self.cfg.queue_arguments,
         )
         await self.qos(prefetch_count=self.cfg.prefetch_count)
-        self._lock = asyncio.Lock(loop=self.amqp.loop)
+        self._lock = asyncio.Lock()
         self._rpc = MethodExecutor(self.api)
 
     async def start(self) -> None:
@@ -173,7 +173,7 @@ class RpcClientChannel(PikaChannel):
     async def prepare(self) -> None:
         res = await self.queue_declare('', exclusive=True)
         self._queue = res.method.queue
-        self._lock = asyncio.Lock(loop=self.amqp.loop)
+        self._lock = asyncio.Lock()
 
     async def start(self) -> None:
         await self.consume(self._queue, self._message)
@@ -233,7 +233,7 @@ class RpcClientChannel(PikaChannel):
         )
         correlation_id = str(uuid.uuid4())
 
-        fut: asyncio.Future = asyncio.Future(loop=self.amqp.app.loop)
+        fut: asyncio.Future = asyncio.Future()
         with wrap2span(
             kind=Span.KIND_CLIENT, app=self.amqp.app, cls=AmqpOutSpan
         ) as span:

@@ -279,7 +279,7 @@ class Connection:
     def __init__(self, db: Oracle, conn: cx_Oracle.Connection) -> None:
         self._db = db
         self._conn = conn
-        self._lock = asyncio.Lock(loop=db.loop)
+        self._lock = asyncio.Lock()
 
     def cursor(self) -> 'CursorContextManager':
         return CursorContextManager(self)
@@ -360,7 +360,7 @@ class Cursor:
         self._conn = conn
         self._loop = conn._db.loop  # noqa
         self._ora_cur = ora_cur
-        self._lock = asyncio.Lock(loop=self._loop)
+        self._lock = asyncio.Lock()
 
     def ora_cur(self) -> cx_Oracle.Cursor:
         return self._ora_cur

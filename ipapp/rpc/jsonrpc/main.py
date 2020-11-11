@@ -79,7 +79,7 @@ class JsonRpcExecutor:
         self._app = app
         self._discover_enabled = discover_enabled
         self._discover_result: Optional[Dict[str, Any]] = None
-        self._ex = _Executor(registry, loop=loop)
+        self._ex = _Executor(registry)
         self._loop = loop
         self._protocol = rpc.JSONRPCProtocol()
         self._scheduler: Optional[aiojobs.Scheduler] = None
