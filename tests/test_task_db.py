@@ -8,6 +8,7 @@ import asyncpg
 
 from ipapp import BaseApplication, BaseConfig
 from ipapp.db.pg import Postgres
+from ipapp.logger import Span
 from ipapp.task.db import (
     STATUS_CANCELED,
     STATUS_ERROR,
@@ -531,3 +532,51 @@ async def test_decorator(loop, postgres_url):
     assert len(await get_tasks_pending(postgres_url, test_schema_name)) == 0
 
     await app.stop()
+
+
+async def test_propagate_trace(loop, postgres_url):
+    test_schema_name = await prepare(postgres_url)
+
+    fut = Future()
+
+    reg = TaskRegistry()
+
+    @reg.task()
+    async def test(arg):
+        fut.set_result(arg)
+        return arg
+
+    app = BaseApplication(BaseConfig())
+    app.add(
+        'tm',
+        TaskManager(
+            reg,
+            TaskManagerConfig(
+                db_url=postgres_url,
+                db_schema=test_schema_name,
+                create_database_objects=True,
+            ),
+        ),
+    )
+    await app.start()
+    tm: TaskManager = app.get('tm')  # type: ignore
+
+    with app.logger.span_new():
+        with app.logger.capture_span(Span) as trap:
+            await tm.schedule(
+                test, {'arg': 123}, eta=time.time() + 3, propagate_trace=True
+            )
+            trace = [trap.span.trace_id, trap.span.id]
+    tasks = await get_tasks_pending(postgres_url, test_schema_name)
+    assert len(tasks) == 1
+    assert tasks[0]['name'] == 'test'
+    assert tasks[0]['params'] == {'arg': 123}
+    assert tasks[0]['eta'] > datetime.now(tz=timezone.utc)
+    assert tasks[0]['last_stamp'] < datetime.now(tz=timezone.utc)
+    assert tasks[0]['status'] == STATUS_PENDING
+    assert tasks[0]['retries'] is None
+    assert tasks[0]['trace_id'] == trace[0]
+    assert tasks[0]['trace_span_id'] == trace[1]
+
+    res = await wait_for(fut, 10)
+    assert res == 123

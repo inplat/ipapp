@@ -85,6 +85,8 @@ CREATE TABLE IF NOT EXISTS {schema}.task
   status {schema}.task_status NOT NULL,
   last_stamp timestamp with time zone NOT NULL DEFAULT now(),
   retries integer,
+  trace_id character varying(32),
+  trace_span_id character varying(16),
   CONSTRAINT task_pkey PRIMARY KEY (id),
   CONSTRAINT task_empty_table_check CHECK (false) NO INHERIT,
   CONSTRAINT task_max_retries_check CHECK (max_retries >= 0),
@@ -424,6 +426,7 @@ class TaskManager(Component):
         eta: Optional[ETA] = None,
         max_retries: int = 0,
         retry_delay: float = 60.0,
+        propagate_trace: bool = False,
     ) -> int:
         with wrap2span(
             name=TaskManagerSpan.NAME_SCHEDULE,
@@ -455,14 +458,19 @@ class TaskManager(Component):
                 span.annotate(
                     TaskManagerSpan.ANN_ETA, 'ETA: %s' % eta_dt.isoformat()
                 )
-
-            task_id, task_delay = await self._db.task_add(
+            add_params: List[Any] = [
                 eta_dt,
                 func_name,
                 params,
                 reference,
                 max_retries,
                 retry_delay,
+            ]
+            if propagate_trace:
+                add_params.append(span.trace_id)
+                add_params.append(span.id)
+            task_id, task_delay = await self._db.task_add(
+                *add_params,
                 lock=True,
             )
 
@@ -774,26 +782,52 @@ class Db:
         reference: Optional[str],
         max_retries: int,
         retry_delay: float,
+        trace_id: Optional[str] = None,
+        trace_span_id: Optional[str] = None,
         *,
         lock: bool = False,
     ) -> Tuple[int, float]:
-        query = (  # nosec
-            "INSERT INTO %s.task_pending"
-            "(eta,name,params,reference,max_retries,retry_delay) "
-            "VALUES(COALESCE($1, NOW()),$2,$3,$4,$5,"
-            "make_interval(secs=>$6::float)) "
-            "RETURNING id, "
-            "greatest(extract(epoch from eta-NOW()), 0) as delay"
-        ) % self._cfg.db_schema
+        if trace_id is not None:
+            query = (  # nosec
+                "INSERT INTO %s.task_pending"
+                "(eta,name,params,reference,max_retries,retry_delay,"
+                "trace_id,trace_span_id) "
+                "VALUES(COALESCE($1, NOW()),$2,$3,$4,$5,"
+                "make_interval(secs=>$6::float),$7,$8) "
+                "RETURNING id, "
+                "greatest(extract(epoch from eta-NOW()), 0) as delay"
+            ) % self._cfg.db_schema
+            query_params: Tuple[Any, ...] = (
+                eta,
+                name,
+                params,
+                reference,
+                max_retries,
+                retry_delay,
+                trace_id,
+                trace_span_id,
+            )
+        else:
+            query = (  # nosec
+                "INSERT INTO %s.task_pending"
+                "(eta,name,params,reference,max_retries,retry_delay) "
+                "VALUES(COALESCE($1, NOW()),$2,$3,$4,$5,"
+                "make_interval(secs=>$6::float)) "
+                "RETURNING id, "
+                "greatest(extract(epoch from eta-NOW()), 0) as delay"
+            ) % self._cfg.db_schema
+            query_params = (
+                eta,
+                name,
+                params,
+                reference,
+                max_retries,
+                retry_delay,
+            )
 
         res = await self._fetchrow(
             query,
-            eta,
-            name,
-            params,
-            reference,
-            max_retries,
-            retry_delay,
+            *query_params,
             lock=lock,
         )
         if res is None:  # pragma: no cover
