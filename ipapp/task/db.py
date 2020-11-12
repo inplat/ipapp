@@ -424,8 +424,8 @@ class TaskManager(Component):
         params: dict,
         reference: Optional[str] = None,
         eta: Optional[ETA] = None,
-        max_retries: int = 0,
-        retry_delay: float = 60.0,
+        max_retries: Optional[int] = None,
+        retry_delay: Optional[float] = None,
         propagate_trace: bool = False,
     ) -> int:
         with wrap2span(
@@ -443,6 +443,11 @@ class TaskManager(Component):
                 func_name = getattr(func, '__rpc_name__')
             else:
                 func_name = func
+
+            if max_retries is None:
+                max_retries = getattr(func, '__task_max_retries__', 0)
+            if retry_delay is None:
+                retry_delay = getattr(func, '__task_retry_delay__', 60.)
 
             span.name = '%s::%s' % (TaskManagerSpan.NAME_SCHEDULE, func_name)
 
@@ -1012,12 +1017,18 @@ class TaskRegistry(RpcRegistry):
         crontab: Optional[str] = None,
         crontab_do_not_miss: bool = False,
         crontab_date_attr: Optional[str] = None,
+        max_retries: Optional[int] = None,
+        retry_delay: Optional[float] = None,
     ) -> Callable:
         def decorator(func: Callable) -> Callable:
             _validate_crontab_fn(
                 func, name, crontab, crontab_do_not_miss, crontab_date_attr
             )
             setattr(func, '__task_decorator__', True)
+            if max_retries is not None:
+                setattr(func, '__task_max_retries__', max_retries)
+            if retry_delay is not None:
+                setattr(func, '__task_retry_delay__', retry_delay)
             if crontab is not None:
                 setattr(func, '__crontab__', CronTab(crontab))
                 setattr(func, '__crontab_do_not_miss__', crontab_do_not_miss)

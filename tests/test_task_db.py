@@ -151,7 +151,7 @@ async def test_reties_success(loop, postgres_url):
 
     reg = TaskRegistry()
 
-    @reg.task()
+    @reg.task(max_retries=2, retry_delay=0.2)
     async def test(arg):
         Api.attempts += 1
         if Api.attempts <= 2:
@@ -175,7 +175,7 @@ async def test_reties_success(loop, postgres_url):
     await app.start()
     tm: TaskManager = app.get('tm')  # type: ignore
 
-    await tm.schedule(test, {'arg': 234}, max_retries=2, retry_delay=0.2)
+    await tm.schedule(test, {'arg': 234})
 
     res = await wait_for(fut, 10)
     assert res == 234
