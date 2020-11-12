@@ -98,8 +98,8 @@ class Client(Component, ClientServerAnnotator):
         headers: Dict[str, str] = None,
         timeout: Optional[ClientTimeout] = None,
         ssl: Optional[SSLContext] = None,
-        session_kwargs: Optional[Dict[str, Optional[str]]] = None,
-        request_kwargs: Optional[Dict[str, Optional[str]]] = None,
+        session_kwargs: Optional[Dict[str, Any]] = None,
+        request_kwargs: Optional[Dict[str, Any]] = None,
         propagate_trace: bool = True,
     ) -> ClientResponse:
         span: 'ClientHttpSpan'
@@ -130,7 +130,7 @@ class Client(Component, ClientServerAnnotator):
 
             async with ClientSession(
                 timeout=timeout,
-                **(session_kwargs or {}),  # type: ignore
+                **(session_kwargs or {}),
             ) as session:
                 ts1 = time.time()
                 resp = await session.request(
