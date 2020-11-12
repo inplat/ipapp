@@ -2,7 +2,7 @@ import asyncio
 import logging
 import sys
 from functools import wraps
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from aiohttp import web
 
@@ -23,10 +23,10 @@ class Config(BaseConfig):
 
 def lock_by_id(func: Callable) -> Callable:
     @wraps(func)
-    async def wrapper(*args, **kwargs):
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
         request: web.Request = args[1]
         id = request.match_info.get('id')
-        async with app.lock(id):
+        async with app.lock(id):  # type: ignore
             return await func(*args, **kwargs)
 
     return wrapper
@@ -68,10 +68,8 @@ if __name__ == "__main__":
     APP_LOG_ZIPKIN_NAME=server \
     APP_LOCK_URL=redis://127.0.0.1:9008/0 \
     python -m examples.lock
-    
-    
-    curl http://localhost:8080/1 & curl http://localhost:8080/2 & curl http://localhost:8080/2 &
 
+    curl http://localhost:8080/1 & curl http://localhost:8080/2 & curl http://localhost:8080/2 &
     """
     logging.basicConfig(level=logging.INFO)
     main(sys.argv, '0', App, Config)
