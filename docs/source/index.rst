@@ -18,6 +18,7 @@ Inplat application framework
    rpc_amqp
    openapi
    s3
+   util_lock
    documentation
    release-notes
 

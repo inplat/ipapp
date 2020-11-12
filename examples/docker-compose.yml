@@ -43,6 +43,8 @@ services:
   redis:
     container_name: ipapp-sentry-redis
     image: redis
+    ports:
+      - '9008:6379'
     volumes:
       - redis-data:/data
   db:

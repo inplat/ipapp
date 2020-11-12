@@ -447,7 +447,7 @@ class TaskManager(Component):
             if max_retries is None:
                 max_retries = getattr(func, '__task_max_retries__', 0)
             if retry_delay is None:
-                retry_delay = getattr(func, '__task_retry_delay__', 60.)
+                retry_delay = getattr(func, '__task_retry_delay__', 60.0)
 
             span.name = '%s::%s' % (TaskManagerSpan.NAME_SCHEDULE, func_name)
 

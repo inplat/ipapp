@@ -1,6 +1,7 @@
 import asyncio
 from typing import Any, AsyncGenerator, Awaitable, Callable, Optional
 
+import aioredis
 import asyncpg
 import pika
 import pytest
@@ -11,6 +12,7 @@ from async_timeout import timeout as async_timeout
 TIMEOUT = 60
 COMPOSE_POSTGRES_URL = 'postgres://ipapp:secretpwd@127.0.0.1:58971/ipapp'
 COMPOSE_RABBITMQ_URL = 'amqp://guest:guest@127.0.0.1:58972/'
+COMPOSE_REDIS_URL = 'redis://127.0.0.1:58974/0'
 
 pytest_plugins = ["pytester"]
 
@@ -27,6 +29,12 @@ def pytest_addoption(parser: Parser) -> None:
         dest="rabbit_url",
         help="RabbitMq override connection string",
         metavar="amqp://user:pwd@host:port/vhost",
+    )
+    parser.addoption(
+        "--redis-url",
+        dest="redis_url",
+        help="Redis override connection string",
+        metavar="redis://host:port/db",
     )
 
 
@@ -74,6 +82,23 @@ async def rabbitmq_url(request: FixtureRequest) -> AsyncGenerator[str, None]:
     url = request.config.getoption('rabbit_url')
     if not url:
         url = COMPOSE_RABBITMQ_URL
+    await wait_service(
+        url,
+        TIMEOUT,
+        check,
+        'Failed to connect to {url}. Last error: {err}',
+    )
+    yield url
+
+
+@pytest.fixture
+async def redis_url(request: FixtureRequest) -> AsyncGenerator[str, None]:
+    async def check(url: str) -> None:
+        await aioredis.create_connection(url)
+
+    url = request.config.getoption('redis_url')
+    if not url:
+        url = COMPOSE_REDIS_URL
     await wait_service(
         url,
         TIMEOUT,
