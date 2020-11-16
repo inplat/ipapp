@@ -69,6 +69,12 @@ if __name__ == "__main__":
     APP_LOCK_URL=redis://127.0.0.1:9008/0 \
     python -m examples.lock
 
+    APP_LOG_ZIPKIN_ENABLED=1 \
+    APP_LOG_ZIPKIN_ADDR=http://127.0.0.1:9002/api/v2/spans \
+    APP_LOG_ZIPKIN_NAME=server \
+    APP_LOCK_URL=postgres://ipapp:secretpwd@127.0.0.1:9001/ipapp \
+    python -m examples.lock
+
     curl http://localhost:8080/1 & curl http://localhost:8080/2 & curl http://localhost:8080/2 &
     """
     logging.basicConfig(level=logging.INFO)
