@@ -19,6 +19,8 @@ from typing import (
 
 import aiojobs
 from pydantic import BaseModel
+from pydantic.fields import FieldInfo
+from pydantic.utils import smart_deepcopy
 from pydantic.json import ENCODERS_BY_TYPE, pydantic_encoder
 from tinyrpc import exc as rpc_exc
 from tinyrpc.protocols import jsonrpc as rpc
@@ -401,6 +403,16 @@ class JsonRpcExecutor:
     def cast2dump(cls, result: Any) -> Any:
         if result is None:
             return None
+        if isinstance(result, FieldInfo):
+            field_info = result
+            result = (
+                smart_deepcopy(field_info.default)
+                if field_info.default_factory is None
+                else field_info.default_factory()
+            )
+            if result == Ellipsis:
+                raise _InvalidArguments
+            return result
         if isinstance(result, BaseModel):
             return cls.cast2dump(result.dict())
         if isinstance(result, (int, float, str, bool, type(None))):
@@ -408,7 +420,12 @@ class JsonRpcExecutor:
         if isinstance(result, Mapping):
             res_dict = {}
             for key, value in result.items():
-                res_dict[key] = cls.cast2dump(value)
+                try:
+                    res_dict[key] = cls.cast2dump(value)
+                except _InvalidArguments:
+                    raise _InvalidArguments(
+                        Exception(f'Missing required argument: {key}')
+                    )
             return res_dict
         if isinstance(result, Iterable):
             res_list = []

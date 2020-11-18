@@ -1,5 +1,7 @@
 import asyncio
+from typing import Any, Awaitable, Optional
 
+from pydantic.fields import FieldInfo
 import pytest
 from aiohttp import ClientSession
 
@@ -13,6 +15,7 @@ from ipapp.rpc.jsonrpc.http import (
     JsonRpcHttpHandler,
     JsonRpcHttpHandlerConfig,
 )
+from ipapp.rpc.error import InvalidArguments
 
 
 class RunAppCtx:
@@ -213,6 +216,100 @@ async def test_rpc_client(loop, unused_tcp_port):
     ) as app:
         result = await app.clt.exec('method1')
         assert result == 'ok'
+
+
+async def test_rpc_client_info_field(loop, unused_tcp_port):
+    reg = RpcRegistry()
+
+    @reg.method()
+    def sum(a: int, b: int = 3) -> int:
+        return a + b
+
+    def AField(default: Any) -> Any:
+        return FieldInfo(
+            default,
+            description="A Field",
+        )
+
+    def BField(default: Any) -> Any:
+        return FieldInfo(
+            default,
+            description="B Field",
+        )
+
+    class TestRpcClientInfoField(JsonRpcHttpClient):
+        def sum(
+            self,
+            a: int = AField(...),
+            b: Optional[int] = BField(5),
+            timeout: Optional[float] = None,
+        ) -> Awaitable[int]:
+            return self.exec(
+                "sum",
+                {'a': a, 'b': b},
+                timeout=timeout,
+            )
+
+    async with runapp(
+        unused_tcp_port, JsonRpcHttpHandler(reg, JsonRpcHttpHandlerConfig())
+    ) as app:
+        clt = TestRpcClientInfoField(
+            JsonRpcHttpClientConfig(
+                url='http://%s:%s/' % (app.cfg.srv.host, app.cfg.srv.port)
+            )
+        )
+        app.add('clt_if', clt)
+        await clt.prepare()
+        await clt.start()
+        result = await clt.sum(10)
+        assert result == 15
+
+
+async def test_rpc_client_info_field_missed_argument(loop, unused_tcp_port):
+    reg = RpcRegistry()
+
+    @reg.method()
+    def sum(a: int, b: int = 3) -> int:
+        return a + b
+
+    def AField(default: Any) -> Any:
+        return FieldInfo(
+            default,
+            description="A Field",
+        )
+
+    def BField(default: Any) -> Any:
+        return FieldInfo(
+            default,
+            description="B Field",
+        )
+
+    class TestRpcClientInfoField(JsonRpcHttpClient):
+        def sum(
+            self,
+            a: int = AField(...),
+            b: Optional[int] = BField(5),
+            timeout: Optional[float] = None,
+        ) -> Awaitable[int]:
+            return self.exec(
+                "sum",
+                {'a': a, 'b': b},
+                timeout=timeout,
+            )
+
+    async with runapp(
+        unused_tcp_port, JsonRpcHttpHandler(reg, JsonRpcHttpHandlerConfig())
+    ) as app:
+        clt = TestRpcClientInfoField(
+            JsonRpcHttpClientConfig(
+                url='http://%s:%s/' % (app.cfg.srv.host, app.cfg.srv.port)
+            )
+        )
+        app.add('clt_if', clt)
+        await clt.prepare()
+        await clt.start()
+        with pytest.raises(InvalidArguments):
+            await clt.sum()
 
 
 async def test_rpc_client_batch(loop, unused_tcp_port):
