@@ -280,7 +280,6 @@ class SftpClient(Component):
         with wrap2span(
             name=SftpClientSpan.NAME_GET,
             kind=SftpClientSpan.KIND_CLIENT,
-            ignore_ctx=True,
             cls=SftpClientSpan,
             app=self.app,
         ) as span:
@@ -325,7 +324,6 @@ class SftpClient(Component):
         with wrap2span(
             name=SftpClientSpan.NAME_PUT,
             kind=SftpClientSpan.KIND_CLIENT,
-            ignore_ctx=True,
             cls=SftpClientSpan,
             app=self.app,
         ) as span:
@@ -357,7 +355,6 @@ class SftpClient(Component):
         with wrap2span(
             name=SftpClientSpan.NAME_REMOVE,
             kind=SftpClientSpan.KIND_CLIENT,
-            ignore_ctx=True,
             cls=SftpClientSpan,
             app=self.app,
         ) as span:
@@ -381,7 +378,6 @@ class SftpClient(Component):
         with wrap2span(
             name=SftpClientSpan.NAME_READDIR,
             kind=SftpClientSpan.KIND_CLIENT,
-            ignore_ctx=True,
             cls=SftpClientSpan,
             app=self.app,
         ) as span:
@@ -411,7 +407,6 @@ class SftpClient(Component):
         with wrap2span(
             name=SftpClientSpan.NAME_LISTDIR,
             kind=SftpClientSpan.KIND_CLIENT,
-            ignore_ctx=True,
             cls=SftpClientSpan,
             app=self.app,
         ) as span:
@@ -439,7 +434,6 @@ class SftpClient(Component):
         with wrap2span(
             name=SftpClientSpan.NAME_RENAME,
             kind=SftpClientSpan.KIND_CLIENT,
-            ignore_ctx=True,
             cls=SftpClientSpan,
             app=self.app,
         ) as span:
@@ -461,7 +455,6 @@ class SftpClient(Component):
         with wrap2span(
             name=SftpClientSpan.NAME_MKDIR,
             kind=SftpClientSpan.KIND_CLIENT,
-            ignore_ctx=True,
             cls=SftpClientSpan,
             app=self.app,
         ) as span:
@@ -483,7 +476,6 @@ class SftpClient(Component):
         with wrap2span(
             name=SftpClientSpan.NAME_CHDIR,
             kind=SftpClientSpan.KIND_CLIENT,
-            ignore_ctx=True,
             cls=SftpClientSpan,
             app=self.app,
         ) as span:
@@ -505,7 +497,6 @@ class SftpClient(Component):
         with wrap2span(
             name=SftpClientSpan.NAME_GETCWD,
             kind=SftpClientSpan.KIND_CLIENT,
-            ignore_ctx=True,
             cls=SftpClientSpan,
             app=self.app,
         ) as span:
@@ -528,7 +519,6 @@ class SftpClient(Component):
         with wrap2span(
             name=SftpClientSpan.NAME_EXISTS,
             kind=SftpClientSpan.KIND_CLIENT,
-            ignore_ctx=True,
             cls=SftpClientSpan,
             app=self.app,
         ) as span:
