@@ -582,6 +582,10 @@ class TaskManager(Component):
             cls=TaskManagerSpan,
             app=self.app,
         ) as span:
+            if task.trace_id is not None:
+                span.trace_id = task.trace_id
+                span.parent_id = task.trace_span_id
+
             if self._db is None or self._executor is None:  # pragma: no cover
                 raise UserWarning
 
