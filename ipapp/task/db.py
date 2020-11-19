@@ -512,32 +512,37 @@ class TaskManager(Component):
         if self._stopping:
             return []
         async with self._lock:
-            with wrap2span(
-                name=TaskManagerSpan.NAME_SCAN,
-                kind=Span.KIND_SERVER,
-                ignore_ctx=True,
-                cls=TaskManagerSpan,
-                app=self.app,
-            ) as span:
-                delay = 1.0  # default: 1 second
-                try:
-                    tasks, delay = await self._search_and_exec()
-                    if len(tasks) == 0:
-                        span.skip()
-                    return [task.id for task in tasks]
-                except Exception as err:
-                    span.error(err)
-                    self.app.log_err(err)
-                finally:
+            delay = 1.0  # default: 1 second
+            try:
+                with wrap2span(
+                    name=TaskManagerSpan.NAME_SCAN,
+                    kind=Span.KIND_SERVER,
+                    # ignore_ctx=True,
+                    cls=TaskManagerSpan,
+                    app=self.app,
+                ) as span:
+                    try:
+                        tasks, delay = await self._search_and_exec()
+                        if len(tasks) == 0:
+                            span.skip()
+                        return [task.id for task in tasks]
+                    except Exception as err:
+                        span.error(err)
+                        self.app.log_err(err)
+                    finally:
+                        if not self._stopping:
+                            span.annotate(
+                                TaskManagerSpan.ANN_NEXT_SCAN,
+                                'next: %s' % delay,
+                            )
+
+                    return []
+            finally:
+                if not self._stopping:
                     self._scan_fut = None
-                    if not self._stopping:
-                        span.annotate(
-                            TaskManagerSpan.ANN_NEXT_SCAN, 'next: %s' % delay
-                        )
-                        eta = self.loop.time() + delay
-                        self.stamp_early = eta
-                        self.loop.call_at(eta, self._scan_later, eta)
-                return []
+                    eta = self.loop.time() + delay
+                    self.stamp_early = eta
+                    self.loop.call_at(eta, self._scan_later, eta)
 
     def _scan_later(self, when: float) -> None:
         if self._db is None:  # pragma: no cover
