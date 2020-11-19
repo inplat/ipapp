@@ -5,11 +5,13 @@ from datetime import datetime, timezone
 from functools import wraps
 
 import asyncpg
+import pytest
 
 from ipapp import BaseApplication, BaseConfig
 from ipapp.db.pg import Postgres
 from ipapp.logger import Span
 from ipapp.task.db import (
+    CREATE_TABLE_QUERY,
     STATUS_CANCELED,
     STATUS_ERROR,
     STATUS_PENDING,
@@ -27,11 +29,19 @@ async def connect(postgres_url) -> asyncpg.Connection:
     return conn
 
 
-async def prepare(postgres_url) -> str:
+async def prepare(postgres_url, with_trace_id: bool = False) -> str:
     test_schema_name = 'testdbtm'
     conn = await connect(postgres_url)
     await conn.execute('DROP SCHEMA IF EXISts %s CASCADE' % test_schema_name)
     await conn.execute('CREATE SCHEMA %s' % test_schema_name)
+    if not with_trace_id:
+        await conn.execute(CREATE_TABLE_QUERY.format(schema=test_schema_name))
+        await conn.execute(
+            'ALTER TABLE %s.task DROP COLUMN trace_id' % test_schema_name
+        )
+        await conn.execute(
+            'ALTER TABLE %s.task DROP COLUMN trace_span_id' % test_schema_name
+        )
     await conn.close()
     return test_schema_name
 
@@ -78,8 +88,12 @@ async def wait_no_pending(postgres_url, schema):
     raise TimeoutError()
 
 
-async def test_success(loop, postgres_url):
-    test_schema_name = await prepare(postgres_url)
+@pytest.mark.parametrize(
+    "with_trace_id",
+    [True, False],
+)
+async def test_success(loop, postgres_url: str, with_trace_id: bool):
+    test_schema_name = await prepare(postgres_url, with_trace_id=with_trace_id)
 
     fut = Future()
 
@@ -141,8 +155,12 @@ async def test_success(loop, postgres_url):
     await app.stop()
 
 
-async def test_reties_success(loop, postgres_url):
-    test_schema_name = await prepare(postgres_url)
+@pytest.mark.parametrize(
+    "with_trace_id",
+    [True, False],
+)
+async def test_reties_success(loop, postgres_url: str, with_trace_id: bool):
+    test_schema_name = await prepare(postgres_url, with_trace_id=with_trace_id)
 
     fut = Future()
 
@@ -209,8 +227,12 @@ async def test_reties_success(loop, postgres_url):
     await app.stop()
 
 
-async def test_reties_error(loop, postgres_url):
-    test_schema_name = await prepare(postgres_url)
+@pytest.mark.parametrize(
+    "with_trace_id",
+    [True, False],
+)
+async def test_reties_error(loop, postgres_url: str, with_trace_id: bool):
+    test_schema_name = await prepare(postgres_url, with_trace_id=with_trace_id)
 
     fut = Future()
 
@@ -285,8 +307,12 @@ async def test_reties_error(loop, postgres_url):
     await app.stop()
 
 
-async def test_tasks_by_ref(loop, postgres_url):
-    test_schema_name = await prepare(postgres_url)
+@pytest.mark.parametrize(
+    "with_trace_id",
+    [True, False],
+)
+async def test_tasks_by_ref(loop, postgres_url: str, with_trace_id: bool):
+    test_schema_name = await prepare(postgres_url, with_trace_id=with_trace_id)
 
     fut = Future()
     reg = TaskRegistry()
@@ -331,8 +357,12 @@ async def test_tasks_by_ref(loop, postgres_url):
     await app.stop()
 
 
-async def test_task_cancel(loop, postgres_url):
-    test_schema_name = await prepare(postgres_url)
+@pytest.mark.parametrize(
+    "with_trace_id",
+    [True, False],
+)
+async def test_task_cancel(loop, postgres_url: str, with_trace_id: bool):
+    test_schema_name = await prepare(postgres_url, with_trace_id=with_trace_id)
 
     fut = Future()
 
@@ -377,8 +407,12 @@ async def test_task_cancel(loop, postgres_url):
     await app.stop()
 
 
-async def test_task_crontab(loop, postgres_url):
-    test_schema_name = await prepare(postgres_url)
+@pytest.mark.parametrize(
+    "with_trace_id",
+    [True, False],
+)
+async def test_task_crontab(loop, postgres_url: str, with_trace_id: bool):
+    test_schema_name = await prepare(postgres_url, with_trace_id=with_trace_id)
 
     fut = Future()
     count = []
@@ -418,8 +452,14 @@ async def test_task_crontab(loop, postgres_url):
     await app.stop()
 
 
-async def test_task_crontab_with_date_attr(loop, postgres_url):
-    test_schema_name = await prepare(postgres_url)
+@pytest.mark.parametrize(
+    "with_trace_id",
+    [True, False],
+)
+async def test_task_crontab_with_date_attr(
+    loop, postgres_url: str, with_trace_id: bool
+):
+    test_schema_name = await prepare(postgres_url, with_trace_id=with_trace_id)
 
     fut = Future()
     count = []
@@ -462,8 +502,12 @@ async def test_task_crontab_with_date_attr(loop, postgres_url):
     await app.stop()
 
 
-async def test_decorator(loop, postgres_url):
-    test_schema_name = await prepare(postgres_url)
+@pytest.mark.parametrize(
+    "with_trace_id",
+    [True, False],
+)
+async def test_decorator(loop, postgres_url: str, with_trace_id: bool):
+    test_schema_name = await prepare(postgres_url, with_trace_id=with_trace_id)
 
     fut = Future()
 
@@ -534,8 +578,12 @@ async def test_decorator(loop, postgres_url):
     await app.stop()
 
 
-async def test_propagate_trace(loop, postgres_url):
-    test_schema_name = await prepare(postgres_url)
+@pytest.mark.parametrize(
+    "with_trace_id",
+    [True, False],
+)
+async def test_propagate_trace(loop, postgres_url: str, with_trace_id: bool):
+    test_schema_name = await prepare(postgres_url, with_trace_id=with_trace_id)
 
     fut = Future()
 
@@ -554,7 +602,7 @@ async def test_propagate_trace(loop, postgres_url):
             TaskManagerConfig(
                 db_url=postgres_url,
                 db_schema=test_schema_name,
-                create_database_objects=True,
+                create_database_objects=False,
             ),
         ),
     )
@@ -563,9 +611,24 @@ async def test_propagate_trace(loop, postgres_url):
 
     with app.logger.span_new():
         with app.logger.capture_span(Span) as trap:
-            await tm.schedule(
-                test, {'arg': 123}, eta=time.time() + 3, propagate_trace=True
-            )
+            if with_trace_id:
+                await tm.schedule(
+                    test,
+                    {'arg': 123},
+                    eta=time.time() + 3,
+                    propagate_trace=True,
+                )
+            else:
+                # колонки с trace_id нет в БД, поэтому будет ошибка с propagate_trace=True
+                with pytest.raises(asyncpg.exceptions.UndefinedColumnError):
+                    await tm.schedule(
+                        test,
+                        {'arg': 123},
+                        eta=time.time() + 3,
+                        propagate_trace=True,
+                    )
+                # stop test
+                return
             trace = [trap.span.trace_id, trap.span.id]
     tasks = await get_tasks_pending(postgres_url, test_schema_name)
     assert len(tasks) == 1

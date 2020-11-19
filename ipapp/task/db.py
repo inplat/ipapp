@@ -176,6 +176,8 @@ class Task(BaseModel):
     retry_delay: timedelta
     status: str
     retries: Optional[int]
+    trace_id: Optional[str]
+    trace_span_id: Optional[str]
 
 
 @dataclass
@@ -492,9 +494,14 @@ class TaskManager(Component):
             raise UserWarning
         async with self._lock:
             async with self._db.transaction():
-                if await self._db.task_search4cancel(task_id, lock=False):
+                task = await self._db.task_search4cancel(task_id, lock=False)
+                if task is not None:
                     await self._db.task_move_arch(
-                        task_id, STATUS_CANCELED, None, lock=False
+                        task_id,
+                        STATUS_CANCELED,
+                        None,
+                        lock=False,
+                        with_trace_id=task.trace_id is not None,
                     )
                     return True
                 return False
@@ -623,7 +630,11 @@ class TaskManager(Component):
                     if isinstance(err, Retry):
                         if retries >= task.max_retries:
                             await self._db.task_move_arch(
-                                task.id, STATUS_ERROR, retries, lock=True
+                                task.id,
+                                STATUS_ERROR,
+                                retries,
+                                lock=True,
+                                with_trace_id=task.trace_id is not None,
                             )
                         else:
                             await self._db.task_retry(
@@ -634,11 +645,19 @@ class TaskManager(Component):
                             )
                     else:
                         await self._db.task_move_arch(
-                            task.id, STATUS_ERROR, retries, lock=True
+                            task.id,
+                            STATUS_ERROR,
+                            retries,
+                            lock=True,
+                            with_trace_id=task.trace_id is not None,
                         )
                 else:
                     await self._db.task_move_arch(
-                        task.id, STATUS_SUCCESSFUL, retries, lock=True
+                        task.id,
+                        STATUS_SUCCESSFUL,
+                        retries,
+                        lock=True,
+                        with_trace_id=task.trace_id is not None,
                     )
             except Exception as err:
                 span.error(err)
@@ -851,7 +870,7 @@ class Db:
             "'retry'::%s.task_status])"
             "LIMIT $1 FOR UPDATE SKIP LOCKED) "
             "RETURNING "
-            "id,eta,name,params,max_retries,retry_delay,status,retries"
+            "*"
         ) % (
             self._cfg.db_schema,
             self._cfg.db_schema,
@@ -865,15 +884,17 @@ class Db:
 
     async def task_search4cancel(
         self, task_id: int, *, lock: bool = False
-    ) -> Optional[bool]:
+    ) -> Optional[Task]:
         query = (  # nosec
             "UPDATE %s.task_pending SET status='progress',last_stamp=NOW() "
             "WHERE id=$1 AND status IN ('retry','pending') "
             "RETURNING "
-            "id"
+            "*"
         ) % (self._cfg.db_schema,)
         res = await self._fetchrow(query, task_id, lock=lock)
-        return res is not None
+        if res is None:
+            return None
+        return Task(**res)
 
     async def task_next_delay(self, *, lock: bool = False) -> Optional[float]:
         query = (  # nosec
@@ -917,19 +938,35 @@ class Db:
         retries: Optional[int],
         *,
         lock: bool = False,
+        with_trace_id: bool = False,
     ) -> None:
-        query = (  # nosec
-            'WITH del AS (DELETE FROM %s.task_pending WHERE id=$1 '
-            'RETURNING id,eta,name,params,max_retries,retry_delay,'
-            'retries,reference)'
-            'INSERT INTO %s.task_arch'
-            '(id,eta,name,params,max_retries,retry_delay,status,'
-            'retries,last_stamp,reference)'
-            'SELECT '
-            'id,eta,name,params,max_retries,retry_delay,$2,'
-            'COALESCE($3,retries),NOW(),reference '
-            'FROM del'
-        ) % (self._cfg.db_schema, self._cfg.db_schema)
+        if with_trace_id:
+            query = (  # nosec
+                'WITH del AS (DELETE FROM %s.task_pending WHERE id=$1 '
+                'RETURNING id,eta,name,params,max_retries,retry_delay,'
+                'retries,reference,trace_id,trace_span_id)'
+                'INSERT INTO %s.task_arch'
+                '(id,eta,name,params,max_retries,retry_delay,status,'
+                'retries,last_stamp,reference,trace_id,trace_span_id)'
+                'SELECT '
+                'id,eta,name,params,max_retries,retry_delay,$2,'
+                'COALESCE($3,retries),NOW(),reference,'
+                'trace_id,trace_span_id '
+                'FROM del'
+            ) % (self._cfg.db_schema, self._cfg.db_schema)
+        else:
+            query = (  # nosec
+                'WITH del AS (DELETE FROM %s.task_pending WHERE id=$1 '
+                'RETURNING id,eta,name,params,max_retries,retry_delay,'
+                'retries,reference)'
+                'INSERT INTO %s.task_arch'
+                '(id,eta,name,params,max_retries,retry_delay,status,'
+                'retries,last_stamp,reference)'
+                'SELECT '
+                'id,eta,name,params,max_retries,retry_delay,$2,'
+                'COALESCE($3,retries),NOW(),reference '
+                'FROM del'
+            ) % (self._cfg.db_schema, self._cfg.db_schema)
         await self._execute(query, task_id, status, retries, lock=lock)
 
     async def task_log_add(
