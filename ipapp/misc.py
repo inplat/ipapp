@@ -1,3 +1,4 @@
+import base64
 import datetime
 import json
 import string
@@ -38,6 +39,13 @@ def isoformat(o: Union[datetime.date, datetime.time]) -> str:
     return o.isoformat()
 
 
+def from_bytes(o: bytes) -> str:
+    try:
+        return o.decode()
+    except UnicodeError:
+        return base64.b64encode(o).decode()
+
+
 ENCODERS_BY_TYPE: Dict[Type[Any], Callable[[Any], Any]] = {
     Color: str,
     IPv4Address: str,
@@ -56,7 +64,7 @@ ENCODERS_BY_TYPE: Dict[Type[Any], Callable[[Any], Any]] = {
     set: list,
     frozenset: list,
     GeneratorType: list,
-    bytes: lambda o: o.decode(),
+    bytes: from_bytes,
     Decimal: float,
 }
 
