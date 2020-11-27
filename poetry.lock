@@ -48,14 +48,14 @@ typing_extensions = ">=3.7"
 
 [[package]]
 name = "aiojobs"
-version = "0.2.2"
+version = "0.3.0"
 description = "Jobs scheduler for managing background task (asyncio)."
 category = "main"
 optional = false
 python-versions = ">=3.5"
 
-[package.dependencies]
-aiohttp = ">=2.3.0"
+[package.extras]
+aiohttp = ["aiohttp (>=3.2.0)"]
 
 [[package]]
 name = "aioredis"
@@ -1525,7 +1525,7 @@ testing = ["black", "flake8", "mock", "mypy", "bandit", "isort", "safety", "pyli
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "585b6d648628d4833dd36b0fa523ac77a5f90cecc8617d911a38b2d9dbdd20cc"
+content-hash = "1f8d266950e31836240cc66060108e20c20980fff54d6599b02289fbb2eac842"
 
 [metadata.files]
 aiobotocore = [
@@ -1576,8 +1576,8 @@ aioitertools = [
     {file = "aioitertools-0.7.1.tar.gz", hash = "sha256:54a56c7cf3b5290d1cb5e8974353c9f52c677612b5d69a859369a020c53414a3"},
 ]
 aiojobs = [
-    {file = "aiojobs-0.2.2-py3-none-any.whl", hash = "sha256:bf93b4a8d5a3ade3f85b6edb6efd9703acf60a8c5492b9fc4a6df843dd8decb3"},
-    {file = "aiojobs-0.2.2.tar.gz", hash = "sha256:8e4b3e3d1bdb970bdaf8f8cd5eb4e4ff3e0e01a4abd22b4f73a87002a5ae4005"},
+    {file = "aiojobs-0.3.0-py3-none-any.whl", hash = "sha256:ed49e9ea1be0261fde99305c84691b440f69172016c7b372f9c411dac082a65f"},
+    {file = "aiojobs-0.3.0.tar.gz", hash = "sha256:f6631d42dc4308f7d883abbd70d4e976f3fcc35a3ba1e8eae5d4af4940a1e0c3"},
 ]
 aioredis = [
     {file = "aioredis-1.3.1-py3-none-any.whl", hash = "sha256:b61808d7e97b7cd5a92ed574937a079c9387fdadd22bfbfa7ad2fd319ecc26e3"},
