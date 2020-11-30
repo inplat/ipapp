@@ -69,6 +69,7 @@ class RedisLock(LockerInterface):
             self._reader_fut = asyncio.ensure_future(self._reader(self.mpsc))
 
     async def _reader(self, mpsp: Receiver) -> None:
+        reader_err: Optional[Exception] = None
         try:
             while True:
                 _, msg = await mpsp.get()
@@ -77,7 +78,7 @@ class RedisLock(LockerInterface):
                     for fut in self.waiters[msg_str]:
                         fut.set_result(None)
         except Exception as err:
-            self._reader_err = err
+            reader_err = err
             app.log_err(err)
 
             while True:
@@ -91,9 +92,14 @@ class RedisLock(LockerInterface):
 
                 try:
                     await self._connect_subscr()
+                    reader_err = None
                     return
                 except Exception:
                     await asyncio.sleep(0.1)
+        finally:
+            # если не удалось переподключиться, то сохраняем ошибку
+            # из-за которой все случилось
+            self._reader_err = reader_err
 
     async def health(self) -> None:
         if self.redis_lock is None or self.redis_subscr is None:
