@@ -292,6 +292,17 @@ class BaseConfig(BaseModel, Generic[T]):
 
         return schema
 
+    def to_jsonschema(self, stream: Union[str, IO]) -> None:
+        schema_str = self.schema_json(by_alias=True, indent=4)
+
+        if isinstance(stream, str):
+            with open(stream, "w") as f:
+                f.write(schema_str)
+        elif isinstance(stream, IO_TYPES):
+            stream.write(schema_str)
+        else:
+            raise ValueError
+
     class Config:
         validate_all = True
         extra = Extra.forbid

@@ -43,7 +43,7 @@ def _parse_argv(
         '--show-config',
         dest='show_config',
         type=str,
-        choices=['env', 'json', 'yaml'],
+        choices=['env', 'json', 'yaml', 'jsonschema'],
         help='Show parsed configuration and exit',
     )
 
@@ -127,6 +127,8 @@ def _show_config(options: Args, cfg: BaseConfig) -> None:
         cfg.to_json(sys.stdout)
     elif options.show_config == 'yaml':
         cfg.to_yaml(sys.stdout)
+    elif options.show_config == 'jsonschema':
+        cfg.to_jsonschema(sys.stdout)
     else:  # pragma: no cover
         raise UserWarning
 
