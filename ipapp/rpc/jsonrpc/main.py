@@ -20,8 +20,8 @@ from typing import (
 import aiojobs
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
-from pydantic.utils import smart_deepcopy
 from pydantic.json import ENCODERS_BY_TYPE, pydantic_encoder
+from pydantic.utils import smart_deepcopy
 from tinyrpc import exc as rpc_exc
 from tinyrpc.protocols import jsonrpc as rpc
 from tinyrpc.protocols.jsonrpc import (

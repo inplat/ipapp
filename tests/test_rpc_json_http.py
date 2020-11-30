@@ -1,13 +1,14 @@
 import asyncio
 from typing import Any, Awaitable, Optional
 
-from pydantic.fields import FieldInfo
 import pytest
 from aiohttp import ClientSession
+from pydantic.fields import FieldInfo
 
 from ipapp import BaseApplication, BaseConfig
 from ipapp.http.server import Server, ServerConfig
 from ipapp.rpc import RpcRegistry
+from ipapp.rpc.error import InvalidArguments
 from ipapp.rpc.jsonrpc import JsonRpcError
 from ipapp.rpc.jsonrpc.http import (
     JsonRpcHttpClient,
@@ -15,7 +16,6 @@ from ipapp.rpc.jsonrpc.http import (
     JsonRpcHttpHandler,
     JsonRpcHttpHandlerConfig,
 )
-from ipapp.rpc.error import InvalidArguments
 
 
 class RunAppCtx:
