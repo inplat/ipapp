@@ -33,17 +33,14 @@
 
     poetry add "ipapp[rabbitmq]"
 
-3. RPC::
 
-    poetry add "ipapp[iprpc]"
-
-4. Инструменты для тестирования::
+3. Инструменты для тестирования::
 
     poetry add "ipapp[testing]"
 
 Или все вышеперечисленное сразу::
 
-    poetry add "ipapp[postgres,rabbitmq,iprpc,testing]"
+    poetry add "ipapp[postgres,rabbitmq,testing]"
 
 Начало работы
 -------------

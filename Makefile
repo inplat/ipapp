@@ -63,7 +63,7 @@ $(VENV_PATH):  ## Create a virtual environment
 	$(VENV_PATH)/bin/pip install -U pip setuptools
 
 $(VENV_PATH)/pip-status: pyproject.toml | $(VENV_PATH) ## Install (upgrade) all development requirements
-	poetry install -E fastapi -E iprpc -E oracle -E postgres -E rabbitmq -E s3 -E sftp -E dbtm -E redis -E testing
+	poetry install -E fastapi -E oracle -E postgres -E rabbitmq -E s3 -E sftp -E dbtm -E redis -E testing
 	# fix CI error: Uploading artifacts to coordinator... too large archive
 	find . -type d -name __pycache__ -exec rm -rf {} \+
 	# keep a real file to be able to compare its mtime with mtimes of sources:
