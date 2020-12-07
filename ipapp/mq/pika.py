@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 from abc import ABC
 from functools import partial
 from typing import Any, Awaitable, Callable, List, Optional
@@ -13,6 +14,7 @@ import pika.adapters.utils.io_services_utils
 import pika.adapters.utils.selector_ioloop_adapter
 import pika.callback
 import pika.channel
+import pika.compat
 import pika.exceptions
 import pika.frame
 from async_timeout import timeout
@@ -672,6 +674,7 @@ class PikaChannel(ABC):
         properties: pika.spec.BasicProperties,
         body: bytes,
     ) -> None:
+        _fix_properties(properties)
         headers = dict(properties.headers or {})
         with self.amqp.app.logger.span_from_headers(
             headers, cls=AmqpInSpan
@@ -910,3 +913,40 @@ def props2ann(properties: pika.spec.BasicProperties) -> str:
             anns.append('%s: %s' % (prop, default_json_encode(attr)))
 
     return '\n'.join(anns)
+
+
+def _fix_properties(properties: Optional[Properties]) -> None:
+    if sys.version_info < (3, 8):
+        return
+
+    if properties is None:
+        return
+
+    # Python >= 3.8 Fix
+    #
+    # Removed __str__ implementations from builtin types
+    # bool, int, float, complex and few
+    # classes from the standard library.
+    # They now inherit __str__() from object.
+    # As result, defining the __repr__() method in the
+    # subclass of these classes will affect their string
+    # representation. (Contributed by Serhiy Storchaka in bpo-36793.)
+    # see: https://docs.python.org/3/whatsnew/3.8.html#changes-in-python-behavior
+
+    class long(pika.compat.long):
+        def __repr__(self):
+            return str(int(self)) + 'L'
+
+    def _fix_val(val: Any) -> Any:
+        if isinstance(val, pika.compat.long):
+            return long(val)
+        if isinstance(val, list):
+            for i in range(len(val)):
+                val[i] = _fix_val(val[i])
+        if isinstance(val, dict):
+            for k, v in val.items():
+                val[k] = _fix_val(v)
+        return val
+
+    for prop in properties.__dict__.keys():
+        setattr(properties, prop, _fix_val(getattr(properties, prop)))

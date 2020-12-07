@@ -2,6 +2,7 @@ import asyncio
 from typing import Any, Callable, List, Tuple
 
 from async_timeout import timeout as async_timeout
+from pika.spec import BasicProperties
 
 from ipapp import BaseApplication, BaseConfig
 from ipapp.mq.pika import (
@@ -81,5 +82,71 @@ async def test_pika(loop, rabbitmq_url):
 
     await wait_for(lambda: len(messages) > 0)
     assert messages == [(b'testmsg',)]
+
+    await app.stop()
+
+
+async def test_dead_letter_exchange(loop, rabbitmq_url):
+    messages: List[Tuple[bytes]] = []
+    queue: str
+
+    class TestPubChg(PikaChannel):
+        name = 'pub'
+
+        async def prepare(self) -> None:
+            await self.exchange_declare('myexchange1', durable=False)
+            await self.queue_declare('myqueue1', durable=False)
+            await self.queue_bind('myqueue1', 'myexchange1', '')
+
+            q = await self.queue_declare(
+                '',
+                exclusive=True,
+                arguments={
+                    'x-dead-letter-exchange': '',
+                    'x-dead-letter-routing-key': 'myqueue1',
+                },
+            )
+            self.queue = q.method.queue
+
+        async def send(self, body: bytes, expiration: str):
+            await self.publish(
+                '', self.queue, body, BasicProperties(expiration=expiration)
+            )
+
+    class TestCnsChg(PikaChannel):
+        name = 'sub'
+
+        async def prepare(self) -> None:
+            await self.qos(prefetch_count=1)
+
+        async def start(self) -> None:
+            await self.consume('myqueue1', self.message)
+
+        async def message(
+            self, body: bytes, deliver: Deliver, proprties: Properties
+        ) -> None:
+            await self.ack(delivery_tag=deliver.delivery_tag)
+            messages.append((body, proprties))
+
+    app = BaseApplication(BaseConfig())
+    app.add(
+        'mq',
+        Pika(
+            PikaConfig(url=rabbitmq_url),
+            [
+                lambda: TestPubChg(PikaChannelConfig()),
+                lambda: TestCnsChg(PikaChannelConfig()),
+            ],
+        ),
+    )
+    await app.start()
+    mq: Pika = app.get('mq')  # type: ignore
+
+    await mq.channel('pub').send(b'testmsg', '1')
+
+    await wait_for(lambda: len(messages) > 0)
+
+    assert messages[0][1].headers['x-death'][0]['count'] == 1
+    assert repr(messages[0][1].headers['x-death'][0]['count']) == '1L'
 
     await app.stop()
