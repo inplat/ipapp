@@ -216,13 +216,13 @@ def decode_bytes(b: bytes, encoding: Optional[str] = None) -> str:
         return str(b)
 
 
-def shielded(func):
+def shielded(func: Callable) -> Callable:
     """
     Makes so an awaitable method is always shielded from cancellation
     """
 
     @wraps(func)
-    async def wrapped(*args, **kwargs):
+    async def wrapped(*args: Any, **kwargs: Any) -> Any:
         return await asyncio.shield(func(*args, **kwargs))
 
     return wrapped
