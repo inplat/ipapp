@@ -17,10 +17,6 @@ logger = logging.getLogger('ipapp')
 RESTART = object()
 
 
-def _raise_graceful_exit() -> None:  # pragma: no cover
-    raise GracefulExit()
-
-
 class BaseApplication(object):
     def __init__(self, cfg: BaseConfig) -> None:
         ctx_app_set(self)
@@ -114,12 +110,8 @@ class BaseApplication(object):
                 return 1
 
             try:
-                self.loop.add_signal_handler(
-                    signal.SIGINT, _raise_graceful_exit
-                )
-                self.loop.add_signal_handler(
-                    signal.SIGTERM, _raise_graceful_exit
-                )
+                self.loop.add_signal_handler(signal.SIGINT, self.shutdown)
+                self.loop.add_signal_handler(signal.SIGTERM, self.shutdown)
             except NotImplementedError:  # pragma: no cover
                 # add_signal_handler is not implemented on Windows
                 pass
@@ -128,8 +120,6 @@ class BaseApplication(object):
                 self.loop.run_until_complete(
                     asyncio.wait([self._shutdown_fut])
                 )
-                print('*' * 80)
-                print(self._shutdown_fut.result())
             except GracefulExit:  # pragma: no cover
                 pass
 
