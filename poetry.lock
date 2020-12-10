@@ -354,11 +354,11 @@ test = ["pytest (>=3.6.0,!=3.9.0,!=3.9.1,!=3.9.2)", "pretend", "iso8601", "pytz"
 
 [[package]]
 name = "cx-oracle"
-version = "8.0.1"
+version = "8.1.0"
 description = "Python interface to Oracle"
 category = "main"
 optional = true
-python-versions = ">=3.5"
+python-versions = "*"
 
 [[package]]
 name = "deepmerge"
@@ -1764,19 +1764,19 @@ cryptography = [
     {file = "cryptography-3.2.1.tar.gz", hash = "sha256:d3d5e10be0cf2a12214ddee45c6bd203dab435e3d83b4560c03066eda600bfe3"},
 ]
 cx-oracle = [
-    {file = "cx_Oracle-8.0.1-cp35-cp35m-manylinux1_x86_64.whl", hash = "sha256:430562d6a1485a467d274200a4df11b342d399e4b3156c536bf47ec0e42e9d6b"},
-    {file = "cx_Oracle-8.0.1-cp35-cp35m-win32.whl", hash = "sha256:c8f4f7c5c0d38d580a96ac813139c3cb17a15512cdae7b27e960f24c6858afc1"},
-    {file = "cx_Oracle-8.0.1-cp35-cp35m-win_amd64.whl", hash = "sha256:6b51a5c9b3943fdab35d4cc44a436af1c95227ac54787d3912420d37d07bf1b2"},
-    {file = "cx_Oracle-8.0.1-cp36-cp36m-manylinux1_x86_64.whl", hash = "sha256:7493b6e87125a632f2359237ac9caa1cafd2567de9b6e56aa58ed77f69298275"},
-    {file = "cx_Oracle-8.0.1-cp36-cp36m-win32.whl", hash = "sha256:0f11cd16e43fa23c6fe4ed1605b4c3dd63863a79297e4b2620615c1014a6545d"},
-    {file = "cx_Oracle-8.0.1-cp36-cp36m-win_amd64.whl", hash = "sha256:02c430c3b7feb93e8a6b5c3439608cd142b9e8bc5c46422a0345bc3ade0ac420"},
-    {file = "cx_Oracle-8.0.1-cp37-cp37m-manylinux1_x86_64.whl", hash = "sha256:b9c67dab5cc3113b451e44622bd6a21e0dadeeeb03702e3a7107adbde817650c"},
-    {file = "cx_Oracle-8.0.1-cp37-cp37m-win32.whl", hash = "sha256:bca81d34b55058c5446f951e3f5e7318fc8111b50a7bb4503fd56fa3497dea8a"},
-    {file = "cx_Oracle-8.0.1-cp37-cp37m-win_amd64.whl", hash = "sha256:cf43e544a3a61d0d0c2be71274cc3ae52d83131e56af65c6acfa48f7252d8863"},
-    {file = "cx_Oracle-8.0.1-cp38-cp38-manylinux1_x86_64.whl", hash = "sha256:970d133b318b7f4062f2afb3702bdd9bad114bcc2dde6bcb60adfaaea529e2f4"},
-    {file = "cx_Oracle-8.0.1-cp38-cp38-win32.whl", hash = "sha256:0da6d9df662cd7ebc18e309e7e8746aa725e5a3320a660e911dedf887d2a53dd"},
-    {file = "cx_Oracle-8.0.1-cp38-cp38-win_amd64.whl", hash = "sha256:a182b3d8af21856f0d3768d3d30cab734710cb39769909a7084b02315e8eedfa"},
-    {file = "cx_Oracle-8.0.1.tar.gz", hash = "sha256:f10ada7f821a325c6befdd6fef1cac44ebc830736d0b75dda7b8ac9f851087b2"},
+    {file = "cx_Oracle-8.1.0-cp36-cp36m-manylinux1_x86_64.whl", hash = "sha256:01b636af6b8332d4a688a120f2722c2fda8c8fa87ecec0573c91bed7668c5cd0"},
+    {file = "cx_Oracle-8.1.0-cp36-cp36m-win32.whl", hash = "sha256:2482f76b6d83b3e62fda5a5db12f9b18fb42c484993c08952614e02a476e9687"},
+    {file = "cx_Oracle-8.1.0-cp36-cp36m-win_amd64.whl", hash = "sha256:b7bcef92299efaaa2b53c360e5703d3301faa156f896c67b5d2036498b861834"},
+    {file = "cx_Oracle-8.1.0-cp37-cp37m-manylinux1_x86_64.whl", hash = "sha256:62e0b63e68067f1dc9ca018fd0d09d3834b05acec17344ac149c0ec2bfd45df1"},
+    {file = "cx_Oracle-8.1.0-cp37-cp37m-win32.whl", hash = "sha256:21fc4dde12cd49e755f861c38a3b9da74efb171d971487211d396ad9ff71b7fe"},
+    {file = "cx_Oracle-8.1.0-cp37-cp37m-win_amd64.whl", hash = "sha256:2d5e4602ad4f35d513f302c956e40cd9b5ea7d8243cd48c9d718c263cf91bf67"},
+    {file = "cx_Oracle-8.1.0-cp38-cp38-manylinux1_x86_64.whl", hash = "sha256:f99b97574c0a0ffb3c2ddebb91e48c1140d7d9a59abe06933e6b358c7df056f6"},
+    {file = "cx_Oracle-8.1.0-cp38-cp38-win32.whl", hash = "sha256:fa0211e711cb5ede2f806aafe542c6d70c780e46a166fe606f0384f1dd9a742f"},
+    {file = "cx_Oracle-8.1.0-cp38-cp38-win_amd64.whl", hash = "sha256:57930928cdaf79a4dba69ba1e228a1f993d35ee0a10a0a2c2722bb7fb983853f"},
+    {file = "cx_Oracle-8.1.0-cp39-cp39-manylinux1_x86_64.whl", hash = "sha256:6ddaf1ec77bf55d452a31f6ef81789e2a410d9c1a1bbdd63e8a7eb73e6a38051"},
+    {file = "cx_Oracle-8.1.0-cp39-cp39-win32.whl", hash = "sha256:41698ca187b935f28c05655d97e845e04cee69d3ab632bf86b031bd5e5ccd3c5"},
+    {file = "cx_Oracle-8.1.0-cp39-cp39-win_amd64.whl", hash = "sha256:0f9480c85a8c34f99aee3a4aaa700c2ca1015065a08bc27ca74b5aa1c8e4f141"},
+    {file = "cx_Oracle-8.1.0.tar.gz", hash = "sha256:e1698c5522ee1355e552b30bfa0a58e6e772475b882c5d69d158bd7e6aed45de"},
 ]
 deepmerge = [
     {file = "deepmerge-0.1.1-py2.py3-none-any.whl", hash = "sha256:190e133a6657303db37f9bb302aa853d8d2b15a0e055d41b99a362598e79206a"},
