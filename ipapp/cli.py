@@ -1,7 +1,10 @@
 import argparse
 import logging
 import sys
+from pathlib import Path
 from typing import List, NamedTuple, Optional, Type
+
+import toml
 
 from .app import BaseApplication
 from .config import BaseConfig
@@ -133,18 +136,42 @@ def _show_config(options: Args, cfg: BaseConfig) -> None:
         raise UserWarning
 
 
+def _read_version(project_root: Path) -> str:
+    pyproject_path = project_root / "pyproject.toml"
+
+    if Path(pyproject_path).exists():
+        pyproject = toml.load(pyproject_path)
+
+        # try PEP 621
+        try:
+            return pyproject['project']['version']
+        except KeyError:
+            pass
+
+        # try tool.poetry.version
+        try:
+            return pyproject['tool']['poetry']['version']
+        except KeyError:
+            pass
+
+    return "0"
+
+
 def main(
     argv: List[str],
-    version: str,
+    version: Optional[str],
     app_cls: Type[BaseApplication],
     cfg_cls: Type[BaseConfig],
     *,
     default_env_prefix: str = 'APP_',
     build_stamp: Optional[float] = None,
+    project_root: Optional[Path] = None
 ) -> int:
     try:
         prog, args = argv[0], argv[1:]
         options = _parse_argv(prog, args, default_env_prefix)
+        if not version and project_root:
+            version = _read_version(project_root)
         if options.version:
             print(version)
             return 0
