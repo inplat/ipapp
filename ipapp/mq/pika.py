@@ -915,7 +915,7 @@ def props2ann(properties: pika.spec.BasicProperties) -> str:
     return '\n'.join(anns)
 
 
-def _fix_properties(properties: Optional[Properties]) -> None:
+def _fix_properties(properties: Optional[pika.spec.BasicProperties]) -> None:
     if sys.version_info < (3, 8):
         return
 
@@ -934,7 +934,7 @@ def _fix_properties(properties: Optional[Properties]) -> None:
     # see: https://docs.python.org/3/whatsnew/3.8.html#changes-in-python-behavior
 
     class long(pika.compat.long):
-        def __repr__(self):
+        def __repr__(self) -> str:
             return str(int(self)) + 'L'
 
     def _fix_val(val: Any) -> Any:
