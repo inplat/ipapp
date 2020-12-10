@@ -165,7 +165,7 @@ def main(
     *,
     default_env_prefix: str = 'APP_',
     build_stamp: Optional[float] = None,
-    project_root: Optional[Path] = None
+    project_root: Optional[Path] = None,
 ) -> int:
     try:
         prog, args = argv[0], argv[1:]
