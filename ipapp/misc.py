@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import datetime
 import json
@@ -7,6 +8,7 @@ from copy import deepcopy
 from dataclasses import asdict, is_dataclass
 from decimal import Decimal
 from enum import Enum
+from functools import wraps
 from getpass import getuser
 from ipaddress import (
     IPv4Address,
@@ -212,3 +214,15 @@ def decode_bytes(b: bytes, encoding: Optional[str] = None) -> str:
         return b.decode()
     except Exception:
         return str(b)
+
+
+def shielded(func):
+    """
+    Makes so an awaitable method is always shielded from cancellation
+    """
+
+    @wraps(func)
+    async def wrapped(*args, **kwargs):
+        return await asyncio.shield(func(*args, **kwargs))
+
+    return wrapped
