@@ -1078,7 +1078,7 @@ socks = ["PySocks (>=1.5.6,!=1.5.7)", "win-inet-pton"]
 
 [[package]]
 name = "safety"
-version = "1.9.0"
+version = "1.10.0"
 description = "Checks installed dependencies for known vulnerabilities."
 category = "main"
 optional = true
@@ -2245,8 +2245,8 @@ requests = [
     {file = "requests-2.25.1.tar.gz", hash = "sha256:27973dd4a904a4f13b263a19c866c13b92a39ed1c964655f025f3f8d3d75b804"},
 ]
 safety = [
-    {file = "safety-1.9.0-py2.py3-none-any.whl", hash = "sha256:86c1c4a031fe35bd624fce143fbe642a0234d29f7cbf7a9aa269f244a955b087"},
-    {file = "safety-1.9.0.tar.gz", hash = "sha256:23bf20690d4400edc795836b0c983c2b4cbbb922233108ff925b7dd7750f00c9"},
+    {file = "safety-1.10.0-py2.py3-none-any.whl", hash = "sha256:69437acf5dd617abd7086ccd0d50e813e67aa969bb9ca90f1847d5fbea047dcc"},
+    {file = "safety-1.10.0.tar.gz", hash = "sha256:2ebc71b44666588d7898905d86d575933fcd5fa3c92d301ed12482602b1e928a"},
 ]
 sentry-sdk = [
     {file = "sentry-sdk-0.19.5.tar.gz", hash = "sha256:737a094e49a529dd0fdcaafa9e97cf7c3d5eb964bd229821d640bc77f3502b3f"},
@@ -2369,6 +2369,22 @@ virtualenv = [
     {file = "virtualenv-20.2.2.tar.gz", hash = "sha256:b7a8ec323ee02fb2312f098b6b4c9de99559b462775bc8fe3627a73706603c1b"},
 ]
 watchdog = [
+    {file = "watchdog-1.0.1-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:e81063af77eca2c2a3d051e7455f8d4e5b64899e4839393986a6562a600be3b3"},
+    {file = "watchdog-1.0.1-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:7dde5fd09240927e162fb2c2225168769f4377e2015414a489fb41a569dee920"},
+    {file = "watchdog-1.0.1-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:1122c5092534e557ea4242cfd6afaa568d9658631f752592dffb4d815eb9044a"},
+    {file = "watchdog-1.0.1-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:ef8c0cf76b7adc2d1ecf0733baa3a7d05a4442dcc3dda76fb9ea850cb7973323"},
+    {file = "watchdog-1.0.1-pp36-pypy36_pp73-macosx_10_9_x86_64.whl", hash = "sha256:7a2708a0a48d3357dddba4b6e0563862b95b72c1652405682d189635796ebd22"},
+    {file = "watchdog-1.0.1-pp37-pypy37_pp73-macosx_10_9_x86_64.whl", hash = "sha256:048449a598410459c8ec58caec40663b3d05d7123ee831620b1ba9c581e38d92"},
+    {file = "watchdog-1.0.1-py3-none-manylinux2014_aarch64.whl", hash = "sha256:1875a47a2f2f29a26abd6781e8e7357a2c31b7b8b997baeb0d630ac1442239e3"},
+    {file = "watchdog-1.0.1-py3-none-manylinux2014_armv7l.whl", hash = "sha256:2e5edfbdcea9d37c581f92fa1463b35f3fb4399fb2c0106c22a228b8c8b24c05"},
+    {file = "watchdog-1.0.1-py3-none-manylinux2014_i686.whl", hash = "sha256:a98c31b13f357c641ef3ab7628817a8d599584e5bd56eca9b90906ecfdbf72cf"},
+    {file = "watchdog-1.0.1-py3-none-manylinux2014_ppc64.whl", hash = "sha256:1bb0715633fcf4b3148a4c5a3dd4dacde2102e9eb6d0e3beb120e45c31f292a0"},
+    {file = "watchdog-1.0.1-py3-none-manylinux2014_ppc64le.whl", hash = "sha256:68018bde139a34615eaa55f6142bb4aaca1f45dc110dc876dfe5ab7507929cf1"},
+    {file = "watchdog-1.0.1-py3-none-manylinux2014_s390x.whl", hash = "sha256:78e4fd442e5ab7dd8e76aa135f64b08c9032fa857caa73c4afc6804238603c9b"},
+    {file = "watchdog-1.0.1-py3-none-manylinux2014_x86_64.whl", hash = "sha256:416fef58a6354dc671d309708b117857970c63fbf8c0507ae473bdc4ef91aa20"},
+    {file = "watchdog-1.0.1-py3-none-win32.whl", hash = "sha256:29dab966cab2f5cd517d99524f53e9676c8ed579af9ea1f2378218ca997819c0"},
+    {file = "watchdog-1.0.1-py3-none-win_amd64.whl", hash = "sha256:e12c12df51b368cfaa02f0b93462078b517b8fc498d875a0d063503d6a4b047c"},
+    {file = "watchdog-1.0.1-py3-none-win_ia64.whl", hash = "sha256:73735161ca5c5853af25240bf9aa1edd18c51721bfc6b2c0d30d8fac7ea16a6b"},
     {file = "watchdog-1.0.1.tar.gz", hash = "sha256:78ea5d78f2cf8e4d6343ab2cbed93bb47b7a85b1c2f90a1dea365226bbab68ac"},
 ]
 websocket-client = [
