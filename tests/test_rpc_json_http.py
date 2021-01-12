@@ -1,9 +1,12 @@
 import asyncio
+import base64
 from typing import Any, Awaitable, Optional
+import os
 
 import pytest
 from aiohttp import ClientSession
 from pydantic.fields import FieldInfo
+from pydantic import BaseModel
 
 from ipapp import BaseApplication, BaseConfig
 from ipapp.http.server import Server, ServerConfig
@@ -19,6 +22,7 @@ from ipapp.rpc.jsonrpc.http import (
     set_reponse_header,
     set_response_cookie,
 )
+from ipapp.rpc.main import BASE64_MARKER
 
 
 class RunAppCtx:
@@ -426,3 +430,102 @@ async def test_rpc_response_header(loop, unused_tcp_port):
             assert resp.headers['C'] == 'D'
             assert resp.cookies['E'].value == 'F'
             assert resp.cookies['G'].value == ''
+
+
+async def test_rpc_client_arg_as_bytes(loop, unused_tcp_port):
+    reg = RpcRegistry()
+    some_data = os.urandom(100)
+
+    @reg.method()
+    def compare_bytes(b_data: bytes) -> bool:
+        return some_data == b_data
+
+    class TestRpcClientBytesArg(JsonRpcHttpClient):
+        def compare_bytes(
+            self,
+            b_data: bytes,
+            timeout: Optional[float] = None,
+        ) -> Awaitable[bool]:
+            return self.exec(
+                "compare_bytes",
+                {'b_data': b_data},
+                timeout=timeout,
+            )
+
+    async with runapp(
+        unused_tcp_port, JsonRpcHttpHandler(reg, JsonRpcHttpHandlerConfig())
+    ) as app:
+        clt = TestRpcClientBytesArg(
+            JsonRpcHttpClientConfig(
+                url='http://%s:%s/' % (app.cfg.srv.host, app.cfg.srv.port)
+            )
+        )
+        app.add('clt_ba', clt)
+        await clt.prepare()
+        await clt.start()
+        result = await clt.compare_bytes(some_data)
+        assert result is True
+
+
+async def test_rpc_client_model_with_bytes(loop, unused_tcp_port):
+    reg = RpcRegistry()
+    some_data = os.urandom(100)
+
+    class SomeModel(BaseModel):
+        some_int: int
+        some_bytes: bytes
+
+    @reg.method()
+    def compare_model_bytes(model: SomeModel) -> bool:
+        return some_data == model.some_bytes
+
+    class TestRpcClientBytesArg(JsonRpcHttpClient):
+        def compare_model_bytes(
+            self,
+            model: SomeModel,
+            timeout: Optional[float] = None,
+        ) -> Awaitable[bool]:
+            return self.exec(
+                "compare_model_bytes",
+                {'model': model},
+                timeout=timeout,
+            )
+
+    async with runapp(
+        unused_tcp_port, JsonRpcHttpHandler(reg, JsonRpcHttpHandlerConfig())
+    ) as app:
+        clt = TestRpcClientBytesArg(
+            JsonRpcHttpClientConfig(
+                url='http://%s:%s/' % (app.cfg.srv.host, app.cfg.srv.port)
+            )
+        )
+        app.add('clt_ba', clt)
+        await clt.prepare()
+        await clt.start()
+        result = await clt.compare_model_bytes(
+            SomeModel(some_int=5, some_bytes=some_data)
+        )
+        assert result is True
+
+
+async def test_rpc_bytes_in_response(loop, unused_tcp_port):
+    reg = RpcRegistry()
+    some_data = os.urandom(100)
+
+    @reg.method()
+    def get_some_data():
+        return some_data
+
+    async with runapp(
+        unused_tcp_port, JsonRpcHttpHandler(reg, JsonRpcHttpHandlerConfig())
+    ):
+        async with ClientSession() as sess:
+            resp = await sess.request(
+                'POST',
+                'http://127.0.0.1:%s/' % unused_tcp_port,
+                json={'method': 'get_some_data', 'jsonrpc': '2.0', 'id': 1},
+            )
+
+            result = await resp.json()
+            expected = f'{BASE64_MARKER}{base64.b64encode(some_data).decode()}'
+            assert result == {'id': 1, 'jsonrpc': '2.0', 'result': expected}

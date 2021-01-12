@@ -37,6 +37,7 @@ from tinyrpc.protocols.jsonrpc import (
 from ipapp import BaseApplication
 from ipapp.ctx import app, span
 from ipapp.logger import Span
+from ipapp.misc import from_bytes
 from ipapp.rpc.error import InvalidArguments as _InvalidArguments
 from ipapp.rpc.error import MethodNotFound as _MethodNotFound
 from ipapp.rpc.main import Executor as _Executor
@@ -415,6 +416,8 @@ class JsonRpcExecutor:
             return result
         if isinstance(result, BaseModel):
             return cls.cast2dump(result.dict())
+        if isinstance(result, bytes):
+            return from_bytes(result)
         if isinstance(result, (int, float, str, bool, type(None))):
             return result
         if isinstance(result, Mapping):
