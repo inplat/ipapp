@@ -57,7 +57,7 @@ prometheus-client = ">=0.8,<0.10"
 sentry-sdk = ">=0.18.0,<1.0"
 deepmerge = "^0.1.0"
 async-timeout = "^3.0.1"
-pyyaml = "^5.3.1"
+pyyaml = "^5.4"
 docstring-parser = "^0.7.1"
 tinyrpc = "^1.0.4"
 jsonschema = "^3.2.0"
@@ -66,8 +66,8 @@ fastapi = {version = ">=0.61,<0.64", optional = true}
 cx-Oracle = {version = "^8.0.0", optional = true}
 asyncpg = {version = "^0.21.0", optional = true}
 pika = {version = "^1.1.0", optional = true}
-aiobotocore = {version = "^1.0.7", optional = true}
-python-magic = {version = "^0.4.18", optional = true}
+aiobotocore = {version = "^1.2.0", optional = true}
+python-magic = {version = "^0.4.20", optional = true}
 asyncssh = {version = "^2.3.0", extras = ["pyOpenSSL"], optional = true}
 # testing
 black = {version = "20.8b1", optional = true}
@@ -75,17 +75,17 @@ flake8 = {version = "3.8.4", optional = true}
 mock = {version = "^4.0.2", optional = true}
 mypy = {version = "0.790", optional = true}
 bandit = {version = "1.6.3", optional = true}
-isort = {version = "5.6.4", optional = true}
-safety = {version = "^1.10.0", optional = true}
+isort = {version = "5.7.0", optional = true}
+safety = {version = "^1.10.3", optional = true}
 pylint = {version = "^2.6.0", optional = true}
 pytest-aiohttp = {version = "^0.3.0", optional = true}
 pytest = {version = "^6.1.0", optional = true}
 pytest-asyncio = {version = "^0.14.0", optional = true}
-pytest-cov = {version = "^2.10.0", optional = true}
+pytest-cov = {version = "^2.11.0", optional = true}
 coverage = {version = "^5.3", extras = ["toml"], optional = true}
-Sphinx = {version = "^3.2.1", optional = true}
-sphinx-rtd-theme = {version = "^0.5.0", optional = true}
-tox = {version = "^3.20.0", optional = true}
+Sphinx = {version = "^3.4.3", optional = true}
+sphinx-rtd-theme = {version = "^0.5.1", optional = true}
+tox = {version = "^3.21.2", optional = true}
 async-generator = {version = "^1.10", optional = true}
 docker-compose = {version = "^1.27.4", optional = true}
 watchdog = {version = ">=0.10.3,<1.1.0", optional = true}
