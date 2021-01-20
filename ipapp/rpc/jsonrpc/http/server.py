@@ -168,8 +168,8 @@ def set_response_cookie(
     version: Optional[str] = None,
     samesite: Optional[str] = None,
 ) -> List[_SetCookie]:
-    l = response_set_cookies.get()
-    l.append(
+    scl = response_set_cookies.get()
+    scl.append(
         _SetCookie(
             name,
             value,
@@ -183,12 +183,12 @@ def set_response_cookie(
             samesite,
         )
     )
-    return l
+    return scl
 
 
 def del_response_cookie(
     name: str, domain: Optional[str] = None, path: str = "/"
 ) -> List[_DelCookie]:
-    l = response_del_cookies.get()
-    l.append(_DelCookie(name, domain, path))
-    return l
+    dcl = response_del_cookies.get()
+    dcl.append(_DelCookie(name, domain, path))
+    return dcl
