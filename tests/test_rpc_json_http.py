@@ -15,6 +15,9 @@ from ipapp.rpc.jsonrpc.http import (
     JsonRpcHttpClientConfig,
     JsonRpcHttpHandler,
     JsonRpcHttpHandlerConfig,
+    set_reponse_header,
+    set_response_cookie,
+    del_response_cookie,
 )
 
 
@@ -396,3 +399,30 @@ async def test_rpc_as_list(loop, unused_tcp_port):
 
             result = await resp.json()
             assert result == {'id': 1, 'jsonrpc': '2.0', 'result': 'ok'}
+
+
+async def test_rpc_response_header(loop, unused_tcp_port):
+    reg = RpcRegistry()
+
+    @reg.method()
+    def method1():
+        set_reponse_header('A', 'B')
+        set_reponse_header('C', 'D')
+        set_response_cookie('E', 'F')
+        del_response_cookie('G')
+        return 'ok'
+
+    async with runapp(
+        unused_tcp_port, JsonRpcHttpHandler(reg, JsonRpcHttpHandlerConfig())
+    ):
+        async with ClientSession() as sess:
+            resp = await sess.request(
+                'POST',
+                'http://127.0.0.1:%s/' % unused_tcp_port,
+                json={'method': 'method1', 'jsonrpc': '2.0', 'id': 1},
+            )
+
+            assert resp.headers['A'] == 'B'
+            assert resp.headers['C'] == 'D'
+            assert resp.cookies['E'].value == 'F'
+            assert resp.cookies['G'].value == ''
