@@ -4,7 +4,6 @@ import sys
 from pydantic.main import BaseModel
 
 from ipapp import BaseApplication, BaseConfig, main
-from ipapp.ctx import request
 from ipapp.http.server import Server, ServerConfig
 from ipapp.logger.adapters.prometheus import (
     PrometheusAdapter,
