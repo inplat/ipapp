@@ -15,9 +15,9 @@ from ipapp.rpc.jsonrpc.http import (
     JsonRpcHttpClientConfig,
     JsonRpcHttpHandler,
     JsonRpcHttpHandlerConfig,
+    del_response_cookie,
     set_reponse_header,
     set_response_cookie,
-    del_response_cookie,
 )
 
 
