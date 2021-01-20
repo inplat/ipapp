@@ -34,7 +34,9 @@ class _DelCookie:
     path: str = "/"
 
 
-response_set_headers: ContextVar[CIMultiDict] = ContextVar('response_set_headers', default=CIMultiDict())
+response_set_headers: ContextVar[CIMultiDict] = ContextVar(
+    'response_set_headers', default=CIMultiDict()
+)
 
 
 response_set_cookies: ContextVar[List[_SetCookie]] = ContextVar(

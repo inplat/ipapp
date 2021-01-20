@@ -15,10 +15,7 @@ from ipapp.logger.adapters.sentry import SentryAdapter, SentryConfig
 from ipapp.logger.adapters.zipkin import ZipkinAdapter, ZipkinConfig
 from ipapp.rpc import RpcRegistry
 from ipapp.rpc.jsonrpc import JsonRpcError
-from ipapp.rpc.jsonrpc.http import (
-    JsonRpcHttpHandler,
-    JsonRpcHttpHandlerConfig,
-)
+from ipapp.rpc.jsonrpc.http import JsonRpcHttpHandler, JsonRpcHttpHandlerConfig
 
 api = RpcRegistry()
 
