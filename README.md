@@ -1,7 +1,7 @@
 InPlat application framework
 ============================
 
-[Докумментация](https://ipapp.readthedocs.io/ru/latest/)
+[Документация](https://ipapp.readthedocs.io/ru/latest/)
 
 
 
