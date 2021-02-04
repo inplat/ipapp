@@ -36,6 +36,8 @@ import ipapp.logger.span  # noqa
 
 from .ctx import app, request, span, span_trap
 
+BASE64_MARKER = 'b64enc##'
+
 
 def isoformat(o: Union[datetime.date, datetime.time]) -> str:
     return o.isoformat()
@@ -45,7 +47,8 @@ def from_bytes(o: bytes) -> str:
     try:
         return o.decode()
     except UnicodeError:
-        return base64.b64encode(o).decode()
+        b64_data = base64.b64encode(o).decode()
+        return f"{BASE64_MARKER}{b64_data}"
 
 
 ENCODERS_BY_TYPE: Dict[Type[Any], Callable[[Any], Any]] = {

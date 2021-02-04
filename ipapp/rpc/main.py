@@ -1,4 +1,6 @@
 import asyncio
+import base64
+import binascii
 import inspect
 import warnings
 from functools import wraps
@@ -21,9 +23,62 @@ from jsonschema import FormatChecker as JSONFormatChecker
 from jsonschema import validate as json_validate
 from jsonschema.exceptions import SchemaError as JSONSchemaError
 from jsonschema.exceptions import ValidationError as JSONValidationError
-from pydantic import BaseConfig, BaseModel, ValidationError, create_model
+from pydantic import (
+    BaseConfig,
+    BaseModel,
+    ValidationError,
+    create_model,
+    validator,
+)
+
+from ipapp.misc import BASE64_MARKER
 
 from .error import InvalidArguments, MethodNotFound, RpcError
+
+
+def to_bytes(value: str) -> Union[str, bytes]:
+    if value.startswith(BASE64_MARKER):
+        value_ = value[len(BASE64_MARKER) :]
+        try:
+            return base64.b64decode(value_, validate=True)
+        except binascii.Error:
+            pass
+    return value
+
+
+def parse_collection(col: Union[dict, list]) -> Union[dict, list]:
+    def check_value(
+        value_: Union[dict, list, str]
+    ) -> Union[bytes, dict, list, str]:
+        if isinstance(value_, str):
+            return to_bytes(value_)
+        if isinstance(value_, (dict, list)):
+            parse_collection(value_)
+        return value_
+
+    if isinstance(col, dict):
+        for key, value in col.items():
+            col[key] = check_value(value)
+    if isinstance(col, list):
+        for idx, value in enumerate(col):
+            col[idx] = check_value(value)
+
+    return col
+
+
+def base64_validator(
+    cls: BaseModel, v: Union[dict, list, str]
+) -> Union[bytes, dict, list, str]:
+    if isinstance(v, str):
+        return to_bytes(v)
+    if isinstance(v, (dict, list)):
+        return parse_collection(v)
+    return v
+
+
+validators = {
+    'base64_validator': validator('*', pre=True)(base64_validator),
+}
 
 
 class _PydanticConfig(BaseConfig):
@@ -317,6 +372,7 @@ class _Method:
             self._model = create_model(
                 'Model',
                 __config__=_PydanticConfig,
+                __validators__=validators,
                 **{  # type: ignore
                     k: (v, ... if k not in opt else opt[k])
                     for k, v in ispec.annotations.items()
