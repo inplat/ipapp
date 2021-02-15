@@ -975,7 +975,7 @@ testing = ["fields", "hunter", "process-tests (==2.0.2)", "six", "pytest-xdist",
 
 [[package]]
 name = "pytest-httpserver"
-version = "0.3.6"
+version = "0.3.8"
 description = "pytest-httpserver is a httpserver for pytest"
 category = "dev"
 optional = false
@@ -985,7 +985,7 @@ python-versions = ">=3.4"
 werkzeug = "*"
 
 [package.extras]
-dev = ["flake8", "wheel", "rope", "pytest", "pytest-cov", "coverage", "ipdb", "requests", "sphinx", "sphinx-rtd-theme", "reno", "autopep8"]
+dev = ["flake8", "wheel", "pytest", "pytest-cov", "coverage", "ipdb", "requests", "sphinx", "sphinx-rtd-theme", "reno", "autopep8"]
 test = ["pytest", "pytest-cov", "coverage", "requests"]
 
 [[package]]
@@ -1477,7 +1477,7 @@ testing = ["black", "flake8", "mock", "mypy", "bandit", "isort", "safety", "pyli
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "ed99a274d386d1b5fdd5846c9e8779b2044961ab557eb0437fdacd81848e654b"
+content-hash = "3633595fcbee39bcc5b635832e76e1cf83f0380559614ef8fafa0a70219090cc"
 
 [metadata.files]
 aiobotocore = [
@@ -2178,8 +2178,8 @@ pytest-cov = [
     {file = "pytest_cov-2.11.1-py2.py3-none-any.whl", hash = "sha256:bdb9fdb0b85a7cc825269a4c56b48ccaa5c7e365054b6038772c32ddcdc969da"},
 ]
 pytest-httpserver = [
-    {file = "pytest_httpserver-0.3.6-py3-none-any.whl", hash = "sha256:8cdab4bb68be0ed7bc6894d08bd043270ce0bb52ecdedc3955be1b86119984e5"},
-    {file = "pytest_httpserver-0.3.6.tar.gz", hash = "sha256:896e93bc191a2e887f906e07b312a4b753c2803185e9c7b1c6648b6ef65fb0f1"},
+    {file = "pytest_httpserver-0.3.8-py3-none-any.whl", hash = "sha256:8588edd98a7cec8b5fb481ad1180df0e928648816213c242974a318842d0befe"},
+    {file = "pytest_httpserver-0.3.8.tar.gz", hash = "sha256:d896a6556e426240837891b0552040ed4148e393ddf63f675b60d47bcd2d3f39"},
 ]
 python-dateutil = [
     {file = "python-dateutil-2.8.1.tar.gz", hash = "sha256:73ebfe9dbf22e832286dafa60473e4cd239f8592f699aa5adaf10050e6e1823c"},
