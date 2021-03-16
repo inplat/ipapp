@@ -125,7 +125,7 @@ def get_models_from_rpc_methods(methods: Dict[str, Callable]) -> TypeModelSet:
         if getattr(RequestParamsModel, "__name__", "") == request_model_name:
             fix_model_name(RequestParamsModel, request_params_model_name)
 
-        RequestModel = create_model(
+        RequestModel: Type[BaseModel] = create_model(
             request_model_name,
             method=(str, Field(..., example=method_name)),
             params=(RequestParamsModel, ...),
@@ -146,7 +146,9 @@ def get_models_from_rpc_methods(methods: Dict[str, Callable]) -> TypeModelSet:
 
             response["result"] = (ResponseResultModel, None)
 
-        ResponseModel = create_model(response_model_name, **response)
+        ResponseModel: Type[BaseModel] = create_model(
+            response_model_name, **response
+        )
 
         clean_models.extend([RequestParamsModel, RequestModel, ResponseModel])
 
