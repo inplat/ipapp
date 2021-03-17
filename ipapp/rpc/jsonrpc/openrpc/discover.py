@@ -112,7 +112,11 @@ class ModelDict(collections.defaultdict):
         self.name_model_map: Dict[str, Type['BaseModel']] = {}
 
     def __missing__(self, model: Type['BaseModel']) -> str:
-        model_name = model.__config__.title or model.__name__
+        model_name = (
+            hasattr(model, "__config__")
+            and model.__config__.title
+            or model.__name__
+        )
         model_name = re.sub(r"[^a-zA-Z0-9.\-_]", "_", model_name)
 
         if model_name in self.name_model_map:

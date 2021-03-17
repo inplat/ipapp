@@ -378,7 +378,7 @@ class Client:
             cls=S3ClientSpan,
             app=self.component.app,
         ) as span:
-            content_type = magic.from_buffer(data.read(1024), mime=True)
+            content_type = magic.from_buffer(data.read(2048), mime=True)
             filetype = content_type.split('/')[-1]
             if filetype not in self.allowed_types:
                 raise FileTypeNotAllowedError
