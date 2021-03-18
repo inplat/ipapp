@@ -1,12 +1,12 @@
 import asyncio
 import base64
-from typing import Any, Awaitable, Optional
 import os
+from typing import Any, Awaitable, Optional
 
 import pytest
 from aiohttp import ClientSession
-from pydantic.fields import FieldInfo
 from pydantic import BaseModel
+from pydantic.fields import FieldInfo
 
 from ipapp import BaseApplication, BaseConfig
 from ipapp.http.server import Server, ServerConfig

@@ -3,7 +3,7 @@ import json
 import os
 from uuid import UUID
 
-from ipapp.misc import json_encode, BASE64_MARKER
+from ipapp.misc import BASE64_MARKER, json_encode
 
 
 class CustomUUID(UUID):

@@ -97,6 +97,7 @@ lint: safety bandit mypy flake8 black  ## Run flake8, bandit, mypy
 
 .PHONY: format
 format: venv  ## Autoformat code
+	$(VENV_BIN)/autoflake --remove-all-unused-imports --recursive --remove-unused-variables --in-place ipapp tests --exclude=__init__.py
 	$(VENV_BIN)/isort ipapp examples tests
 	$(VENV_BIN)/black examples ipapp tests
 
