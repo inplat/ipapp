@@ -226,6 +226,9 @@ class JsonRpcExecutor:
         if span:
             span.name = 'rpc::in::batch'
             span.tag(SPAN_TAG_JSONRPC_IS_BATCH, 'true')
+            span.set_name4adapter(
+                self._app.logger.ADAPTER_PROMETHEUS, 'rpc_in_batch'
+            )
 
         resp = req.create_batch_response()
         batch = []
@@ -291,6 +294,9 @@ class JsonRpcExecutor:
     ) -> Any:
         if span and span.tags.get(SPAN_TAG_JSONRPC_IS_BATCH):
             with span.new_child(kind=Span.KIND_SERVER):
+                span.set_name4adapter(
+                    self._app.logger.ADAPTER_PROMETHEUS, 'rpc_in'
+                )
                 return await self._exec_method(
                     method, args, kwargs, is_one_way
                 )
