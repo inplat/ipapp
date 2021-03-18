@@ -14,7 +14,7 @@ from ipapp.logger.adapters.requests import RequestsAdapter, RequestsConfig
 from ipapp.logger.adapters.zipkin import ZipkinAdapter, ZipkinConfig
 from ipapp.task.db import TaskManager, TaskManagerConfig, TaskRegistry
 
-app: 'App'  # type: ignore
+app: 'App'  # type: ignore  # noqa
 
 tr = TaskRegistry()
 

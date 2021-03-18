@@ -12,7 +12,7 @@ from ipapp.http.server import Server, ServerConfig, ServerHandler
 from ipapp.logger.adapters.zipkin import ZipkinAdapter, ZipkinConfig
 from ipapp.utils.lock import Lock, LockConfig
 
-app: 'App'  # type: ignore
+app: 'App'  # type: ignore  # noqa
 
 
 class Config(BaseConfig):
