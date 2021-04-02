@@ -1,4 +1,5 @@
-from typing import Any, AsyncGenerator, Dict
+import mimetypes
+from typing import Any, AsyncGenerator, Dict, Optional
 from uuid import uuid4
 
 import pytest
@@ -14,6 +15,7 @@ async def s3() -> AsyncGenerator[S3, None]:
             endpoint_url='http://127.0.0.1:9000',
             aws_access_key_id='EXAMPLEACCESSKEY',
             aws_secret_access_key='EXAMPLESECRETKEY',
+            allowed_types='pdf,jpeg,png,gif,docx,ods',
         )
     )
     app = BaseApplication(BaseConfig())
@@ -31,8 +33,15 @@ async def save(
     bucket_name: str,
     content_type: str,
     metadata: Dict[str, Any],
+    mime_type: Optional[str] = None,
 ) -> None:
-    file_type = content_type.split('/')[-1]
+    file_types = mimetypes.guess_all_extensions(content_type)
+    file_types = [ft[1:] for ft in file_types]
+    file_type = set(file_types) & set(s3.allowed_types)
+    if file_type:
+        file_type = file_type.pop()
+    else:
+        file_type = content_type.split('/')[-1]
     with open(filepath, 'rb') as f:
         if not await s3.bucket_exists(bucket_name):
             await s3.create_bucket(bucket_name)
@@ -43,6 +52,7 @@ async def save(
             folder='folder',
             metadata=metadata,
             bucket_name=bucket_name,
+            mime_type=mime_type,
         )
 
         url = await s3.generate_presigned_url(object_name, 60)
@@ -217,6 +227,25 @@ async def test_s3_file_save(loop, s3: S3) -> None:
     content_type = 'image/gif'
     metadata = {'foo': 'bar'}
     await save(s3, uuid, filepath, bucket_name, content_type, metadata)
+
+    # Save DOCX
+    uuid = uuid4().hex
+    filepath = 'tests/files/test.docx'
+    bucket_name = 'tests'
+    content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    metadata = {'foo': 'bar'}
+    await save(s3, uuid, filepath, bucket_name, content_type, metadata)
+
+    # Save ODS
+    uuid = uuid4().hex
+    filepath = 'tests/files/test.ods'
+    bucket_name = 'tests'
+    content_type = 'application/vnd.oasis.opendocument.spreadsheet'
+    metadata = {'foo': 'bar'}
+    mime_type = 'application/vnd.oasis.opendocument.spreadsheet'
+    await save(
+        s3, uuid, filepath, bucket_name, content_type, metadata, mime_type
+    )
 
     # Save Not Allowed
     uuid = uuid4().hex

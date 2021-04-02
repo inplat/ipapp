@@ -1,4 +1,5 @@
 import json
+import mimetypes
 from types import TracebackType
 from typing import IO, Any, Dict, List, Optional, Type, Union
 from urllib.parse import ParseResult, urlparse
@@ -369,6 +370,7 @@ class Client:
         folder: Optional[str] = None,
         metadata: Dict[str, Any] = None,
         bucket_name: Optional[str] = None,
+        mime_type: Optional[str] = None,
     ) -> str:
         bucket_name = bucket_name or self.bucket_name
 
@@ -378,10 +380,19 @@ class Client:
             cls=S3ClientSpan,
             app=self.component.app,
         ) as span:
-            content_type = magic.from_buffer(data.read(2048), mime=True)
-            filetype = content_type.split('/')[-1]
-            if filetype not in self.allowed_types:
+            if not mime_type:
+                mime_type_ = magic.from_buffer(data.read(2048), mime=True)
+            else:
+                mime_type_ = mime_type
+            filetypes = mimetypes.guess_all_extensions(mime_type_)
+            if filetypes:
+                filetypes = [ft[1:] for ft in filetypes]
+            else:
+                filetypes = [mime_type_.split('/')[-1]]
+            int_set = set(filetypes) & set(self.allowed_types)
+            if not int_set:
                 raise FileTypeNotAllowedError
+            filetype = int_set.pop()
 
             data.seek(0)
 
@@ -394,7 +405,7 @@ class Client:
                 Bucket=bucket_name,
                 Key=object_name,
                 Body=data,
-                ContentType=content_type,
+                ContentType=mime_type_,
                 Metadata=metadata or {},
             )
 
@@ -528,10 +539,16 @@ class S3(Component):
         folder: Optional[str] = None,
         metadata: Dict[str, Any] = None,
         bucket_name: Optional[str] = None,
+        mime_type: Optional[str] = None,
     ) -> str:
         async with self._create_client() as client:
             return await client.put_object(
-                data, filename, folder, metadata, bucket_name
+                data,
+                filename,
+                folder,
+                metadata,
+                bucket_name,
+                mime_type,
             )
 
     async def copy_object(
