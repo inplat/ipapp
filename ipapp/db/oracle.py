@@ -7,6 +7,7 @@ https://container-registry.oracle.com/pls/apex/f?p=113:4:103772846430850::NO:::
 """
 import asyncio
 from contextvars import Token
+import functools
 from typing import Any, Callable, List, Optional, Type, Union
 
 import cx_Oracle
@@ -211,6 +212,7 @@ class Oracle(Component):
         return ConnectionContextManager(self, acquire_timeout=acquire_timeout)
 
     async def health(self) -> None:
+
         async with self.connection() as conn:
             await conn.execute('SELECT 1 FROM DUAL', query_name='health')
 
@@ -355,6 +357,24 @@ class CursorContextManager:
         return False
 
 
+def catch_invalidated_session(func: Callable) -> Callable:
+    @functools.wraps(func)
+    async def wrapper(self: 'Cursor', *args: List[Any]) -> Any:
+        exc_ = None
+        for _ in (1, 2):
+            try:
+                return await func(self, *args)
+            except cx_Oracle.DatabaseError as exc:
+                (error,) = exc.args
+                exc_ = exc
+                if error.code in (4061, 4068, 6508):
+                    continue
+                break
+        raise exc_  # type: ignore
+
+    return wrapper
+
+
 class Cursor:
     def __init__(self, conn: Connection, ora_cur: cx_Oracle.Cursor) -> None:
         self._conn = conn
@@ -484,6 +504,7 @@ class Cursor:
                 else:
                     return res
 
+    @catch_invalidated_session
     async def callfunc(self, name: str, return_type: Type, args: list) -> Any:
         with wrap2span(
             name=OraSpan.NAME_CALLFUNC,
@@ -528,6 +549,7 @@ class Cursor:
 
                 return res
 
+    @catch_invalidated_session
     async def callproc(self, name: str, args: list) -> list:
         with wrap2span(
             name=OraSpan.NAME_CALLFUNC,
