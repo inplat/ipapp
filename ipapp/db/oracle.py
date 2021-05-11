@@ -295,7 +295,9 @@ class Connection:
         query_name: Optional[str] = None,
     ) -> Optional[int]:
         async with self.cursor() as curs:
-            return await curs.execute(query, *args, query_name=query_name)
+            resp = await curs.execute(query, *args, query_name=query_name)
+            await curs.commit()
+            return resp
         return None  # mypy fix
 
     async def query_one(
@@ -364,6 +366,9 @@ class Cursor:
 
     def ora_cur(self) -> cx_Oracle.Cursor:
         return self._ora_cur
+
+    async def commit(self) -> None:
+        await self._loop.run_in_executor(None, self._conn.ora_conn().commit)
 
     async def execute(
         self, query: str, *args: Any, query_name: Optional[str] = None
