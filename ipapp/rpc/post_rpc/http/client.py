@@ -56,7 +56,9 @@ class PostRpcHttpClient(Client):
         _clt_timeout: Optional[ClientTimeout] = None
         if _timeout:
             _clt_timeout = ClientTimeout(_timeout)
-        url = self.cfg.url.removesuffix('/')
+        url = self.cfg.url
+        if url.endswith('/'):
+            url = url[:-1]
         resp = await self.request(
             'POST',
             f'{url}/{method_name}/',
