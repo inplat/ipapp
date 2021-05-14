@@ -72,7 +72,8 @@ class PostRpcSuccessResponse(RPCResponse):
 def _get_code_message_and_data(
     error: Union[Exception, str]
 ) -> Tuple[int, str, Any]:
-    assert isinstance(error, (Exception, str))
+    if not isinstance(error, (Exception, str)):
+        raise NotImplementedError
     data = None
     if isinstance(error, Exception):
         if hasattr(error, 'code'):
