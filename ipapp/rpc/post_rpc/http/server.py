@@ -123,7 +123,7 @@ class PostRpcHttpHandler(_ServerHandler):
         req_body = await request.read()
         method_name = request.path
         if method_name.startswith(self._cfg.path):
-            method_name = method_name[len(self._cfg.path):]
+            method_name = method_name[len(self._cfg.path) :]
         if method_name.startswith('/'):
             method_name = method_name[1:]
         if method_name.endswith('/'):
