@@ -83,7 +83,9 @@ class PostRpcHttpHandler(_ServerHandler):
         )
         if self._cfg.healthcheck_path:
             self._setup_healthcheck(self._cfg.healthcheck_path)
-        path = self._cfg.path.removesuffix('/')
+        path = self._cfg.path
+        if path.endswith('/'):
+            path = path[:-1]
         for method_name in self._methods.keys():
             self.server.add_post(f'{path}/{method_name}/', self.rpc_handler)
             self.server.add_options(
@@ -119,12 +121,13 @@ class PostRpcHttpHandler(_ServerHandler):
 
     async def _handle(self, request: web.Request) -> web.Response:
         req_body = await request.read()
-        path = request.path
-        method_name = (
-            path.removeprefix(self._cfg.path)
-            .removeprefix('/')
-            .removesuffix('/')
-        )
+        method_name = request.path
+        if method_name.startswith(self._cfg.path):
+            method_name = method_name[len(self._cfg.path):]
+        if method_name.startswith('/'):
+            method_name = method_name[1:]
+        if method_name.endswith('/'):
+            method_name = method_name[:-1]
         if not method_name:
             return web.HTTPNotFound()
         response_set_headers_token = response_set_headers.set(CIMultiDict())
