@@ -13,10 +13,10 @@ from ipapp.logger.adapters.requests import RequestsAdapter, RequestsConfig
 from ipapp.logger.adapters.sentry import SentryAdapter, SentryConfig
 from ipapp.logger.adapters.zipkin import ZipkinAdapter, ZipkinConfig
 from ipapp.rpc import RpcRegistry
-from ipapp.rpc.post_rpc import PostRpcError
-from ipapp.rpc.post_rpc.http import (
-    PostRpcHttpHandler,
-    PostRpcHttpHandlerConfig,
+from ipapp.rpc.restrpc import RestRpcError
+from ipapp.rpc.restrpc.http import (
+    RestRpcHttpHandler,
+    RestRpcHttpHandlerConfig,
 )
 
 api = RpcRegistry()
@@ -24,14 +24,14 @@ api = RpcRegistry()
 
 class Config(BaseConfig):
     rpc: ServerConfig
-    rpc_handler: PostRpcHttpHandlerConfig
+    rpc_handler: RestRpcHttpHandlerConfig
     log_zipkin: ZipkinConfig
     log_prometheus: PrometheusConfig
     log_sentry: SentryConfig
     log_requests: RequestsConfig
 
 
-class MyError(PostRpcError):
+class MyError(RestRpcError):
     code = 10100
     message = "My error"
 
@@ -65,7 +65,7 @@ class App(BaseApplication):
     def __init__(self, cfg: Config) -> None:
         super().__init__(cfg)
         self.add(
-            'srv', Server(cfg.rpc, PostRpcHttpHandler(api, cfg.rpc_handler))
+            'srv', Server(cfg.rpc, RestRpcHttpHandler(api, cfg.rpc_handler))
         )
         if cfg.log_prometheus.enabled:
             self.logger.add(PrometheusAdapter(cfg.log_prometheus))
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     APP_LOG_ZIPKIN_ENABLED=1 \
     APP_LOG_ZIPKIN_ADDR=http://127.0.0.1:9411/api/v2/spans \
     APP_LOG_ZIPKIN_NAME=rpc-server \
-    python3 -m examples.http_post_rpc_server
+    python3 -m examples.http_restrpc_server
 
     """
     logging.basicConfig(level=logging.INFO)

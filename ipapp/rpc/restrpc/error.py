@@ -16,7 +16,7 @@ from ipapp.rpc.error import MethodNotFound as ipapp_MethodNotFound
 from ipapp.rpc.error import RpcError
 
 
-class PostRpcFixedErrorMessageMixin:
+class RestRpcFixedErrorMessageMixin:
     code = 500
     message = 'Internal Server Error'
 
@@ -38,8 +38,8 @@ class PostRpcFixedErrorMessageMixin:
         self.message = str(self.message).format_map(self.kwargs)
         super().__init__()
 
-    def error_respond(self) -> 'PostRpcErrorResponse':
-        response = PostRpcErrorResponse()
+    def error_respond(self) -> 'RestRpcErrorResponse':
+        response = RestRpcErrorResponse()
         response.error = self.message
         response._code = self.code
         if hasattr(self, 'data'):
@@ -47,40 +47,40 @@ class PostRpcFixedErrorMessageMixin:
         return response
 
 
-class PostRpcError(PostRpcFixedErrorMessageMixin, RpcError):
+class RestRpcError(RestRpcFixedErrorMessageMixin, RpcError):
     pass
 
 
-class PostRpcParseError(PostRpcError, InvalidReplyError):
+class RestRpcParseError(RestRpcError, InvalidReplyError):
     code = 500
     message = 'Parse reply error'
 
 
-class PostRpcInvalidRequestError(PostRpcError, InvalidRequestError):
+class RestRpcInvalidRequestError(RestRpcError, InvalidRequestError):
     code = 400
     message = 'Bad Request'
 
 
-class PostRpcMethodNotFoundError(
-    PostRpcError, MethodNotFoundError, ipapp_MethodNotFound
+class RestRpcMethodNotFoundError(
+    RestRpcError, MethodNotFoundError, ipapp_MethodNotFound
 ):
     code = 404
     message = 'Method not found'
 
 
-class PostRpcInvalidParamsError(
-    PostRpcError, InvalidParamsError, ipapp_InvalidArguments
+class RestRpcInvalidParamsError(
+    RestRpcError, InvalidParamsError, ipapp_InvalidArguments
 ):
     code = 400
     message = 'Invalid params'
 
 
-class PostRpcServerError(PostRpcError, ServerError):
+class RestRpcServerError(RestRpcError, ServerError):
     code = 500
     message = 'Internal Server Error'
 
 
-class PostRpcErrorResponse(RPCErrorResponse):
+class RestRpcErrorResponse(RPCErrorResponse):
     def _to_dict(self) -> dict:
         msg = {
             'error': {

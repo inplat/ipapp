@@ -11,7 +11,7 @@ from ipapp.http.server import ServerHandler as _ServerHandler
 from ipapp.rpc.jsonrpc.openrpc.discover import _get_methods
 from ipapp.rpc.jsonrpc.openrpc.models import ExternalDocs, Server
 from ipapp.rpc.main import RpcRegistry
-from ipapp.rpc.post_rpc.main import PostRpcExecutor
+from ipapp.rpc.restrpc.main import RestRpcExecutor
 
 
 @dataclass
@@ -48,7 +48,7 @@ response_del_cookies: ContextVar[List[_DelCookie]] = ContextVar(
 )
 
 
-class PostRpcHttpHandlerConfig(BaseModel):
+class RestRpcHttpHandlerConfig(BaseModel):
     path: str = '/'
     healthcheck_path: str = '/health'
     shield: bool = False
@@ -57,13 +57,13 @@ class PostRpcHttpHandlerConfig(BaseModel):
     cors_origin: str = 'https://playground.open-rpc.org'
 
 
-class PostRpcHttpHandler(_ServerHandler):
-    _post_rpc: PostRpcExecutor
+class RestRpcHttpHandler(_ServerHandler):
+    _restrpc: RestRpcExecutor
 
     def __init__(
         self,
         registry: Union[RpcRegistry, object],
-        cfg: PostRpcHttpHandlerConfig,
+        cfg: RestRpcHttpHandlerConfig,
         servers: Optional[List[Server]] = None,
         external_docs: Optional[ExternalDocs] = None,
     ) -> None:
@@ -74,7 +74,7 @@ class PostRpcHttpHandler(_ServerHandler):
 
     async def prepare(self) -> None:
         self._methods = _get_methods(self._registry)
-        self._post_rpc = PostRpcExecutor(
+        self._restrpc = RestRpcExecutor(
             self._registry,
             self.app,
             discover_enabled=self._cfg.discover_enabled,
@@ -95,10 +95,10 @@ class PostRpcHttpHandler(_ServerHandler):
             self.server.add_options(
                 f'{path}/{method_name}', self.rpc_options_handler
             )
-        await self._post_rpc.start_scheduler()
+        await self._restrpc.start_scheduler()
 
     async def stop(self) -> None:
-        await self._post_rpc.stop_scheduler()
+        await self._restrpc.stop_scheduler()
 
     def _get_cors_headers(self) -> Dict[str, str]:
         if self._cfg.cors_enabled:
@@ -133,7 +133,7 @@ class PostRpcHttpHandler(_ServerHandler):
         response_set_headers_token = response_set_headers.set(CIMultiDict())
         response_set_cookies_token = response_set_cookies.set([])
         response_del_cookies_token = response_del_cookies.set([])
-        resp_body, resp_status_code = await self._post_rpc.exec(
+        resp_body, resp_status_code = await self._restrpc.exec(
             request=req_body, method_name=method_name
         )
         resp = web.Response(

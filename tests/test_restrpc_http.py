@@ -14,12 +14,12 @@ from ipapp.http.server import Server, ServerConfig
 from ipapp.misc import BASE64_MARKER
 from ipapp.rpc import RpcRegistry
 from ipapp.rpc.error import InvalidArguments
-from ipapp.rpc.post_rpc import PostRpcError
-from ipapp.rpc.post_rpc.http import (
-    PostRpcHttpClient,
-    PostRpcHttpClientConfig,
-    PostRpcHttpHandler,
-    PostRpcHttpHandlerConfig,
+from ipapp.rpc.restrpc import RestRpcError
+from ipapp.rpc.restrpc.http import (
+    RestRpcHttpClient,
+    RestRpcHttpClientConfig,
+    RestRpcHttpHandler,
+    RestRpcHttpHandlerConfig,
     del_response_cookie,
     set_reponse_header,
     set_response_cookie,
@@ -48,8 +48,8 @@ def runapp(port, handler):  # type: ignore
             self.add('srv', Server(cfg.srv, handler))
             self.add(
                 'clt',
-                PostRpcHttpClient(
-                    PostRpcHttpClientConfig(
+                RestRpcHttpClient(
+                    RestRpcHttpClientConfig(
                         url='http://%s:%s/' % (cfg.srv.host, cfg.srv.port)
                     )
                 ),
@@ -72,7 +72,7 @@ async def test_rpc(loop, unused_tcp_port):  # type: ignore
         return {'status': 'ok'}
 
     async with runapp(
-        unused_tcp_port, PostRpcHttpHandler(reg, PostRpcHttpHandlerConfig())
+        unused_tcp_port, RestRpcHttpHandler(reg, RestRpcHttpHandlerConfig())
     ):
         async with ClientSession() as sess:
             resp = await sess.request(
@@ -150,11 +150,11 @@ async def test_rpc(loop, unused_tcp_port):  # type: ignore
 
 
 async def test_rpc_error(loop, unused_tcp_port):  # type: ignore
-    class MyError(PostRpcError):
+    class MyError(RestRpcError):
         code = 1000
         message = 'Err'
 
-    class MyError409(PostRpcError):
+    class MyError409(RestRpcError):
         code = 409
         message = 'Err'
 
@@ -169,7 +169,7 @@ async def test_rpc_error(loop, unused_tcp_port):  # type: ignore
         raise MyError409(data={'b': 2})
 
     async with runapp(
-        unused_tcp_port, PostRpcHttpHandler(reg, PostRpcHttpHandlerConfig())
+        unused_tcp_port, RestRpcHttpHandler(reg, RestRpcHttpHandlerConfig())
     ):
         async with ClientSession() as sess:
             resp = await sess.request(
@@ -204,7 +204,7 @@ async def test_rpc_client(loop, unused_tcp_port):  # type: ignore
         return {'method1': 'ok'}
 
     async with runapp(
-        unused_tcp_port, PostRpcHttpHandler(reg, PostRpcHttpHandlerConfig())
+        unused_tcp_port, RestRpcHttpHandler(reg, RestRpcHttpHandlerConfig())
     ) as app:
         result = await app.clt.exec('method1', {'a': 'anything'})
         assert result == {'method1': 'ok'}
@@ -229,7 +229,7 @@ async def test_rpc_client_info_field(loop, unused_tcp_port):  # type: ignore
             description="B Field",
         )
 
-    class TestRpcClientInfoField(PostRpcHttpClient):
+    class TestRpcClientInfoField(RestRpcHttpClient):
         def sum(
             self,
             a: int = AField(...),
@@ -243,10 +243,10 @@ async def test_rpc_client_info_field(loop, unused_tcp_port):  # type: ignore
             )
 
     async with runapp(
-        unused_tcp_port, PostRpcHttpHandler(reg, PostRpcHttpHandlerConfig())
+        unused_tcp_port, RestRpcHttpHandler(reg, RestRpcHttpHandlerConfig())
     ) as app:
         clt = TestRpcClientInfoField(
-            PostRpcHttpClientConfig(
+            RestRpcHttpClientConfig(
                 url='http://%s:%s/' % (app.cfg.srv.host, app.cfg.srv.port)
             )
         )
@@ -276,7 +276,7 @@ async def test_rpc_client_info_field_missed_argument(loop, unused_tcp_port):  # 
             description="B Field",
         )
 
-    class TestRpcClientInfoField(PostRpcHttpClient):
+    class TestRpcClientInfoField(RestRpcHttpClient):
         def sum(
             self,
             a: int = AField(...),
@@ -290,10 +290,10 @@ async def test_rpc_client_info_field_missed_argument(loop, unused_tcp_port):  # 
             )
 
     async with runapp(
-        unused_tcp_port, PostRpcHttpHandler(reg, PostRpcHttpHandlerConfig())
+        unused_tcp_port, RestRpcHttpHandler(reg, RestRpcHttpHandlerConfig())
     ) as app:
         clt = TestRpcClientInfoField(
-            PostRpcHttpClientConfig(
+            RestRpcHttpClientConfig(
                 url='http://%s:%s/' % (app.cfg.srv.host, app.cfg.srv.port)
             )
         )
@@ -318,7 +318,7 @@ async def test_rpc_client_timeout(loop, unused_tcp_port):  # type: ignore
         return {'method2': 'sleep(0.2)'}
 
     async with runapp(
-        unused_tcp_port, PostRpcHttpHandler(reg, PostRpcHttpHandlerConfig())
+        unused_tcp_port, RestRpcHttpHandler(reg, RestRpcHttpHandlerConfig())
     ) as app:
         with pytest.raises(asyncio.TimeoutError):
             await app.clt.exec('method1', {'a': 'anything'}, timeout=0.2)
@@ -329,7 +329,7 @@ async def test_rpc_client_timeout(loop, unused_tcp_port):  # type: ignore
 
 
 async def test_rpc_client_custom_error(loop, unused_tcp_port):  # type: ignore
-    class MyErrr(PostRpcError):
+    class MyErrr(RestRpcError):
         code = 1000
         message = "My err {some_var} {some_else}"
 
@@ -340,11 +340,11 @@ async def test_rpc_client_custom_error(loop, unused_tcp_port):  # type: ignore
         raise MyErrr(some_var=123, data={'a': 1})
 
     async with runapp(
-        unused_tcp_port, PostRpcHttpHandler(reg, PostRpcHttpHandlerConfig())
+        unused_tcp_port, RestRpcHttpHandler(reg, RestRpcHttpHandlerConfig())
     ) as app:
         try:
             await app.clt.exec('method', {'a': 'anything'})
-        except PostRpcError as err:
+        except RestRpcError as err:
             assert err.code == 1000
             assert err.message == "My err 123 "
             assert err.data == {'a': 1}
@@ -364,7 +364,7 @@ async def test_rpc_response_header(loop, unused_tcp_port):  # type: ignore
         return {'method1': 'ok'}
 
     async with runapp(
-        unused_tcp_port, PostRpcHttpHandler(reg, PostRpcHttpHandlerConfig())
+        unused_tcp_port, RestRpcHttpHandler(reg, RestRpcHttpHandlerConfig())
     ):
         async with ClientSession() as sess:
             resp = await sess.request(
@@ -398,7 +398,7 @@ async def test_rpc_client_arg_as_bytes(loop, unused_tcp_port):  # type: ignore
     def compare_bytes(b_data: bytes) -> Dict[str, bool]:
         return {'compare_bytes': some_data == b_data}
 
-    class TestRpcClientBytesArg(PostRpcHttpClient):
+    class TestRpcClientBytesArg(RestRpcHttpClient):
         def compare_bytes(
             self,
             b_data: bytes,
@@ -411,10 +411,10 @@ async def test_rpc_client_arg_as_bytes(loop, unused_tcp_port):  # type: ignore
             )
 
     async with runapp(
-        unused_tcp_port, PostRpcHttpHandler(reg, PostRpcHttpHandlerConfig())
+        unused_tcp_port, RestRpcHttpHandler(reg, RestRpcHttpHandlerConfig())
     ) as app:
         clt = TestRpcClientBytesArg(
-            PostRpcHttpClientConfig(
+            RestRpcHttpClientConfig(
                 url='http://%s:%s/' % (app.cfg.srv.host, app.cfg.srv.port)
             )
         )
@@ -441,7 +441,7 @@ async def test_rpc_client_model_with_bytes(loop, unused_tcp_port):  # type: igno
         compare = some_data == model.some_bytes
         return SomeModel_2(compare_model_bytes=compare)
 
-    class TestRpcClientBytesArg(PostRpcHttpClient):
+    class TestRpcClientBytesArg(RestRpcHttpClient):
         def compare_model_bytes(
             self,
             model: SomeModel,
@@ -455,10 +455,10 @@ async def test_rpc_client_model_with_bytes(loop, unused_tcp_port):  # type: igno
             )
 
     async with runapp(
-        unused_tcp_port, PostRpcHttpHandler(reg, PostRpcHttpHandlerConfig())
+        unused_tcp_port, RestRpcHttpHandler(reg, RestRpcHttpHandlerConfig())
     ) as app:
         clt = TestRpcClientBytesArg(
-            PostRpcHttpClientConfig(
+            RestRpcHttpClientConfig(
                 url='http://%s:%s/' % (app.cfg.srv.host, app.cfg.srv.port)
             )
         )
@@ -480,7 +480,7 @@ async def test_rpc_bytes_in_response(loop, unused_tcp_port):  # type: ignore
         return {'some_data': some_data}
 
     async with runapp(
-        unused_tcp_port, PostRpcHttpHandler(reg, PostRpcHttpHandlerConfig())
+        unused_tcp_port, RestRpcHttpHandler(reg, RestRpcHttpHandlerConfig())
     ):
         async with ClientSession() as sess:
             resp = await sess.request(
@@ -506,8 +506,8 @@ def runapp_with_any_subpath(port, handler):  # type: ignore
             self.add('srv', Server(cfg.srv, handler))
             self.add(
                 'clt',
-                PostRpcHttpClient(
-                    PostRpcHttpClientConfig(
+                RestRpcHttpClient(
+                    RestRpcHttpClientConfig(
                         url='http://%s:%s/api/v1'
                         % (cfg.srv.host, cfg.srv.port)
                     )
@@ -531,7 +531,7 @@ async def test_rpc_with_any_subpath(loop, unused_tcp_port):  # type: ignore
 
     async with runapp_with_any_subpath(
         unused_tcp_port,
-        PostRpcHttpHandler(reg, PostRpcHttpHandlerConfig(path='/api/v1/')),
+        RestRpcHttpHandler(reg, RestRpcHttpHandlerConfig(path='/api/v1/')),
     ):
         async with ClientSession() as sess:
             resp = await sess.request(
@@ -582,9 +582,9 @@ async def test_rpc_client_with_any_subpath(loop, unused_tcp_port):  # type: igno
 
     async with runapp_with_any_subpath(
         unused_tcp_port,
-        PostRpcHttpHandler(
+        RestRpcHttpHandler(
             reg,
-            PostRpcHttpHandlerConfig(
+            RestRpcHttpHandlerConfig(
                 path='/api/v1', cors_enabled=False, shield=True
             ),
         ),

@@ -12,10 +12,10 @@ from ipapp.logger.adapters.prometheus import (
 from ipapp.logger.adapters.requests import RequestsAdapter, RequestsConfig
 from ipapp.logger.adapters.sentry import SentryAdapter, SentryConfig
 from ipapp.logger.adapters.zipkin import ZipkinAdapter, ZipkinConfig
-from ipapp.rpc.post_rpc.error import PostRpcError
-from ipapp.rpc.post_rpc.http.client import (
-    PostRpcHttpClient,
-    PostRpcHttpClientConfig,
+from ipapp.rpc.restrpc.error import RestRpcError
+from ipapp.rpc.restrpc.http.client import (
+    RestRpcHttpClient,
+    RestRpcHttpClientConfig,
 )
 
 
@@ -25,7 +25,7 @@ class User(BaseModel):
 
 
 class Config(BaseConfig):
-    rpc: PostRpcHttpClientConfig
+    rpc: RestRpcHttpClientConfig
     log_zipkin: ZipkinConfig
     log_prometheus: PrometheusConfig
     log_sentry: SentryConfig
@@ -37,7 +37,7 @@ class App(BaseApplication):
         super().__init__(cfg)
         self.add(
             'clt',
-            PostRpcHttpClient(cfg.rpc),
+            RestRpcHttpClient(cfg.rpc),
         )
         if cfg.log_prometheus.enabled:
             self.logger.add(PrometheusAdapter(cfg.log_prometheus))
@@ -59,7 +59,7 @@ class App(BaseApplication):
         print('=' * 80)
         try:
             res2 = await self.clt.exec('sum', {'c': 3, 'b': 5})
-        except PostRpcError as e:
+        except RestRpcError as e:
             print('=' * 80)
             print('RESULT 2 ERROR')
             print('ERROR CODE:', e.code)
@@ -78,8 +78,8 @@ class App(BaseApplication):
         raise GracefulExit
 
     @property
-    def clt(self) -> PostRpcHttpClient:
-        clt: PostRpcHttpClient = self.get('clt')  # type: ignore
+    def clt(self) -> RestRpcHttpClient:
+        clt: RestRpcHttpClient = self.get('clt')  # type: ignore
         return clt
 
 
@@ -91,7 +91,7 @@ APP_RPC_URL=http://0.0.0.0:8080/ \
 APP_LOG_ZIPKIN_ENABLED=1 \
 APP_LOG_ZIPKIN_ADDR=http://127.0.0.1:9411/api/v2/spans \
 APP_LOG_ZIPKIN_NAME=rpc-client \
-python -m examples.http_post_rpc_client --log-level CRITICAL
+python -m examples.http_restrpc_client --log-level CRITICAL
 
 
     """

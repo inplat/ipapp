@@ -4,38 +4,38 @@ from aiohttp import ClientTimeout
 from pydantic import BaseModel, Field
 
 from ipapp.http.client import Client, ClientConfig
-from ipapp.rpc.post_rpc.error import PostRpcError
-from ipapp.rpc.post_rpc.main import PostRpcCall
-from ipapp.rpc.post_rpc.main import PostRpcClient as _PostRpcClient
+from ipapp.rpc.restrpc.error import RestRpcError
+from ipapp.rpc.restrpc.main import RestRpcCall
+from ipapp.rpc.restrpc.main import RestRpcClient as _RestRpcClient
 
 
-class PostRpcHttpClientConfig(ClientConfig):
-    url: str = Field("http://0:8080/", description="Адрес Post-RPC сервера")
-    timeout: float = Field(60.0, description="Таймаут Post-RPC вызова")
+class RestRpcHttpClientConfig(ClientConfig):
+    url: str = Field("http://0:8080/", description="Адрес Rest-RPC сервера")
+    timeout: float = Field(60.0, description="Таймаут Rest-RPC вызова")
 
 
-class PostRpcHttpClient(Client):
-    cfg: PostRpcHttpClientConfig
-    clt: _PostRpcClient
+class RestRpcHttpClient(Client):
+    cfg: RestRpcHttpClientConfig
+    clt: _RestRpcClient
 
-    def __init__(self, cfg: PostRpcHttpClientConfig) -> None:
+    def __init__(self, cfg: RestRpcHttpClientConfig) -> None:
         super().__init__(cfg)
         self.cfg = cfg
 
     async def prepare(self) -> None:
-        self.clt = _PostRpcClient(
+        self.clt = _RestRpcClient(
             self._send_request,
             self.app,
-            exception_mapping_callback=self._raise_post_rpc_error,
+            exception_mapping_callback=self._raise_restrpc_error,
         )
 
-    def _raise_post_rpc_error(
+    def _raise_restrpc_error(
         self,
         code: Optional[int] = None,
         message: Optional[str] = None,
         data: Optional[Any] = None,
     ) -> None:
-        raise PostRpcError(code=code, message=message, data=data)
+        raise RestRpcError(code=code, message=message, data=data)
 
     def exec(
         self,
@@ -44,7 +44,7 @@ class PostRpcHttpClient(Client):
         one_way: bool = False,
         timeout: Optional[float] = None,
         model: Optional[Type[BaseModel]] = None,
-    ) -> PostRpcCall:
+    ) -> RestRpcCall:
         return self.clt.exec(method, params, one_way, timeout, model)
 
     async def _send_request(

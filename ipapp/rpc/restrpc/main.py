@@ -1,4 +1,4 @@
-"""POST RPC Protocol implementation."""
+"""Rest RPC Protocol implementation."""
 import asyncio
 import collections
 import json
@@ -45,24 +45,24 @@ from ipapp.rpc.jsonrpc.openrpc.discover import discover
 from ipapp.rpc.jsonrpc.openrpc.models import ExternalDocs, Server
 from ipapp.rpc.main import Executor as _Executor
 from ipapp.rpc.main import RpcRegistry
-from ipapp.rpc.post_rpc.error import (
-    PostRpcError,
-    PostRpcErrorResponse,
-    PostRpcInvalidParamsError,
-    PostRpcInvalidRequestError,
-    PostRpcMethodNotFoundError,
-    PostRpcParseError,
-    PostRpcServerError,
+from ipapp.rpc.restrpc.error import (
+    RestRpcError,
+    RestRpcErrorResponse,
+    RestRpcInvalidParamsError,
+    RestRpcInvalidRequestError,
+    RestRpcMethodNotFoundError,
+    RestRpcParseError,
+    RestRpcServerError,
 )
 
-SPAN_TAG_POSTRPC_METHOD = 'rpc.method'
-SPAN_TAG_POSTRPC_CODE = 'rpc.code'
+SPAN_TAG_RESTRPC_METHOD = 'rpc.method'
+SPAN_TAG_RESTRPC_CODE = 'rpc.code'
 
 
-class PostRpcSuccessResponse(RPCResponse):
+class RestRpcSuccessResponse(RPCResponse):
     def _to_dict(self) -> Dict[str, Any]:
         if not isinstance(self.result, Dict) or len(self.result) == 0:
-            raise PostRpcParseError(data='Wrong reply')
+            raise RestRpcParseError(data='Wrong reply')
         return self.result
 
     def serialize(self) -> bytes:
@@ -84,16 +84,16 @@ def _get_code_message_and_data(
             except AttributeError:
                 pass
         elif isinstance(error, InvalidRequestError):
-            code = PostRpcInvalidRequestError.code
-            msg = PostRpcInvalidRequestError.message
+            code = RestRpcInvalidRequestError.code
+            msg = RestRpcInvalidRequestError.message
         elif isinstance(error, (MethodNotFoundError, _MethodNotFound)):
-            code = PostRpcMethodNotFoundError.code
-            msg = PostRpcMethodNotFoundError.message
+            code = RestRpcMethodNotFoundError.code
+            msg = RestRpcMethodNotFoundError.message
         elif isinstance(error, (InvalidParamsError, _InvalidArguments)):
-            code = PostRpcInvalidParamsError.code
-            msg = PostRpcInvalidParamsError.message
+            code = RestRpcInvalidParamsError.code
+            msg = RestRpcInvalidParamsError.message
         else:
-            code = PostRpcServerError.code
+            code = RestRpcServerError.code
             if len(error.args) == 2:
                 msg = str(error.args[0])
                 data = error.args[1]
@@ -105,8 +105,8 @@ def _get_code_message_and_data(
     return code, msg, data
 
 
-class PostRpcRequest(RPCRequest):
-    """Defines a Post RPC request."""
+class RestRpcRequest(RPCRequest):
+    """Defines a Rest RPC request."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -116,8 +116,8 @@ class PostRpcRequest(RPCRequest):
 
     def error_respond(
         self, error: Union[Exception, str]
-    ) -> Optional['PostRpcErrorResponse']:
-        response = PostRpcErrorResponse()
+    ) -> Optional['RestRpcErrorResponse']:
+        response = RestRpcErrorResponse()
         code, msg, data = _get_code_message_and_data(error)
         response.error = msg
         response._code = code
@@ -125,10 +125,10 @@ class PostRpcRequest(RPCRequest):
             response.data = data
         return response
 
-    def respond(self, result: Any) -> Optional['PostRpcSuccessResponse']:
+    def respond(self, result: Any) -> Optional['RestRpcSuccessResponse']:
         if self.one_way:
             return None
-        response = PostRpcSuccessResponse()
+        response = RestRpcSuccessResponse()
         response.result = result
         return response
 
@@ -137,28 +137,28 @@ class PostRpcRequest(RPCRequest):
         if self.kwargs:
             jdata = self.kwargs
         if not self.kwargs:
-            raise PostRpcParseError(data='Wrong response, params required')
+            raise RestRpcParseError(data='Wrong response, params required')
         return jdata
 
     def serialize(self) -> bytes:
         return json.dumps(self._to_dict()).encode()
 
 
-class PostRpcProtocol(RPCProtocol):
-    """PostRpc protocol implementation."""
+class RestRpcProtocol(RPCProtocol):
+    """RestRpc protocol implementation."""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super(PostRpcProtocol, self).__init__(*args, **kwargs)
+        super(RestRpcProtocol, self).__init__(*args, **kwargs)
 
-    def request_factory(self) -> 'PostRpcRequest':
-        return PostRpcRequest()
+    def request_factory(self) -> 'RestRpcRequest':
+        return RestRpcRequest()
 
     def create_request(
         self,
         method: str,
         kwargs: Dict[str, Any] = None,
         one_way: bool = False,
-    ) -> 'PostRpcRequest':
+    ) -> 'RestRpcRequest':
         request = self.request_factory()
         request.one_way = one_way
         request.method = method
@@ -167,7 +167,7 @@ class PostRpcProtocol(RPCProtocol):
 
     def parse_reply(
         self, data: bytes
-    ) -> Union['PostRpcSuccessResponse', 'PostRpcErrorResponse']:
+    ) -> Union['RestRpcSuccessResponse', 'RestRpcErrorResponse']:
         if isinstance(data, bytes):
             data = data.decode()  # type: ignore
         try:
@@ -175,33 +175,33 @@ class PostRpcProtocol(RPCProtocol):
         except Exception as e:
             raise InvalidReplyError(e)
         if isinstance(rep, dict) and 'error' in rep:
-            response = PostRpcErrorResponse()
+            response = RestRpcErrorResponse()
             error = rep['error']
             response.error = error["message"]
             response._code = error["code"]
             if "data" in error:
                 response.data = error["data"]
         else:
-            response = PostRpcSuccessResponse()
+            response = RestRpcSuccessResponse()
             response.result = rep
         return response
 
-    def parse_request(self, data: bytes, method_name: str) -> 'PostRpcRequest':
+    def parse_request(self, data: bytes, method_name: str) -> 'RestRpcRequest':
         if isinstance(data, bytes):
             data = data.decode()  # type: ignore
         try:
             req = json.loads(data)
         except Exception:
-            raise PostRpcInvalidRequestError()
+            raise RestRpcInvalidRequestError()
         return self._parse_subrequest(req, method_name)
 
     def _parse_subrequest(
         self, req: Any, method_name: str
-    ) -> 'PostRpcRequest':
+    ) -> 'RestRpcRequest':
         if not isinstance(req, dict):
-            raise PostRpcInvalidRequestError()
+            raise RestRpcInvalidRequestError()
         if len(req) == 0:
-            raise PostRpcInvalidParamsError(
+            raise RestRpcInvalidParamsError(
                 data='Missing required params in request'
             )
         request = self.request_factory()
@@ -210,9 +210,9 @@ class PostRpcProtocol(RPCProtocol):
         return request
 
     def raise_error(
-        self, error: Union['PostRpcErrorResponse', Dict[str, Any]]
-    ) -> 'PostRpcError':
-        exc = PostRpcError(error)  # type: ignore
+        self, error: Union['RestRpcErrorResponse', Dict[str, Any]]
+    ) -> 'RestRpcError':
+        exc = RestRpcError(error)  # type: ignore
         if not self.raises_errors:
             return exc
         raise exc
@@ -223,7 +223,7 @@ class PostRpcProtocol(RPCProtocol):
         return method(**kwargs)
 
 
-class PostRpcExecutor:
+class RestRpcExecutor:
     def __init__(
         self,
         registry: Union[RpcRegistry, object],
@@ -240,7 +240,7 @@ class PostRpcExecutor:
         self._discover_result: Optional[Dict[str, Any]] = None
         self._ex = _Executor(registry)
         self._loop = loop
-        self._protocol = PostRpcProtocol()
+        self._protocol = RestRpcProtocol()
         self._scheduler: Optional[aiojobs.Scheduler] = None
         self._scheduler_kwargs = scheduler_kwargs or {}
         self._servers: Optional[List[Server]] = servers
@@ -263,7 +263,7 @@ class PostRpcExecutor:
         status_code = 200
         try:
             req = self._parse_request(request, method_name)
-        except PostRpcError as e:
+        except RestRpcError as e:
             err_resp = e.error_respond()
             code = int(err_resp._code)
             status_code = code if code in range(400, 600) else status_code
@@ -271,19 +271,19 @@ class PostRpcExecutor:
                 err_resp.data = self.cast2dump(err_resp.data)
             return err_resp.serialize(), status_code
         resp: Optional[rpc.RPCResponse]
-        if not isinstance(req, PostRpcRequest):  # pragma: no cover
+        if not isinstance(req, RestRpcRequest):  # pragma: no cover
             raise NotImplementedError
         resp = await self._exec_single(req)
-        if isinstance(resp, PostRpcErrorResponse):
+        if isinstance(resp, RestRpcErrorResponse):
             code = int(resp._code)
             status_code = code if code in range(400, 600) else status_code
             return resp.serialize(), status_code
         if resp is None:
-            raise PostRpcParseError(data='Wrong response, kwargs required')
+            raise RestRpcParseError(data='Wrong response, kwargs required')
         # return resp.serialize(), status_code
         try:
             return resp.serialize(), status_code
-        except PostRpcError as e:
+        except RestRpcError as e:
             err_resp = e.error_respond()
             code = int(err_resp._code)
             status_code = code if code in range(400, 600) else status_code
@@ -293,20 +293,20 @@ class PostRpcExecutor:
 
     def _parse_request(
         self, request: bytes, method_name: str
-    ) -> 'PostRpcRequest':
+    ) -> 'RestRpcRequest':
         if span:
             span.set_name4adapter(
                 self._app.logger.ADAPTER_PROMETHEUS, 'rpc_in'
             )
         try:
             return self._protocol.parse_request(request, method_name)
-        except (PostRpcInvalidRequestError, PostRpcParseError) as err:
+        except (RestRpcInvalidRequestError, RestRpcParseError) as err:
             self._set_span_method(None)
             self._set_span_err(err)
             raise
 
     async def _exec_single(
-        self, req: PostRpcRequest
+        self, req: RestRpcRequest
     ) -> Optional[rpc.RPCResponse]:
         try:
             res = await self._exec(req.method, req.kwargs, req.one_way)
@@ -376,9 +376,9 @@ class PostRpcExecutor:
     @staticmethod
     def _map_exc(ex: Exception) -> Exception:
         if type(ex) is _MethodNotFound:
-            return PostRpcMethodNotFoundError()
+            return RestRpcMethodNotFoundError()
         if type(ex) is _InvalidArguments:
-            return PostRpcInvalidParamsError(data={'info': str(ex)})
+            return RestRpcInvalidParamsError(data={'info': str(ex)})
         return ex
 
     def _set_span_method(self, method: Optional[str]) -> None:
@@ -386,7 +386,7 @@ class PostRpcExecutor:
             return
         if method is not None:
             span.name = 'rpc::in (%s)' % method
-            span.tag(SPAN_TAG_POSTRPC_METHOD, method)
+            span.tag(SPAN_TAG_RESTRPC_METHOD, method)
         else:
             span.name = 'rpc::in::error'
 
@@ -397,12 +397,12 @@ class PostRpcExecutor:
         span.annotate(span.ANN_TRACEBACK, traceback.format_exc())
         if hasattr(err, 'code'):
             span.tag(
-                SPAN_TAG_POSTRPC_CODE,
+                SPAN_TAG_RESTRPC_CODE,
                 str(err.code),  # type: ignore
             )
         else:
             code, _, _ = _get_code_message_and_data(err)
-            span.tag(SPAN_TAG_POSTRPC_CODE, str(code))
+            span.tag(SPAN_TAG_RESTRPC_CODE, str(code))
 
     @classmethod
     def cast2dump(cls, result: Any) -> Any:
@@ -445,10 +445,10 @@ class PostRpcExecutor:
         return pydantic_encoder(result)
 
 
-class PostRpcCall:
+class RestRpcCall:
     def __init__(
         self,
-        client: 'PostRpcClient',
+        client: 'RestRpcClient',
         method: str,
         params: Union[Iterable[Any], Mapping[str, Any], None] = None,
         one_way: bool = False,
@@ -481,7 +481,7 @@ class PostRpcCall:
     def _encode(self) -> bytes:
         req = self.client._proto.create_request(
             self.method,
-            PostRpcExecutor.cast2dump(
+            RestRpcExecutor.cast2dump(
                 self.params
                 if isinstance(self.params, collections.abc.Mapping)
                 else None
@@ -491,7 +491,7 @@ class PostRpcCall:
         return req.serialize()
 
 
-class PostRpcClient:
+class RestRpcClient:
     def __init__(
         self,
         transport: Callable[[bytes, str, Optional[float]], Awaitable[bytes]],
@@ -501,7 +501,7 @@ class PostRpcClient:
         ] = None,
     ):
         self._app = app
-        self._proto = PostRpcProtocol()
+        self._proto = RestRpcProtocol()
         self._transport = transport
         self._exception_mapping_callback = exception_mapping_callback
 
@@ -512,17 +512,17 @@ class PostRpcClient:
         one_way: bool = False,
         timeout: Optional[float] = None,
         model: Optional[Type[BaseModel]] = None,
-    ) -> PostRpcCall:
-        return PostRpcCall(self, method, params, one_way, timeout, model)
+    ) -> RestRpcCall:
+        return RestRpcCall(self, method, params, one_way, timeout, model)
 
-    def _raise_postrpc_error(
+    def _raise_restrpc_error(
         self,
         code: Optional[int] = None,
         message: Optional[str] = None,
         data: Optional[Any] = None,
     ) -> None:
         if self._exception_mapping_callback is None:
-            raise PostRpcError(code=code, message=message, data=data)
+            raise RestRpcError(code=code, message=message, data=data)
         return self._exception_mapping_callback(code, message, data)
 
     async def _send_single_request(
@@ -545,16 +545,16 @@ class PostRpcClient:
             try:
                 data = self._proto.parse_reply(response)
             except InvalidReplyError as err:
-                raise PostRpcParseError(data=str(err))
-            if isinstance(data, PostRpcErrorResponse):
+                raise RestRpcParseError(data=str(err))
+            if isinstance(data, RestRpcErrorResponse):
                 code: int = int(data._code)
                 if trap.is_captured:
                     trap.span.tag(SPAN_TAG_RPC_CODE, str(code))
-                self._raise_postrpc_error(
+                self._raise_restrpc_error(
                     code,
                     str(data.error),
                     data.data if hasattr(data, 'data') else None,
                 )
-            if isinstance(data, PostRpcSuccessResponse):
+            if isinstance(data, RestRpcSuccessResponse):
                 return data.result
             raise RuntimeError
