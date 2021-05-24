@@ -524,7 +524,12 @@ class OpenApiRestRpc:
                     self.openapi.components.examples[
                         error.__name__  # type: ignore
                     ] = Example(
-                        value={"code": error.code, "message": error.message}
+                        value={
+                            "error": {
+                                "code": error.code,
+                                "message": error.message,
+                            }
+                        }
                     )
         if self.openapi.components and definitions:
             self.openapi.components.schemas = {

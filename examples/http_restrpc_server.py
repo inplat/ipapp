@@ -17,7 +17,9 @@ from ipapp.rpc import RpcRegistry
 from ipapp.rpc.restrpc import RestRpcError
 from ipapp.rpc.restrpc.http import RestRpcHttpHandler, RestRpcHttpHandlerConfig
 
-api = RpcRegistry()
+api = RpcRegistry(
+    title="Api", description="Api example description", version="1.2.3"
+)
 
 
 class Config(BaseConfig):
@@ -47,19 +49,38 @@ class User(BaseModel):
     )
 
 
-@api.method()
-async def test(a: str) -> dict:
-    return {'result': 'ok'}
+class Anystr(BaseModel):
+    anystr: str = Field(
+        ...,
+        example="string example",
+        description="Строка",
+    )
+
+
+@api.method(
+    deprecated=True,
+    errors=[MyError],
+    summary="method summary",
+    description="method description",
+)
+async def test(
+    anystr: str = Field(
+        ...,
+        example="string example",
+        description="Строка",
+    )
+) -> Anystr:
+    return Anystr(anystr=anystr)
 
 
 @api.method()
 async def test_model_in_params(user: User) -> dict:
-    return {'result': 'ok'}
+    return {"result": "ok"}
 
 
 @api.method()
 async def sum(a: int, b: int) -> dict:
-    return {'sum': a + b}
+    return {"sum": a + b}
 
 
 @api.method(errors=[MyError])
@@ -75,14 +96,14 @@ async def find(
         description="Идентификатор пользователя",
     )
 ) -> User:
-    return User(id=id, name='User%d' % id)
+    return User(id=id, name="User%d" % id)
 
 
 class App(BaseApplication):
     def __init__(self, cfg: Config) -> None:
         super().__init__(cfg)
         self.add(
-            'srv', Server(cfg.rpc, RestRpcHttpHandler(api, cfg.rpc_handler))
+            "srv", Server(cfg.rpc, RestRpcHttpHandler(api, cfg.rpc_handler))
         )
         if cfg.log_prometheus.enabled:
             self.logger.add(PrometheusAdapter(cfg.log_prometheus))
@@ -103,4 +124,4 @@ if __name__ == "__main__":
 
     """
     logging.basicConfig(level=logging.INFO)
-    main(sys.argv, '0.0.1', App, Config)
+    main(sys.argv, "0.0.1", App, Config)
