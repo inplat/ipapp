@@ -38,11 +38,11 @@ from ipapp import BaseApplication
 from ipapp.ctx import app, span
 from ipapp.logger import Span
 from ipapp.misc import from_bytes
+from ipapp.openapi.models import Server
 from ipapp.rpc.const import SPAN_TAG_RPC_CODE, SPAN_TAG_RPC_METHOD
 from ipapp.rpc.error import InvalidArguments as _InvalidArguments
 from ipapp.rpc.error import MethodNotFound as _MethodNotFound
-from ipapp.rpc.jsonrpc.openrpc.discover import discover
-from ipapp.rpc.jsonrpc.openrpc.models import ExternalDocs, Server
+from ipapp.rpc.jsonrpc.openrpc.models import ExternalDocs
 from ipapp.rpc.main import Executor as _Executor
 from ipapp.rpc.main import RpcRegistry
 from ipapp.rpc.restrpc.error import (
@@ -228,7 +228,6 @@ class RestRpcExecutor:
         self,
         registry: Union[RpcRegistry, object],
         app: BaseApplication,
-        discover_enabled: bool = True,
         loop: Optional[asyncio.AbstractEventLoop] = None,
         scheduler_kwargs: Optional[Dict[str, Any]] = None,
         servers: Optional[List[Server]] = None,
@@ -236,7 +235,6 @@ class RestRpcExecutor:
     ) -> None:
         self._registry = registry
         self._app = app
-        self._discover_enabled = discover_enabled
         self._discover_result: Optional[Dict[str, Any]] = None
         self._ex = _Executor(registry)
         self._loop = loop
@@ -245,6 +243,22 @@ class RestRpcExecutor:
         self._scheduler_kwargs = scheduler_kwargs or {}
         self._servers: Optional[List[Server]] = servers
         self._external_docs: Optional[ExternalDocs] = external_docs
+
+    @staticmethod
+    def iter_handler(
+        registry: Union[RpcRegistry, object]
+    ) -> Generator[Callable, None, None]:
+        if isinstance(registry, RpcRegistry):
+            for fn in registry:
+                if not hasattr(fn, '__rpc_name__'):
+                    raise UserWarning('Invalid handler %s' % fn)
+                yield fn
+        else:
+            for key in dir(registry):
+                if callable(getattr(registry, key)):
+                    fn = getattr(registry, key)
+                    if hasattr(fn, '__rpc_name__'):
+                        yield fn
 
     async def start_scheduler(self) -> None:
         self._scheduler = await aiojobs.create_scheduler(
@@ -280,7 +294,6 @@ class RestRpcExecutor:
             return resp.serialize(), status_code
         if resp is None:
             raise RestRpcParseError(data='Wrong response, kwargs required')
-        # return resp.serialize(), status_code
         try:
             return resp.serialize(), status_code
         except RestRpcError as e:
@@ -350,28 +363,11 @@ class RestRpcExecutor:
         self, method: str, kwargs: Dict[str, Any]
     ) -> Any:
         try:
-            if self._discover_enabled and method == 'rpc.discover':
-                if len(kwargs):
-                    raise _InvalidArguments()
-                return self._discover()
             return await self._ex.exec(name=method, args=None, kwargs=kwargs)
         except Exception as err:
             if app and span and hasattr(err, 'code'):
                 span.tag(SPAN_TAG_RPC_CODE, getattr(err, 'code'))
             raise
-
-    def _discover(self) -> Dict[str, Any]:
-        if self._discover_result is not None:
-            return self._discover_result
-        result = discover(
-            self._registry,
-            servers=self._servers,
-            external_docs=self._external_docs,
-        )
-        self._discover_result = json.loads(
-            result.json(by_alias=True, exclude_unset=True)
-        )
-        return self._discover_result
 
     @staticmethod
     def _map_exc(ex: Exception) -> Exception:
@@ -508,7 +504,7 @@ class RestRpcClient:
     def exec(
         self,
         method: str,
-        params: Union[Iterable[Any], Mapping[str, Any], None] = None,
+        params: Mapping[str, Any],
         one_way: bool = False,
         timeout: Optional[float] = None,
         model: Optional[Type[BaseModel]] = None,

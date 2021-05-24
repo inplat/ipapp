@@ -1,6 +1,7 @@
 import logging
 import sys
 
+from pydantic import Field
 from pydantic.main import BaseModel
 
 from ipapp import BaseApplication, BaseConfig, main
@@ -14,10 +15,7 @@ from ipapp.logger.adapters.sentry import SentryAdapter, SentryConfig
 from ipapp.logger.adapters.zipkin import ZipkinAdapter, ZipkinConfig
 from ipapp.rpc import RpcRegistry
 from ipapp.rpc.restrpc import RestRpcError
-from ipapp.rpc.restrpc.http import (
-    RestRpcHttpHandler,
-    RestRpcHttpHandlerConfig,
-)
+from ipapp.rpc.restrpc.http import RestRpcHttpHandler, RestRpcHttpHandlerConfig
 
 api = RpcRegistry()
 
@@ -37,12 +35,25 @@ class MyError(RestRpcError):
 
 
 class User(BaseModel):
-    id: int
-    name: str
+    id: int = Field(
+        ...,
+        example="123123",
+        description="Идентификатор пользователя",
+    )
+    name: str = Field(
+        ...,
+        example="Иван",
+        description="Имя пользователя",
+    )
 
 
 @api.method()
-async def test() -> dict:
+async def test(a: str) -> dict:
+    return {'result': 'ok'}
+
+
+@api.method()
+async def test_model_in_params(user: User) -> dict:
     return {'result': 'ok'}
 
 
@@ -51,13 +62,19 @@ async def sum(a: int, b: int) -> dict:
     return {'sum': a + b}
 
 
-@api.method()
-async def err() -> str:
+@api.method(errors=[MyError])
+async def err(a: str) -> str:
     raise MyError
 
 
-@api.method()
-async def find(id: int) -> User:
+@api.method(errors=[MyError])
+async def find(
+    id: int = Field(
+        ...,
+        example="123123",
+        description="Идентификатор пользователя",
+    )
+) -> User:
     return User(id=id, name='User%d' % id)
 
 
