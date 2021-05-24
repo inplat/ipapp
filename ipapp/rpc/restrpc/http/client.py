@@ -1,4 +1,4 @@
-from typing import Any, Iterable, Mapping, Optional, Type, Union
+from typing import Any, Mapping, Optional, Type
 
 from aiohttp import ClientTimeout
 from pydantic import BaseModel, Field
@@ -40,7 +40,7 @@ class RestRpcHttpClient(Client):
     def exec(
         self,
         method: str,
-        params: Union[Iterable[Any], Mapping[str, Any], None] = None,
+        params: Mapping[str, Any],
         one_way: bool = False,
         timeout: Optional[float] = None,
         model: Optional[Type[BaseModel]] = None,
