@@ -593,3 +593,117 @@ async def test_rpc_client_with_any_subpath(loop, unused_tcp_port):  # type: igno
             'method1', {'a': [1, 2, 3], 'date': "2020-09-09"}
         )
         assert result == {'status': 'ok', 'a': [1, 2, 3], 'date': '2020-09-09'}
+
+
+TEST_EXAMLE: List[Dict[str, Any]] = [
+    {
+        "name": "TEST_EXAMLE",
+        "description": "TEST_EXAMLE TEST_EXAMLE",
+        "params": [{"name": "a", "value": "anystr"}],
+        "result": [{"name": "status", "value": True}],
+    },
+    {
+        "name": "TEST_EXAMLE 2",
+        "description": "TEST_EXAMLE TEST_EXAMLE 2",
+        "params": [{"name": "a", "value": "anystr 2"}],
+        "result": [{"name": "status", "value": False}],
+    },
+]
+
+
+async def test_openapi(loop, unused_tcp_port):  # type: ignore
+    reg = RpcRegistry()
+
+    class MethodResponse(BaseModel):
+        status: bool
+
+    @reg.method(examples=TEST_EXAMLE)
+    def method(a: str) -> MethodResponse:
+        '''Docstring for method.'''
+        return MethodResponse(status=True)
+
+    async with runapp(
+        unused_tcp_port, RestRpcHttpHandler(reg, RestRpcHttpHandlerConfig())
+    ):
+        async with ClientSession() as sess:
+            resp = await sess.request(
+                'POST',
+                'http://127.0.0.1:%s/method/' % unused_tcp_port,
+                json={'a': 'anything'},
+            )
+
+            result = await resp.json()
+            assert resp.status == 200
+            assert resp.reason == 'OK'
+            assert resp.headers.get('Content-Type', None) == 'application/json'
+            assert result == {'status': True}
+
+            openapi_json = await sess.request(
+                'GET',
+                'http://127.0.0.1:%s/openapi.json' % unused_tcp_port,
+            )
+
+            result_openapi_json = await openapi_json.text()
+            assert openapi_json.status == 200
+            assert (
+                openapi_json.headers.get('Content-Type', None)
+                == 'application/json'
+            )
+            assert all(
+                [
+                    _ in result_openapi_json
+                    for _ in (
+                        'Method0ExampleResponse',
+                        'Method0ExampleRequest',
+                        'Method1ExampleResponse',
+                        'Method1ExampleRequest',
+                        'MethodResponse',
+                        'MethodRequest',
+                        'a',
+                        'anystr',
+                        'anystr 2',
+                        'Docstring for method',
+                    )
+                ]
+            )
+
+            swagger_url = await sess.request(
+                'GET',
+                'http://127.0.0.1:%s/swagger' % unused_tcp_port,
+            )
+            assert swagger_url.status == 200
+
+            redoc_url = await sess.request(
+                'GET',
+                'http://127.0.0.1:%s/redoc' % unused_tcp_port,
+            )
+            assert redoc_url.status == 200
+
+            openapi_yaml = await sess.request(
+                'GET',
+                'http://127.0.0.1:%s/openapi.yaml' % unused_tcp_port,
+            )
+
+            result_openapi_yaml = await openapi_yaml.text()
+            assert openapi_yaml.status == 200
+            assert (
+                openapi_yaml.headers.get('Content-Type', None)
+                == 'application/yaml'
+            )
+            assert all(
+                [
+                    _ in result_openapi_yaml
+                    for _ in (
+                        'Method0ExampleResponse',
+                        'Method0ExampleRequest',
+                        'Method1ExampleResponse',
+                        'Method1ExampleRequest',
+                        'MethodResponse',
+                        'MethodRequest',
+                        'a',
+                        'anystr',
+                        'anystr 2',
+                        'Docstring for method',
+                    )
+                ]
+            )

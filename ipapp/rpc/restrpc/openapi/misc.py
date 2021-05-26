@@ -118,39 +118,21 @@ def get_models_from_rpc_methods(methods: Dict[str, Callable]) -> TypeModelSet:
         response_result_model = getattr(func, "__rpc_response_model__", None)
         camel_method_name = snake_to_camel(method_name)
         request_model_name = f"{camel_method_name}Request"
-        request_params_model_name = f"{camel_method_name}RequestParams"
         response_model_name = f"{camel_method_name}Response"
-        response_result_model_name = f"{camel_method_name}ResponseResult"
-
-        RequestParamsModel = request_params_model or create_model(
-            request_params_model_name,
-            **get_field_definitions(sig.parameters),
+        RequestModel = request_params_model or create_model(
+            request_model_name, **get_field_definitions(sig.parameters)
         )
-        if getattr(RequestParamsModel, "__name__", "") == request_model_name:
-            fix_model_name(RequestParamsModel, request_params_model_name)
-        RequestModel: Type[BaseModel] = create_model(
-            request_model_name,
-            **get_field_definitions(sig.parameters),
-        )
+        fix_model_name(RequestModel, request_model_name)
         response: Dict[str, Any] = dict()
         ResponseResultModel = response_result_model or sig.return_annotation
-        if ResponseResultModel is not None:
-            if (
-                getattr(ResponseResultModel, "__name__", "")
-                == response_model_name
-            ):
-                fix_model_name(ResponseResultModel, response_result_model_name)
-                response = ResponseResultModel
         ResponseModel: Type[BaseModel] = create_model(
             response_model_name, **response
         )
-        clean_models.extend(
-            [
-                RequestParamsModel,
-                RequestModel,
-                ResponseModel,
-            ]
-        )
+        if ResponseResultModel is not None:
+            if issubclass(ResponseResultModel, BaseModel):
+                ResponseModel = ResponseResultModel
+                fix_model_name(ResponseModel, response_model_name)
+        clean_models.extend([RequestModel, ResponseModel])
     flat_models = get_flat_models_from_models(clean_models)
     return flat_models
 
@@ -218,6 +200,7 @@ def make_rpc_path(
     description: str = "",
     deprecated: bool = False,
     tags: Optional[List[str]] = None,
+    examples: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     camel_method = snake_to_camel(method)
     request_ref = f"{REF_PREFIX}{camel_method}Request"
@@ -229,11 +212,10 @@ def make_rpc_path(
             operationId=method,
             description=description,
             deprecated=deprecated,
-            # parameters=parameters,
             requestBody=RequestBody(
                 content={
                     "application/json": MediaType(
-                        schema_=Reference(ref=request_ref)
+                        schema_=Reference(ref=request_ref), examples=None
                     )
                 },
                 required=True,
@@ -243,7 +225,7 @@ def make_rpc_path(
                     description="Successful operation",
                     content={
                         "application/json": MediaType(
-                            schema_=Reference(ref=response_ref),
+                            schema_=Reference(ref=response_ref), examples=None
                         ),
                     },
                 ),
@@ -265,6 +247,23 @@ def make_rpc_path(
         ].examples[error.__name__] = Reference(
             ref=f"#/components/examples/{error.__name__}"
         )
+    if examples:
+        req_examples = dict()
+        resp_examples = dict()
+        for example in examples:
+            index = examples.index(example)
+            req_examples[f'{camel_method}{index}ExampleRequest'] = Reference(
+                ref=f"#/components/examples/{camel_method}{index}ExampleResponse"
+            )
+            resp_examples[f'{camel_method}{index}ExampleResponse'] = Reference(
+                ref=f"#/components/examples/{camel_method}{index}ExampleResponse"
+            )
+        path_item.post.requestBody.content[  # type: ignore
+            "application/json"
+        ].examples = req_examples
+        path_item.post.responses["200"].content[  # type: ignore
+            "application/json"
+        ].examples = resp_examples
     return {
         f"/{method}": path_item,
     }

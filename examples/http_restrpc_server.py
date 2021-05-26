@@ -1,5 +1,6 @@
 import logging
 import sys
+from typing import Any, Dict, List, Optional
 
 from pydantic import Field
 from pydantic.main import BaseModel
@@ -16,6 +17,31 @@ from ipapp.logger.adapters.zipkin import ZipkinAdapter, ZipkinConfig
 from ipapp.rpc import RpcRegistry
 from ipapp.rpc.restrpc import RestRpcError
 from ipapp.rpc.restrpc.http import RestRpcHttpHandler, RestRpcHttpHandlerConfig
+
+TEST_EXAMLE: List[Dict[str, Any]] = [
+    {
+        "name": "TEST_EXAMLE",
+        "description": "TEST_EXAMLE TEST_EXAMLE",
+        "params": [
+            {"name": "anystr", "value": "anystr"},
+            {"name": "optional_str", "value": "optional_str"},
+        ],
+        "result": [{"name": "anystr", "value": "anystr"}],
+    },
+    {
+        "name": "TEST_EXAMLE 2",
+        "description": "TEST_EXAMLE TEST_EXAMLE 2",
+        "params": [
+            {"name": "anystr", "value": "anystr 2"},
+            {"name": "optional_str", "value": "optional_str 2"},
+        ],
+        "result": [
+            {"name": "anystr", "value": "anystr 2"},
+            {"name": "optional_str", "value": "optional_str 2"},
+        ],
+    },
+]
+
 
 api = RpcRegistry(
     title="Api", description="Api example description", version="1.2.3"
@@ -55,36 +81,57 @@ class Anystr(BaseModel):
         example="string example",
         description="Строка",
     )
+    optional_str: Optional[str] = Field(
+        None,
+        example="string example 2",
+        description="Строка 2",
+    )
 
 
-@api.method(
-    deprecated=True,
-    errors=[MyError],
-    summary="method summary",
-    description="method description",
-)
-async def test(
+class Anystr2(BaseModel):
     anystr: str = Field(
         ...,
         example="string example",
         description="Строка",
     )
-) -> Anystr:
-    return Anystr(anystr=anystr)
+    optional_str: Optional[str] = Field(
+        None,
+        example="string example 22",
+        description="Строка 22",
+    )
+
+
+@api.method(
+    name="method_name",
+    errors=[MyError],
+    deprecated=True,
+    summary="method summary",
+    description="method description",
+    request_model=Anystr,
+    response_model=Anystr2,
+    examples=TEST_EXAMLE,
+)
+async def test(anystr: str, optional_str: Optional[str] = None) -> dict:
+    return {'anystr': anystr}
 
 
 @api.method()
 async def test_model_in_params(user: User) -> dict:
+    """Test_model_in_params doc string."""
     return {"result": "ok"}
 
 
-@api.method()
+@api.method(
+    validators={
+        "a": {"type": "integer", "minimum": 1},
+    }
+)
 async def sum(a: int, b: int) -> dict:
     return {"sum": a + b}
 
 
 @api.method(errors=[MyError])
-async def err(a: str) -> str:
+async def err(a: str) -> dict:
     raise MyError
 
 

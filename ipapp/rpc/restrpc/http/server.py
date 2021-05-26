@@ -305,7 +305,8 @@ class RestRpcHttpHandler(_ServerHandler):
         self, request: web.Request
     ) -> web.Response:
         return web.HTTPTemporaryRedirect(
-            location="/swagger", headers=self._get_cors_headers()
+            location=self._openapi.swager_ui_url,
+            headers=self._get_cors_headers(),
         )
 
     async def swagger_ui_handler(self, request: web.Request) -> web.Response:
@@ -493,6 +494,7 @@ class OpenApiRestRpc:
             deprecated = getattr(func, "__rpc_deprecated__", False)
             request_ref = getattr(func, "__rpc_request_ref__", None)
             response_ref = getattr(func, "__rpc_response_ref__", None)
+            examples = getattr(func, "__rpc_examples__", [])
             camel_method_name = snake_to_camel(method_name)
             request_model_name = f"{camel_method_name}Request"
             response_model_name = f"{camel_method_name}Response"
@@ -514,6 +516,7 @@ class OpenApiRestRpc:
                 description=description,
                 deprecated=deprecated,
                 tags=[self.title],
+                examples=examples,
             )
             self.openapi.paths.update(path)
             for error in errors:
@@ -531,6 +534,29 @@ class OpenApiRestRpc:
                             }
                         }
                     )
+            if examples:
+                for example in examples:
+                    index = examples.index(example)
+                    if (
+                        self.openapi.components is not None
+                        and self.openapi.components.examples is not None
+                    ):
+                        self.openapi.components.examples[
+                            f'{camel_method_name}{index}ExampleRequest'
+                        ] = Example(
+                            value={
+                                value["name"]: value["value"]
+                                for value in example["params"]
+                            }
+                        )
+                        self.openapi.components.examples[
+                            f'{camel_method_name}{index}ExampleResponse'
+                        ] = Example(
+                            value={
+                                value["name"]: value["value"]
+                                for value in example["result"]
+                            }
+                        )
         if self.openapi.components and definitions:
             self.openapi.components.schemas = {
                 x: definitions[x] for x in sorted(definitions)
