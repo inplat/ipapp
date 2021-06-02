@@ -64,7 +64,7 @@ jsonschema = "^3.2.0"
 uvicorn = {version = ">=0.12.1,<0.14.0", optional = true}
 fastapi = {version = ">=0.61,<0.66", optional = true}
 cx-Oracle = {version = "^8.0.0", optional = true}
-asyncpg = {version = "^0.22.0", optional = true}
+asyncpg = {version = ">=0.22,<0.24", optional = true}
 pika = {version = "^1.2.0", optional = true}
 aiobotocore = {version = "^1.2.2", optional = true}
 python-magic = {version = "^0.4.22", optional = true}
