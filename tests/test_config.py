@@ -6,6 +6,7 @@ from tempfile import NamedTemporaryFile
 from typing import Any, List, Optional
 
 from pydantic import UUID4, BaseModel, Field
+from pydantic.fields import Undefined
 from pytest import raises
 
 from ipapp.config import BaseConfig
@@ -342,8 +343,9 @@ def test_to_env_schema() -> None:
             "type": "number",
         },
         "APP_UUID": {
+            "default": Undefined,
             "deprecated": False,
-            "example": "6eca48d9-3abf-46f8-876a-96cb29e0862b",
+            "example": Undefined,
             "format": "uuid",
             "ge": None,
             "gt": None,
