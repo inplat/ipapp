@@ -55,7 +55,7 @@ aiozipkin = ">=0.7,<1.1"
 aiojobs = ">=0.2.2,<0.4.0"
 prometheus-client = ">=0.8,<0.10"
 sentry-sdk = "^1.0.0"
-deepmerge = "^0.2.1"
+deepmerge = ">=0.2.1,<0.4.0"
 async-timeout = "^3.0.1"
 pyyaml = "^5.4"
 docstring-parser = "^0.7.1"
@@ -70,7 +70,7 @@ aiobotocore = {version = "^1.2.2", optional = true}
 python-magic = {version = "^0.4.22", optional = true}
 asyncssh = {version = "^2.3.0", extras = ["pyOpenSSL"], optional = true}
 # testing
-black = {version = "21.5b1", optional = true}
+black = {version = "21.5b2", optional = true}
 flake8 = {version = "3.9.0", optional = true}
 mock = {version = "^4.0.2", optional = true}
 mypy = {version = "0.812", optional = true}
