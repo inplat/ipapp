@@ -47,6 +47,7 @@ def render_swagger_ui_html(
       const ui = SwaggerUIBundle({{
         url: "{openapi_url}",
         dom_id: '#swagger-ui',
+        defaultModelsExpandDepth: -1,
         deepLinking: true,
         presets: [
           SwaggerUIBundle.presets.apis,
