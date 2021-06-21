@@ -149,7 +149,7 @@ test = ["pycodestyle (>=2.5.0,<2.6.0)", "flake8 (>=3.7.9,<3.8.0)", "uvloop (>=0.
 
 [[package]]
 name = "asyncssh"
-version = "2.6.0"
+version = "2.7.0"
 description = "AsyncSSH: Asynchronous SSHv2 client and server library"
 category = "main"
 optional = true
@@ -1617,8 +1617,8 @@ asyncpg = [
     {file = "asyncpg-0.23.0.tar.gz", hash = "sha256:812dafa4c9e264d430adcc0f5899f0dc5413155a605088af696f952d72d36b5e"},
 ]
 asyncssh = [
-    {file = "asyncssh-2.6.0-py3-none-any.whl", hash = "sha256:254bd3c2f9004e093b82e9a09e05521a5ddd035cd5f024df764fdd0510ff1f07"},
-    {file = "asyncssh-2.6.0.tar.gz", hash = "sha256:20f0ef553a1e64a7d38db86ba3a2f3907e72f1e81f3dfec5edb191383783c7d1"},
+    {file = "asyncssh-2.7.0-py3-none-any.whl", hash = "sha256:ccc62a1b311c71d4bf8e4bc3ac141eb00ebb28b324e375aed1d0a03232893ca1"},
+    {file = "asyncssh-2.7.0.tar.gz", hash = "sha256:185013d8e67747c3c0f01b72416b8bd78417da1df48c71f76da53c607ef541b6"},
 ]
 atomicwrites = [
     {file = "atomicwrites-1.4.0-py2.py3-none-any.whl", hash = "sha256:6d1784dea7c0c8d4a5172b6c620f40b6e4cbfdf96d783691f2e1302a7b88e197"},
