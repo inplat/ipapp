@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-import time
 import traceback
 import warnings
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from time import time
 from typing import (
     Any,
     AsyncGenerator,
@@ -268,6 +268,7 @@ class TaskManager(Component):
         self.cfg = cfg
         self._stopping = False
         self._scan_fut: Optional[asyncio.Future] = None
+        self._scan_sleep_fut: Optional[asyncio.Future] = None
         self.stamp_early: float = 0.0
         self._lock: Optional[asyncio.Lock] = None
         self._db: Optional[Db] = None
@@ -325,7 +326,13 @@ class TaskManager(Component):
         await self._lock.acquire()
         if self._scan_fut is not None:
             if not self._scan_fut.done():
-                await self._scan_fut
+                if (
+                    self._scan_sleep_fut is not None
+                    and not self._scan_sleep_fut.cancelled()
+                ):
+                    self._scan_sleep_fut.cancel()
+                async with self._lock:
+                    self._scan_fut.cancel()
 
     async def health(self) -> None:
         if self._db is not None:
@@ -483,9 +490,14 @@ class TaskManager(Component):
 
             span.annotate(TaskManagerSpan.ANN_DELAY, 'Delay: %s' % task_delay)
 
-            eta_float = self.loop.time() + task_delay
+            eta_float = time() + task_delay
             self.stamp_early = eta_float
-            self.loop.call_at(eta_float, self._scan_later, eta_float)
+            if (
+                self._scan_sleep_fut is not None
+                and not self._scan_sleep_fut.cancelled()
+            ):
+                self._scan_sleep_fut.cancel()
+            # self.loop.call_at(eta_float, self._scan_later, eta_float)
 
             return task_id
 
@@ -506,55 +518,51 @@ class TaskManager(Component):
                     return True
                 return False
 
-    async def _scan(self) -> List[int]:
+    async def _scan(self) -> None:
         if self.app is None or self._lock is None:  # pragma: no cover
             raise UserWarning
-        if self._stopping:
-            return []
-        async with self._lock:
-            delay = 1.0  # default: 1 second
-            try:
-                with wrap2span(
-                    name=TaskManagerSpan.NAME_SCAN,
-                    kind=Span.KIND_SERVER,
-                    # ignore_ctx=True,
-                    cls=TaskManagerSpan,
-                    app=self.app,
-                ) as span:
-                    try:
-                        tasks, delay = await self._search_and_exec()
-                        if len(tasks) == 0:
-                            span.skip()
-                        return [task.id for task in tasks]
-                    except Exception as err:
-                        span.error(err)
-                        self.app.log_err(err)
-                    finally:
-                        if not self._stopping:
-                            span.annotate(
-                                TaskManagerSpan.ANN_NEXT_SCAN,
-                                'next: %s' % delay,
-                            )
+        while True:
+            if self._stopping:
+                return
+            async with self._lock:
+                delay = 1.0  # default: 1 second
+                try:
+                    with wrap2span(
+                        name=TaskManagerSpan.NAME_SCAN,
+                        kind=Span.KIND_SERVER,
+                        # ignore_ctx=True,
+                        cls=TaskManagerSpan,
+                        app=self.app,
+                    ) as span:
+                        try:
+                            tasks, delay = await self._search_and_exec()
+                            if len(tasks) == 0:
+                                span.skip()
+                        except Exception as err:
+                            span.error(err)
+                            self.app.log_err(err)
+                        finally:
+                            if not self._stopping:
+                                span.annotate(
+                                    TaskManagerSpan.ANN_NEXT_SCAN,
+                                    'next: %s' % delay,
+                                )
 
-                    return []
-            finally:
-                if not self._stopping:
-                    self._scan_fut = None
-                    eta = self.loop.time() + delay
-                    self.stamp_early = eta
-                    self.loop.call_at(eta, self._scan_later, eta)
-
-    def _scan_later(self, when: float) -> None:
-        if self._db is None:  # pragma: no cover
-            raise UserWarning
-        if when != self.stamp_early:
-            return
-        if self._db is None:  # pragma: no cover
-            raise UserWarning
-        if self._stopping:
-            return
-        if not self.cfg.idle:
-            self._scan_fut = asyncio.ensure_future(self._scan())
+                finally:
+                    if not self._stopping:
+                        self._scan_fut = None
+                        eta = time() + delay
+                        self.stamp_early = eta
+            sleep = self.stamp_early - time()
+            if sleep > 0:
+                try:
+                    self._scan_sleep_fut = asyncio.create_task(
+                        asyncio.sleep(sleep)
+                    )
+                    await self._scan_sleep_fut
+                except asyncio.CancelledError:
+                    pass
+            self._scan_sleep_fut = None
 
     async def _search_and_exec(self) -> Tuple[List[Task], float]:
         if self._db is None:  # pragma: no cover
@@ -603,7 +611,7 @@ class TaskManager(Component):
                 err_str: Optional[str] = None
                 err_trace: Optional[str] = None
                 res: Any = None
-                time_begin = time.time()
+                time_begin = time()
                 try:
                     res = await self._executor.exec(
                         task.name, kwargs=task.params
@@ -617,7 +625,7 @@ class TaskManager(Component):
                     err_trace = traceback.format_exc()
                     span.error(err)
                     self.app.log_err(err)
-                time_finish = time.time()
+                time_finish = time()
 
                 await self._db.task_log_add(
                     task.id,
