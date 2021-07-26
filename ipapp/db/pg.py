@@ -65,6 +65,12 @@ class PostgresConfig(BaseModel):
             "Задержка перед повторной попыткой подключения к базе данных"
         ),
     )
+    statement_cache_size: int = Field(
+        100,
+        description=(
+            "Размер LRU кэша подготовленного оператора. Указать 0 для отключения кэша"
+        ),
+    )
     log_query: bool = Field(
         False, description="Логирование запросов в базу данных"
     )
@@ -175,6 +181,7 @@ class Postgres(Component):
                 max_inactive_connection_lifetime=(
                     self.cfg.pool_max_inactive_connection_lifetime
                 ),
+                statement_cache_size=self.cfg.statement_cache_size,
                 init=Postgres._conn_init,
             )
         self.app.log_info("Connected to %s", self._masked_url)

@@ -48,6 +48,26 @@ async def test_base(loop, postgres_url):
     await app.stop()
 
 
+async def test_statement_cache_size(loop, postgres_url):
+    app = BaseApplication(BaseConfig())
+    app.add(
+        'db',
+        Postgres(
+            PostgresConfig(
+                url=postgres_url,
+                log_result=True,
+                log_query=True,
+                statement_cache_size=0,
+            )
+        ),
+    )
+    await app.start()
+    db: Postgres = app.get('db')  # type: ignore
+    async with db.connection() as conn:
+        assert conn._conn._stmt_cache._max_size == 0
+    await app.stop()
+
+
 async def test_xact(loop, postgres_url):
     app = BaseApplication(BaseConfig())
     app.add(
