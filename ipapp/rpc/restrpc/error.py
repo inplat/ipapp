@@ -1,7 +1,6 @@
 import json
 from collections import defaultdict
 from typing import Any, Optional
-from uuid import UUID
 
 from tinyrpc import (
     InvalidParamsError,
@@ -15,13 +14,7 @@ from tinyrpc import (
 from ipapp.rpc.error import InvalidArguments as ipapp_InvalidArguments
 from ipapp.rpc.error import MethodNotFound as ipapp_MethodNotFound
 from ipapp.rpc.error import RpcError
-
-
-class UUIDEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, UUID):
-            return obj.hex
-        return json.JSONEncoder.default(self, obj)
+from ipapp.rpc.jsonrpc import JsonRpcExecutor
 
 
 class RestRpcFixedErrorMessageMixin:
@@ -101,4 +94,4 @@ class RestRpcErrorResponse(RPCErrorResponse):
         return msg
 
     def serialize(self) -> bytes:
-        return json.dumps(self._to_dict(), cls=UUIDEncoder).encode()
+        return json.dumps(JsonRpcExecutor.cast2dump(self._to_dict())).encode()
