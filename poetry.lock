@@ -1367,7 +1367,7 @@ python-versions = "*"
 
 [[package]]
 name = "tinyrpc"
-version = "1.0.4"
+version = "1.1.1"
 description = "A small, modular, transport and protocol neutral RPC library that, among other things, supports JSON-RPC and zmq."
 category = "main"
 optional = false
@@ -1381,6 +1381,7 @@ gevent = ["gevent"]
 httpclient = ["gevent-websocket", "requests", "websocket-client"]
 jsonext = ["jsonext"]
 msgpack = ["msgpack"]
+rabbitmq = ["pika"]
 websocket = ["gevent-websocket"]
 wsgi = ["werkzeug"]
 zmq = ["pyzmq"]
@@ -2502,7 +2503,7 @@ texttable = [
     {file = "texttable-1.6.4.tar.gz", hash = "sha256:42ee7b9e15f7b225747c3fa08f43c5d6c83bc899f80ff9bae9319334824076e9"},
 ]
 tinyrpc = [
-    {file = "tinyrpc-1.0.4.tar.gz", hash = "sha256:4b41fab967fb1c978f573bf0d609a3b12cc3b6ed62bd3108f43f575563746396"},
+    {file = "tinyrpc-1.1.1.tar.gz", hash = "sha256:9e68d7b9688dac8deaa342a2507d04f0b2ece64a9d19382aa2ee13d692e87d7f"},
 ]
 toml = [
     {file = "toml-0.10.2-py2.py3-none-any.whl", hash = "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"},
