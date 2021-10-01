@@ -440,7 +440,7 @@ python-versions = "*"
 
 [[package]]
 name = "docker"
-version = "5.0.0"
+version = "5.0.2"
 description = "A Python library for the Docker Engine API."
 category = "main"
 optional = true
@@ -503,11 +503,14 @@ python-versions = "*"
 
 [[package]]
 name = "docstring-parser"
-version = "0.8.1"
+version = "0.11"
 description = "\"Parse Python docstrings in reST, Google and Numpydoc format\""
 category = "main"
 optional = false
-python-versions = ">=3.5"
+python-versions = ">=3.6"
+
+[package.extras]
+test = ["pytest", "black"]
 
 [[package]]
 name = "docutils"
@@ -1571,7 +1574,7 @@ testing = ["black", "flake8", "mock", "mypy", "bandit", "isort", "safety", "pyli
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "10a67697dc73b45f2a77a1f70abea8eb81a8714617860cafcf73a4786d4478fa"
+content-hash = "498951c0c40620a3e607d68111bffb226e8e94396757e4e4a4e0d52837353963"
 
 [metadata.files]
 aiobotocore = [
@@ -1885,8 +1888,8 @@ distro = [
     {file = "distro-1.5.0.tar.gz", hash = "sha256:0e58756ae38fbd8fc3020d54badb8eae17c5b9dcbed388b17bb55b8a5928df92"},
 ]
 docker = [
-    {file = "docker-5.0.0-py2.py3-none-any.whl", hash = "sha256:fc961d622160e8021c10d1bcabc388c57d55fb1f917175afbe24af442e6879bd"},
-    {file = "docker-5.0.0.tar.gz", hash = "sha256:3e8bc47534e0ca9331d72c32f2881bb13b93ded0bcdeab3c833fb7cf61c0a9a5"},
+    {file = "docker-5.0.2-py2.py3-none-any.whl", hash = "sha256:9b17f0723d83c1f3418d2aa17bf90b24dbe97deda06208dd4262fa30a6ee87eb"},
+    {file = "docker-5.0.2.tar.gz", hash = "sha256:21ec4998e90dff7a7aaaa098ca8d839c7de412b89e6f6c30908372d58fecf663"},
 ]
 docker-compose = [
     {file = "docker-compose-1.29.2.tar.gz", hash = "sha256:4c8cd9d21d237412793d18bd33110049ee9af8dab3fe2c213bbd0733959b09b7"},
@@ -1899,7 +1902,7 @@ docopt = [
     {file = "docopt-0.6.2.tar.gz", hash = "sha256:49b3a825280bd66b3aa83585ef59c4a8c82f2c8a522dbe754a8bc8d08c85c491"},
 ]
 docstring-parser = [
-    {file = "docstring_parser-0.8.1.tar.gz", hash = "sha256:dd68bbe33446e9dbdec087fd18bad8f6dc8eedda4c5c2321208951f3acfc5e04"},
+    {file = "docstring_parser-0.11.tar.gz", hash = "sha256:93b3f8f481c7d24e37c5d9f30293c89e2933fa209421c8abd731dd3ef0715ecb"},
 ]
 docutils = [
     {file = "docutils-0.16-py2.py3-none-any.whl", hash = "sha256:0c5b78adfbf7762415433f5515cd5c9e762339e23369dbe8000d84a4bf4ab3af"},
