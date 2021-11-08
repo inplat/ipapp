@@ -836,7 +836,7 @@ class Db:
                 "VALUES(COALESCE($1, NOW()),$2,$3,$4,$5,"
                 "make_interval(secs=>$6::float),$7,$8) "
                 "RETURNING id, "
-                "greatest(extract(epoch from eta-NOW()), 0) as delay"
+                "greatest(extract(epoch from eta-NOW()), 0)::float as delay"
             ) % self._cfg.db_schema
             query_params: Tuple[Any, ...] = (
                 eta,
@@ -855,7 +855,7 @@ class Db:
                 "VALUES(COALESCE($1, NOW()),$2,$3,$4,$5,"
                 "make_interval(secs=>$6::float)) "
                 "RETURNING id, "
-                "greatest(extract(epoch from eta-NOW()), 0) as delay"
+                "greatest(extract(epoch from eta-NOW()), 0)::float as delay"
             ) % self._cfg.db_schema
             query_params = (
                 eta,
@@ -915,7 +915,7 @@ class Db:
 
     async def task_next_delay(self, *, lock: bool = False) -> Optional[float]:
         query = (  # nosec
-            "SELECT EXTRACT(EPOCH FROM eta-NOW())t "
+            "SELECT EXTRACT(EPOCH FROM eta-NOW())::float t "
             "FROM %s.task_pending "
             "WHERE "
             "status=ANY(ARRAY['pending'::%s.task_status,"
