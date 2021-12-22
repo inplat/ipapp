@@ -8,10 +8,9 @@ from pydantic import BaseModel, Field
 
 import ipapp.http as ht
 import ipapp.logger  # noqa
+import ipapp.misc as misc
 
 from ...error import PrepareError
-from ...misc import json_encode as default_json_encode
-from ...misc import mask_url_pwd
 from ..span import Span
 from ._abc import AbcAdapter, AbcConfig, AdapterConfigurationError
 
@@ -285,7 +284,7 @@ class RequestsAdapter(AbcAdapter):
     @property
     def _masked_url(self) -> Optional[str]:
         if self.cfg.dsn is not None:
-            return mask_url_pwd(self.cfg.dsn)
+            return misc.mask_url_pwd(self.cfg.dsn)
         return None
 
     async def get_conn(self) -> asyncpg.Connection:
@@ -459,7 +458,7 @@ class RequestsAdapter(AbcAdapter):
             )
 
         if len(tags) > 0:
-            kwargs['tags'] = default_json_encode(tags)
+            kwargs['tags'] = misc.json_encode(tags)
 
         self._queue.append(Request(**kwargs))
 

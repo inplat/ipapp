@@ -5,8 +5,8 @@ from prometheus_client import Histogram, start_http_server
 from pydantic import Field
 
 import ipapp.logger  # noqa
+import ipapp.misc as misc
 
-from ...misc import dict_merge
 from ..span import Span
 from ._abc import AbcAdapter, AbcConfig, AdapterConfigurationError
 
@@ -120,10 +120,10 @@ class PrometheusAdapter(AbcAdapter):
     async def start(self, logger: 'ipapp.logger.Logger') -> None:
         self.p8s_hists = {}  # Histograms
 
-        self.p8s_hist_labels = dict_merge(
+        self.p8s_hist_labels = misc.dict_merge(
             DEFAULT_HISTOGRAM_LABELS, self.cfg.hist_labels
         )
-        self.p8s_hist_docs = dict_merge(
+        self.p8s_hist_docs = misc.dict_merge(
             DEFAULT_HISTOGRAM_DOCS, self.cfg.hist_docs
         )
 

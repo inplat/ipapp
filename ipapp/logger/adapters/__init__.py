@@ -1,25 +1,17 @@
 from ._abc import AbcAdapter, AbcConfig, AdapterConfigurationError
 
-# from .prometheus import PrometheusAdapter, PrometheusConfig
-# from .requests import RequestsAdapter, RequestsConfig
-# from .sentry import SentryAdapter, SentryConfig
-# from .zipkin import ZipkinAdapter, ZipkinConfig
+from .prometheus import PrometheusAdapter
+from .requests import RequestsAdapter
+from .sentry import SentryAdapter
+from .zipkin import ZipkinAdapter
 
-ADAPTER_PROMETHEUS = 'prometheus'
-ADAPTER_REQUESTS = 'requests'
-ADAPTER_SENTRY = 'sentry'
-ADAPTER_ZIPKIN = 'zipkin'
+ADAPTER_PROMETHEUS = PrometheusAdapter.__name__
+ADAPTER_REQUESTS = RequestsAdapter.__name__
+ADAPTER_SENTRY = SentryAdapter.__name__
+ADAPTER_ZIPKIN = ZipkinAdapter.__name__
 
 __all__ = [
     "AdapterConfigurationError",
     "AbcAdapter",
     "AbcConfig",
-    # "PrometheusConfig",
-    # "PrometheusAdapter",
-    # "ZipkinConfig",
-    # "ZipkinAdapter",
-    # "SentryConfig",
-    # "SentryAdapter",
-    # "RequestsConfig",
-    # "RequestsAdapter",
 ]

@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Callable, Coroutine, List, Mapping, Optional, Type
+from typing import Any, Callable, Coroutine, Dict, List, Mapping, Optional, Type
 
 import ipapp.app
 
@@ -22,7 +22,7 @@ class Logger:
     def __init__(self, app: 'ipapp.app.BaseApplication') -> None:
         self.app = app
         self._configs: List[Coroutine[Any, Any, None]] = []
-        self.adapters: List[AbcAdapter] = []
+        self.adapters: Dict[str, AbcAdapter] = {}
         self.default_sampled = True
         self.default_debug = False
         self._started = False
@@ -53,7 +53,7 @@ class Logger:
             self._waiting_all_spans_finished = True
             await asyncio.wait([self._fut_all_spans_finished])
 
-        await asyncio.gather(*[adapter.stop() for adapter in self.adapters])
+        await asyncio.gather(*[adapter.stop() for adapter in self.adapters.values()])
 
     def span_new(
         self,
@@ -73,22 +73,9 @@ class Logger:
             raise UserWarning
         if not isinstance(adapter, AbcAdapter):
             raise UserWarning('Invalid adapter')
-        # adapter: AbcAdapter
-        # if isinstance(cfg, PrometheusConfig):
-        #     adapter = PrometheusAdapter()
-        # elif isinstance(cfg, ZipkinConfig):
-        #     adapter = ZipkinAdapter()
-        # elif isinstance(cfg, SentryConfig):
-        #     adapter = SentryAdapter()
-        # elif isinstance(cfg, RequestsConfig):
-        #     adapter = RequestsAdapter()
-        # else:
-        #     if adapter_cls is not None:
-        #         adapter = adapter_cls()
-        #     else:
-        #         raise UserWarning('Invalid configuration class')
+
         self._configs.append(adapter.start(self))
-        self.adapters.append(adapter)
+        self.adapters[adapter.__class__.__name__] = adapter
         return adapter
 
     def add_before_handle_cb(self, fn: Callable[[Span], None]) -> None:
@@ -97,7 +84,7 @@ class Logger:
     def handle_span(self, span: Span) -> None:
         for cb in self._before_handle_callbacks:
             cb(span)
-        for adapter in self.adapters:
+        for adapter in self.adapters.values():
             try:
                 adapter.handle(span)
             except Exception as err:  # pragma: no cover
