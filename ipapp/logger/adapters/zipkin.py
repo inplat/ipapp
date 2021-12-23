@@ -24,7 +24,9 @@ class ZipkinConfig(AbcConfig):
     send_interval: float = Field(
         5, description="Интервал отправки данных в Zipkin"
     )
-    use_64bit_trace_id: bool = Field(False, description="Использовать 64-битные trace_id")
+    use_64bit_trace_id: bool = Field(
+        False, description="Использовать 64-битные trace_id"
+    )
     default_sampled: bool = Field(
         True, description="Sampled в Span по умолчанию", deprecated=True
     )

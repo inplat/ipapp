@@ -1,5 +1,14 @@
 import asyncio
-from typing import Any, Callable, Coroutine, Dict, List, Mapping, Optional, Type
+from typing import (
+    Any,
+    Callable,
+    Coroutine,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Type,
+)
 
 import ipapp.app
 
@@ -53,7 +62,9 @@ class Logger:
             self._waiting_all_spans_finished = True
             await asyncio.wait([self._fut_all_spans_finished])
 
-        await asyncio.gather(*[adapter.stop() for adapter in self.adapters.values()])
+        await asyncio.gather(
+            *[adapter.stop() for adapter in self.adapters.values()]
+        )
 
     def span_new(
         self,

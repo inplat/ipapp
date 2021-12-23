@@ -125,12 +125,15 @@ async def test_errors(
 
 
 @pytest.mark.parametrize(
-    ['use_64bit_trace_id', 'trace_id_string_length'], [
+    ['use_64bit_trace_id', 'trace_id_string_length'],
+    [
         (True, 16),
         (False, 32),
-    ]
+    ],
 )
-def test_zipkin_trace_id_size_settings(use_64bit_trace_id: bool, trace_id_string_length: int):
+def test_zipkin_trace_id_size_settings(
+    use_64bit_trace_id: bool, trace_id_string_length: int
+):
     app = BaseApplication(BaseConfig())
     lgr = app.logger
     cfg = ZipkinConfig(name='123', use_64bit_trace_id=use_64bit_trace_id)
