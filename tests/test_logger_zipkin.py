@@ -137,9 +137,6 @@ async def test_zipkin_trace_id_size_settings(
     app = BaseApplication(BaseConfig())
     lgr = app.logger
     cfg = ZipkinConfig(name='123', use_64bit_trace_id=use_64bit_trace_id)
-    adapter = ZipkinAdapter(cfg)
-    lgr.add(adapter)
+    lgr.add(ZipkinAdapter(cfg))
     with lgr.span_new(name='test_span') as span:
         assert len(span.trace_id) == trace_id_string_length
-
-    await adapter.stop()
