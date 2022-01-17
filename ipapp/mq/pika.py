@@ -297,7 +297,7 @@ class _Connection:
         reason: Exception,
     ) -> None:
         if on_close is not None:
-            asyncio.ensure_future(on_close(channel, reason))
+            asyncio.wait_for(on_close(channel, reason))
 
 
 class PikaChannel(ABC):
