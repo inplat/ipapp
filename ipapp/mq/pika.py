@@ -336,8 +336,9 @@ class PikaChannel(ABC):
         pass
 
     async def on_close(self, err: Exception) -> None:
-        self.amqp.app.log_err(err)
-        self._close_fut.set_exception(err)
+        if not isinstance(err, pika.exceptions.ChannelClosedByClient):
+            self.amqp.app.log_err(err)
+            self._close_fut.set_exception(err)
 
     async def exchange_declare(
         self,
