@@ -122,3 +122,21 @@ async def test_errors(
 
     with pytest.raises(AdapterConfigurationError):
         await adapter.stop()
+
+
+@pytest.mark.parametrize(
+    ['use_64bit_trace_id', 'trace_id_string_length'],
+    [
+        (True, 16),
+        (False, 32),
+    ],
+)
+async def test_zipkin_trace_id_size_settings(
+    loop, use_64bit_trace_id: bool, trace_id_string_length: int
+):
+    app = BaseApplication(BaseConfig())
+    lgr = app.logger
+    cfg = ZipkinConfig(name='123', use_64bit_trace_id=use_64bit_trace_id)
+    lgr.add(ZipkinAdapter(cfg))
+    with lgr.span_new(name='test_span') as span:
+        assert len(span.trace_id) == trace_id_string_length

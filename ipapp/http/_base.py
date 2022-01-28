@@ -6,8 +6,8 @@ from multidict import MultiMapping
 from yarl import URL
 
 import ipapp.app  # noqa
+import ipapp.misc as misc
 from ipapp.logger.span import Span
-from ipapp.misc import json_encode as default_json_encode
 
 RE_SECRET_WORDS = re.compile(
     "(pas+wo?r?d|pass(phrase)?|pwd|token|secrete?)", re.IGNORECASE
@@ -106,7 +106,7 @@ class ClientServerAnnotator:
         span.annotate4adapter(
             self.app.logger.ADAPTER_ZIPKIN,
             kind,
-            default_json_encode({kind: content}),
+            misc.json_encode({kind: content}),
             ts=ts,
         )
 

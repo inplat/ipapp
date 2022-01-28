@@ -35,7 +35,7 @@ async def test_logger_adapter():
     lgr = app.logger
     lgr.add(TestAdapter())
 
-    adapter = lgr.adapters[0]
+    adapter = lgr.adapters[TestAdapter.__name__]
     assert isinstance(adapter, TestAdapter)
 
     await lgr.start()
@@ -201,7 +201,7 @@ async def test_span_skip():
     lgr = app.logger
     lgr.add(TestAdapter())
 
-    adapter = lgr.adapters[0]
+    adapter = lgr.adapters[TestAdapter.__name__]
     assert isinstance(adapter, TestAdapter)
 
     await lgr.start()
@@ -242,7 +242,7 @@ async def test_span():
     lgr = app.logger
     lgr.add(TestAdapter())
 
-    adapter = lgr.adapters[0]
+    adapter = lgr.adapters[TestAdapter.__name__]
     assert isinstance(adapter, TestAdapter)
 
     await lgr.start()
@@ -423,7 +423,7 @@ async def test_logger_span_callback():
     lgr = app.logger
     lgr.add(TestAdapter())
 
-    adapter = lgr.adapters[0]
+    adapter = lgr.adapters[TestAdapter.__name__]
     assert isinstance(adapter, TestAdapter)
     lgr.add_before_handle_cb(replace_tags)
 

@@ -28,12 +28,14 @@ class Span:
     def __init__(
         self,
         logger: Optional['ipapp.logger.Logger'],
-        trace_id: str,
+        trace_id: Optional[str] = None,
         id: Optional[str] = None,
         parent_id: Optional[str] = None,
         parent: Optional['Span'] = None,
     ) -> None:
         self.logger = logger
+        if not trace_id:
+            trace_id = self.create_trace_id(logger)
         self.trace_id = trace_id
         if id is None:
             self.id = azu.generate_random_64bit_string()
@@ -98,16 +100,13 @@ class Span:
         if azh.TRACE_ID_HEADER.lower() not in headers:
             span = cls.new()
         else:
-            trace_id = headers.get(azh.TRACE_ID_HEADER.lower())
-            if not trace_id:
-                trace_id = azu.generate_random_128bit_string()
             if app is None:
                 app = misc.ctx_app_get()
                 if app is None:  # pragma: no cover
                     raise UserWarning
             span = cls(
                 logger=app.logger,
-                trace_id=trace_id,
+                trace_id=headers.get(azh.TRACE_ID_HEADER.lower()),
                 id=azu.generate_random_64bit_string(),
                 parent_id=headers.get(azh.SPAN_ID_HEADER.lower()),
             )
@@ -130,7 +129,6 @@ class Span:
                 raise UserWarning
         span = cls(
             logger=app.logger,
-            trace_id=azu.generate_random_128bit_string(),
             id=azu.generate_random_64bit_string(),
         )
         if name is not None:
@@ -214,6 +212,21 @@ class Span:
             return misc.dict_merge(self._tags, tags)
         else:
             return tags
+
+    @staticmethod
+    def create_trace_id(logger: Optional['ipapp.app.Logger']) -> str:
+        if not logger:
+            return azu.generate_random_128bit_string()
+        zipkin_adapter = logger.adapters.get(logger.ADAPTER_ZIPKIN)
+        if not zipkin_adapter:
+            return azu.generate_random_128bit_string()
+
+        adapter_config = zipkin_adapter.cfg
+        if adapter_config.use_64bit_trace_id:  # type: ignore
+            trace_id = azu.generate_random_64bit_string()
+        else:
+            trace_id = azu.generate_random_128bit_string()
+        return trace_id
 
     @property
     def annotations(self) -> Dict[str, List[Tuple[str, float]]]:
