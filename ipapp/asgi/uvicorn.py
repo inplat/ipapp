@@ -1,11 +1,14 @@
 import asyncio
+import logging
 import ssl
 from contextvars import Token
 from functools import partial
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
+from urllib.parse import parse_qs
 
 from fastapi.applications import FastAPI
 from pydantic.main import BaseModel
+from starlette.routing import Match, Route, compile_path
 from uvicorn.config import LOGGING_CONFIG, SSL_PROTOCOL_VERSION
 from uvicorn.main import Config, Server
 from yarl import URL
@@ -51,7 +54,7 @@ class UvicornConfig(BaseModel):
 
 
 class AppWrapper:
-    def __init__(self, uvicorn: 'Uvicorn', app: Callable):
+    def __init__(self, uvicorn: 'Uvicorn', app: FastAPI):
         self.uvicorn = uvicorn
         self.app = app
         self._i = 0
@@ -86,14 +89,12 @@ class AppWrapper:
     ) -> None:
         span_token: Optional[Token] = None
 
-        span_name = 'asgi'
         headers: Dict[str, str] = {}
         url: Optional[URL] = None
         host: Optional[str] = None
         method: Optional[str] = None
         path: Optional[str] = None
         if scope['type'] == 'http':
-            span_name = 'http::in::%s' % scope['method'].lower()
             headers = {h[0].decode(): h[1].decode() for h in scope['headers']}
             host = ':'.join([str(s) for s in scope['server']])
             path = scope['raw_path'].decode()
@@ -104,7 +105,9 @@ class AppWrapper:
             span: HttpSpan = self.uvicorn.app.logger.span_from_headers(  # type: ignore
                 headers, cls=ServerHttpSpan
             )
-            span.name = span_name
+            span.name, span_tags = self._get_route_details(scope)
+            for tag_name, tag_value in span_tags.items():
+                span.tag(tag_name, tag_value)
             span_token = ctx_span_set(span)
             with span:
                 span.kind = HttpSpan.KIND_SERVER
@@ -131,6 +134,70 @@ class AppWrapper:
         finally:
             if span_token:
                 ctx_span_reset(span_token)
+
+    @staticmethod
+    def _get_param_tags(starlette_route: Route, scope: dict) -> Dict[str, str]:
+        tags = {}
+
+        # parse query string
+        query_string = scope.get('query_string')
+        if query_string:
+            try:
+                qs_parsed = parse_qs(query_string.decode())
+                for query_key, query_value in qs_parsed.items():
+                    tags['data.%s' % query_key] = query_value.pop()
+            except Exception as err:
+                logging.exception(err)
+
+        # parse route params
+        request_path = scope.get('path')
+        path_regex, path_format, param_convertors = compile_path(
+            starlette_route.path
+        )
+        res = path_regex.match(request_path)
+        if res:
+            res_dict = res.groupdict()
+            for param_key in param_convertors.keys():
+                param_value = res_dict.get(param_key)
+                if param_value is not None:
+                    tags['data.%s' % param_key] = param_value
+
+        return tags
+
+    def _get_route_details(self, scope: dict) -> Tuple[str, Dict[str, str]]:
+        """Callback to retrieve the fastapi route being served.
+
+        TODO: there is currently no way to retrieve http.route from
+        a starlette application from scope.
+
+        See: https://github.com/encode/starlette/pull/804
+        """
+        app = self.app
+        route = None
+        attributes: Dict[str, str] = {}
+
+        for starlette_route in app.routes:
+            if isinstance(starlette_route, Route):
+                match, _ = starlette_route.matches(scope)
+                if match == Match.FULL:
+                    route = starlette_route.path
+                    attributes = self._get_param_tags(starlette_route, scope)
+                    break
+                if match == Match.PARTIAL:
+                    route = starlette_route.path
+
+        # method only exists for http, if websocket
+        # leave it blank.
+        span_name = scope.get("method", "")
+
+        if route:
+            span_name += ' ' + route
+            attributes[HttpSpan.TAG_HTTP_ROUTE] = route
+
+        if not span_name:
+            span_name = 'unknown'
+
+        return span_name, attributes
 
 
 class Uvicorn(Component):
