@@ -3,6 +3,7 @@ import ssl
 from contextvars import Token
 from functools import partial
 from typing import Any, Awaitable, Callable, Dict, Optional
+from urllib.parse import parse_qs
 
 from fastapi.applications import FastAPI
 from fastapi.routing import APIRoute
@@ -18,7 +19,7 @@ from ipapp.http import HttpSpan
 from ipapp.http._base import RE_SECRET_WORDS
 from ipapp.http.server import ServerHttpSpan
 from ipapp.misc import ctx_span_reset, ctx_span_set
-from urllib.parse import parse_qs
+
 
 class UvicornConfig(BaseModel):
     host: str = "127.0.0.1"
