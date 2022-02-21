@@ -1,14 +1,14 @@
 import asyncio
+import logging
 import ssl
 from contextvars import Token
 from functools import partial
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
 from urllib.parse import parse_qs
 
 from fastapi.applications import FastAPI
-from fastapi.routing import APIRoute
 from pydantic.main import BaseModel
-from starlette.routing import Match, compile_path
+from starlette.routing import Match, Route, compile_path
 from uvicorn.config import LOGGING_CONFIG, SSL_PROTOCOL_VERSION
 from uvicorn.main import Config, Server
 from yarl import URL
@@ -54,7 +54,7 @@ class UvicornConfig(BaseModel):
 
 
 class AppWrapper:
-    def __init__(self, uvicorn: 'Uvicorn', app: Callable):
+    def __init__(self, uvicorn: 'Uvicorn', app: FastAPI):
         self.uvicorn = uvicorn
         self.app = app
         self._i = 0
@@ -136,9 +136,7 @@ class AppWrapper:
                 ctx_span_reset(span_token)
 
     @staticmethod
-    def _get_param_tags(
-        starlette_route: APIRoute, scope: dict
-    ) -> Dict[str, str]:
+    def _get_param_tags(starlette_route: Route, scope: dict) -> Dict[str, str]:
         tags = {}
 
         # parse query string
@@ -148,8 +146,8 @@ class AppWrapper:
                 qs_parsed = parse_qs(query_string.decode())
                 for query_key, query_value in qs_parsed.items():
                     tags['data.%s' % query_key] = query_value.pop()
-            except Exception:
-                pass
+            except Exception as err:
+                logging.exception(err)
 
         # parse route params
         request_path = scope.get('path')
@@ -161,11 +159,12 @@ class AppWrapper:
             res_dict = res.groupdict()
             for param_key in param_convertors.keys():
                 param_value = res_dict.get(param_key)
-                tags['data.%s' % param_key] = param_value
+                if param_value is not None:
+                    tags['data.%s' % param_key] = param_value
 
         return tags
 
-    def _get_route_details(self, scope: dict):
+    def _get_route_details(self, scope: dict) -> Tuple[str, Dict[str, str]]:
         """Callback to retrieve the fastapi route being served.
 
         TODO: there is currently no way to retrieve http.route from
@@ -175,15 +174,17 @@ class AppWrapper:
         """
         app = self.app
         route = None
-        attributes = {}
+        attributes: Dict[str, str] = {}
+
         for starlette_route in app.routes:
-            match, _ = starlette_route.matches(scope)
-            if match == Match.FULL:
-                route = starlette_route.path
-                attributes = self._get_param_tags(starlette_route, scope)
-                break
-            if match == Match.PARTIAL:
-                route = starlette_route.path
+            if isinstance(starlette_route, Route):
+                match, _ = starlette_route.matches(scope)
+                if match == Match.FULL:
+                    route = starlette_route.path
+                    attributes = self._get_param_tags(starlette_route, scope)
+                    break
+                if match == Match.PARTIAL:
+                    route = starlette_route.path
 
         # method only exists for http, if websocket
         # leave it blank.
@@ -191,7 +192,7 @@ class AppWrapper:
 
         if route:
             span_name += ' ' + route
-            attributes['http.route'] = route
+            attributes[HttpSpan.TAG_HTTP_ROUTE] = route
 
         if not span_name:
             span_name = 'unknown'
