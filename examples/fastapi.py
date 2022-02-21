@@ -1,7 +1,9 @@
 import logging
 import sys
+from typing import Optional
 
 from fastapi.applications import FastAPI
+from pydantic import BaseModel
 
 from ipapp import BaseApplication, BaseConfig, main
 from ipapp.asgi.uvicorn import Uvicorn, UvicornConfig
@@ -14,6 +16,12 @@ from ipapp.logger.adapters.requests import RequestsAdapter, RequestsConfig
 from ipapp.logger.adapters.sentry import SentryAdapter, SentryConfig
 from ipapp.logger.adapters.zipkin import ZipkinAdapter, ZipkinConfig
 
+
+class ReadItemResult(BaseModel):
+    item_id: int
+    q: Optional[str] = None
+
+
 fapp = FastAPI()
 
 
@@ -24,9 +32,9 @@ async def read_root() -> dict:
     return {"Hello": "World"}
 
 
-@fapp.get("/items/{item_id}")
-def read_item(item_id: int, q: str = None) -> dict:
-    return {"item_id": item_id, "q": q}
+@fapp.get("/items/{item_id}", response_model=ReadItemResult)
+def read_item(item_id: int, q: Optional[str] = None) -> ReadItemResult:
+    return ReadItemResult(item_id=item_id, q=q)
 
 
 class Config(BaseConfig):
