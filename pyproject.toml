@@ -43,8 +43,10 @@ classifiers = [
     'Operating System :: POSIX :: Linux',
     'Topic :: Software Development :: Libraries :: Python Modules',
     'Topic :: Internet',
+    'License :: OSI Approved :: MIT License',
 ]
 readme = "README.md"
+license = "MIT"
 homepage = "https://github.com/inplat/ipapp"
 
 [tool.poetry.dependencies]
