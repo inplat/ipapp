@@ -1,7 +1,11 @@
 import argparse
+import json
 import logging
+import logging.config
 import sys
 from typing import List, NamedTuple, Optional, Type
+
+import yaml
 
 from .app import BaseApplication
 from .config import BaseConfig
@@ -13,6 +17,7 @@ class Args(NamedTuple):
     autoreload: bool
     env_prefix: str
     show_config: Optional[str]
+    log_config: Optional[str]
     log_level: str
     log_file: Optional[str]
     config: Optional[str]
@@ -64,6 +69,15 @@ def _parse_argv(
     )
 
     parser.add_argument(
+        '--log-config',
+        dest='log_config',
+        type=str,
+        default=None,
+        help='Logging configuration file Supported\n'
+             'formats: .ini, .json, .yaml.',
+    )
+
+    parser.add_argument(
         '--log-level',
         dest='log_level',
         type=str,
@@ -85,16 +99,35 @@ def _parse_argv(
         show_config=parsed.show_config,
         version=parsed.version,
         autoreload=parsed.autoreload,
+        log_config=parsed.log_config,
         log_level=parsed.log_level,
         log_file=parsed.log_file,
     )
 
 
 def _setup_logging(options: Args) -> None:
-    config = dict(level=getattr(logging, options.log_level))
-    if options.log_file:
-        config["filename"] = options.log_file
-    logging.basicConfig(**config)
+    if options.log_config:
+        _setup_logging_from_file(options.log_config)
+    else:
+        config = dict(level=getattr(logging, options.log_level))
+        if options.log_file:
+            config["filename"] = options.log_file
+        logging.basicConfig(**config)
+
+
+def _setup_logging_from_file(filename: str) -> None:
+    if filename.endswith(".json"):
+        with open(filename) as file:
+            loaded_config = json.load(file)
+            logging.config.dictConfig(loaded_config)
+    elif filename.endswith((".yaml", ".yml")):
+        with open(filename) as file:
+            loaded_config = yaml.safe_load(file)
+            logging.config.dictConfig(loaded_config)
+    else:
+        # See the note about fileConfig() here:
+        # https://docs.python.org/3/library/logging.config.html#configuration-file-format
+        logging.config.fileConfig(filename, disable_existing_loggers=False)
 
 
 def load_config(options: Args, cfg_cls: Type[BaseConfig]) -> BaseConfig:
