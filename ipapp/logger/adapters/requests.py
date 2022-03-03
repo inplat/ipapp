@@ -185,7 +185,6 @@ class RequestsConfig(AbcConfig):
 
 
 class RequestsAdapter(AbcAdapter):
-    name = 'requests'
     cfg: RequestsConfig
 
     _QUERY_COLS = (
@@ -479,9 +478,7 @@ class RequestsAdapter(AbcAdapter):
 
     async def _send_loop(self) -> None:
         if self.logger is None:
-            raise AdapterConfigurationError(
-                '%s is not configured' % self.__class__.__name__
-            )
+            raise AdapterConfigurationError('%s is not configured' % self.name)
         while not self._stopping:
             try:
                 async with self._send_lock:
