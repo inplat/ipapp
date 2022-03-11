@@ -45,6 +45,38 @@ async def test_base(loop, postgres_url):
     assert isinstance(res, list)
     assert len(res) == 0
 
+    result = list()
+    async for res in db.cursor(
+        'SELECT $1::int as a', 10, query_name='db5', prefetch=2
+    ):
+        result.append(res)
+        assert isinstance(res, asyncpg.Record)
+        assert res['a'] == 10
+    assert len(res) == 1
+
+    result = list()
+    a = [10, 15, 105]
+    b = ['dd', 'a', '7i']
+    async with db.connection() as conn:
+        cursor = conn.cursor(
+            # fmt: off
+            "SELECT"
+            ""  " UNNEST($1::int[]) as a"
+            ""  ",UNNEST($2::varchar[]) as b",
+            # fmt: on
+            a,
+            b,
+            prefetch=2,
+            query_name='db6',
+        )
+        async with conn.xact():
+            async for res in cursor:
+                result.append(res)
+                assert isinstance(res, asyncpg.Record)
+                assert res['a'] == a[len(result) - 1]
+                assert res['b'] == b[len(result) - 1]
+    assert len(result) == 3
+
     await app.stop()
 
 
@@ -121,3 +153,22 @@ async def test_prepare(loop, postgres_url):
         rows = await st2.query_all('30')
         assert len(rows) == 1
         assert rows[0]['a'] == '30'
+
+        result = list()
+        a = [10, 15, 105]
+        b = ['dd', 'a', '7i']
+        st3 = await conn.prepare(
+            # fmt: off
+            "SELECT"
+            ""  " UNNEST($1::int[]) as a"
+            ""  ",UNNEST($2::varchar[]) as b",
+            # fmt: on
+            query_name='db7',
+        )
+        async with conn.xact():
+            async for res in st3.cursor(a, b, prefetch=2):
+                result.append(res)
+                assert isinstance(res, asyncpg.Record)
+                assert res['a'] == a[len(result) - 1]
+                assert res['b'] == b[len(result) - 1]
+        assert len(result) == 3

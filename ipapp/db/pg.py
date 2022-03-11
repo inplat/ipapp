@@ -5,9 +5,21 @@ import json
 import time
 from contextvars import Token
 from textwrap import dedent
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from typing import (
+    Any,
+    AsyncGenerator,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Type,
+    Union,
+)
 
 import asyncpg
+import asyncpg.compat
+import asyncpg.connresource
+import asyncpg.cursor
 import asyncpg.pool
 import asyncpg.prepared_stmt
 import asyncpg.protocol
@@ -93,6 +105,8 @@ class PgSpan(Span):
     NAME_PREPARE = 'db::prepare'
     NAME_QUERY_ONE_PREPARED = 'db::execute_query_one'
     NAME_QUERY_ALL_PREPARED = 'db::execute_query_all'
+    NAME_CURSOR = 'db::cursor'
+    NAME_CURSOR_PREPARED = 'db::execute_cursor'
 
     P8S_NAME_ACQUIRE = 'db_connection'
     P8S_NAME_XACT_COMMITED = 'db_xact_commited'
@@ -104,6 +118,8 @@ class PgSpan(Span):
     P8S_NAME_PREPARE = 'db_prepare'
     P8S_NAME_QUERY_ONE_PREPARED = 'db_execute_query_one'
     P8S_NAME_QUERY_ALL_PREPARED = 'db_execute_query_all'
+    P8S_NAME_CURSOR = 'db::cursor'
+    P8S_NAME_CURSOR_PREPARED = 'db::execute_cursor'
 
     TAG_POOL_MAX_SIZE = 'db.pool.size'
     TAG_POOL_FREE_COUNT = 'db.pool.free'
@@ -305,6 +321,28 @@ class Postgres(Component):
                 model_cls=model_cls,
             )
         return res
+
+    async def cursor(
+        self,
+        query: str,
+        *args: Any,
+        prefetch: Optional[int] = None,
+        timeout: Optional[int] = None,
+        query_name: Optional[str] = None,
+        model_cls: Optional[Type[BaseModel]] = None,
+    ) -> AsyncGenerator:
+        async with self.connection() as conn:
+            async with conn.xact():
+                cursor = conn.cursor(
+                    query,
+                    *args,
+                    prefetch=prefetch,
+                    timeout=timeout,
+                    query_name=query_name,
+                    model_cls=model_cls,
+                )
+                async for row in cursor:
+                    yield row
 
     async def execute(
         self,
@@ -630,6 +668,69 @@ class PreparedStatement:
 
                 return res
 
+    async def _cursor_gen(
+        self,
+        cursor: asyncpg.cursor.CursorFactory,
+        *args: Any,
+    ) -> AsyncGenerator:
+        with wrap2span(
+            name=PgSpan.NAME_CURSOR_PREPARED,
+            kind=PgSpan.KIND_CLIENT,
+            cls=PgSpan,
+            app=self._conn._db.app,
+        ) as span:
+            span.set_name4adapter(
+                self._conn._db.app.logger.ADAPTER_PROMETHEUS,
+                PgSpan.P8S_NAME_CURSOR_PREPARED,
+            )
+            span.annotate(PgSpan.ANN_PID, self._conn.pid)
+            span.annotate4adapter(
+                self._conn._db.app.logger.ADAPTER_ZIPKIN,
+                PgSpan.ANN_PID,
+                self._json_encode({'pid': str(self._conn.pid)}),
+            )
+            span.annotate(PgSpan.ANN_STMT_NAME, self.stmt_name)
+            span.annotate4adapter(
+                self._conn._db.app.logger.ADAPTER_ZIPKIN,
+                PgSpan.ANN_STMT_NAME,
+                self._json_encode({'statement_name': self.stmt_name}),
+            )
+            if self._query_name is not None:
+                span.tag(PgSpan.TAG_QUERY_NAME, self._query_name)
+            async with self._conn._lock:
+                if self._conn._db.cfg.log_query:
+                    args_enc = self._json_encode(args)
+                    span.annotate(PgSpan.ANN_PARAMS, args_enc)
+                    span.annotate4adapter(
+                        self._conn._db.app.logger.ADAPTER_ZIPKIN,
+                        PgSpan.ANN_PARAMS,
+                        self._json_encode({'query_params': args_enc}),
+                    )
+
+                count = 0
+                async for row in cursor:
+                    count += 1
+                    yield row
+
+                if self._conn._db.cfg.log_result:
+                    span.annotate(PgSpan.ANN_RESULT, f'{count} rows')
+                    span.annotate4adapter(
+                        self._conn._db.app.logger.ADAPTER_ZIPKIN,
+                        PgSpan.ANN_RESULT,
+                        self._json_encode({'result': f'{count} rows'}),
+                    )
+
+    def cursor(
+        self,
+        *args: Any,
+        prefetch: Optional[int] = None,
+        timeout: Optional[int] = None,
+    ) -> AsyncGenerator:
+        cursor = self._pg_stmt.cursor(
+            *args, prefetch=prefetch, timeout=timeout
+        )
+        return self._cursor_gen(cursor, *args)
+
 
 class Connection:
     def __init__(
@@ -927,3 +1028,79 @@ class Connection:
                 )
 
                 return stmt
+
+    async def _cursor_gen(
+        self,
+        cursor: asyncpg.cursor.CursorFactory,
+        query_name: Optional[str] = None,
+        model_cls: Optional[Type[BaseModel]] = None,
+    ) -> AsyncGenerator:
+        with wrap2span(
+            name=PgSpan.NAME_CURSOR,
+            kind=PgSpan.KIND_CLIENT,
+            cls=PgSpan,
+            app=self._db.app,
+        ) as span:
+            span.set_name4adapter(
+                self._db.app.logger.ADAPTER_PROMETHEUS, PgSpan.P8S_NAME_CURSOR
+            )
+            if query_name is not None:
+                span.tag(PgSpan.TAG_QUERY_NAME, query_name)
+            async with self._lock:
+                span.annotate(PgSpan.ANN_PID, self.pid)
+                span.annotate4adapter(
+                    self._db.app.logger.ADAPTER_ZIPKIN,
+                    PgSpan.ANN_PID,
+                    self._json_encode({'pid': str(self.pid)}),
+                )
+                if self._db.cfg.log_query:
+                    span.annotate(PgSpan.ANN_QUERY, cursor._query)
+                    span.annotate4adapter(
+                        self._db.app.logger.ADAPTER_ZIPKIN,
+                        PgSpan.ANN_QUERY,
+                        self._json_encode(
+                            {'query': dedent(cursor._query).strip()}
+                        ),
+                    )
+                    args_enc = self._json_encode(cursor._args)
+                    span.annotate(PgSpan.ANN_PARAMS, args_enc)
+                    span.annotate4adapter(
+                        self._db.app.logger.ADAPTER_ZIPKIN,
+                        PgSpan.ANN_PARAMS,
+                        self._json_encode({'query_params': args_enc}),
+                    )
+
+                count = 0
+                async for row in cursor:
+                    if row is None:
+                        res = None
+                    else:
+                        res = (
+                            model_cls(**(dict(row)))
+                            if model_cls is not None
+                            else row
+                        )
+                    count += 1
+                    yield res
+
+                if self._db.cfg.log_result:
+                    span.annotate(PgSpan.ANN_RESULT, f'{count} rows')
+                    span.annotate4adapter(
+                        self._db.app.logger.ADAPTER_ZIPKIN,
+                        PgSpan.ANN_RESULT,
+                        self._json_encode({'result': f'{count} rows'}),
+                    )
+
+    def cursor(
+        self,
+        query: str,
+        *args: Any,
+        prefetch: Optional[int] = None,
+        timeout: Optional[int] = None,
+        query_name: Optional[str] = None,
+        model_cls: Optional[Type[BaseModel]] = None,
+    ) -> AsyncGenerator:
+        cursor = self._conn.cursor(
+            query, *args, prefetch=prefetch, timeout=timeout
+        )
+        return self._cursor_gen(cursor, query_name, model_cls)
