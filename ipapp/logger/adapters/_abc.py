@@ -18,7 +18,6 @@ class AbcConfig(BaseModel):
 
 
 class AbcAdapter(ABC):
-    name: str = ''
     cfg: Optional[AbcConfig] = None
 
     @abstractmethod
@@ -32,6 +31,10 @@ class AbcAdapter(ABC):
     @abstractmethod
     async def stop(self) -> None:
         pass
+
+    @property
+    def name(self) -> str:
+        return self.__class__.__name__
 
 
 __all__ = [

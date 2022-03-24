@@ -36,7 +36,6 @@ class ZipkinConfig(AbcConfig):
 
 
 class ZipkinAdapter(AbcAdapter):
-    name = 'zipkin'
     cfg: ZipkinConfig
     logger: 'ipapp.logger.Logger'
 
@@ -56,9 +55,7 @@ class ZipkinAdapter(AbcAdapter):
 
     def handle(self, span: Span) -> None:
         if self.tracer is None:
-            raise AdapterConfigurationError(
-                '%s is not configured' % self.__class__.__name__
-            )
+            raise AdapterConfigurationError('%s is not configured' % self.name)
 
         tracer_span = self.tracer.to_span(
             azh.TraceContext(
@@ -91,8 +88,6 @@ class ZipkinAdapter(AbcAdapter):
 
     async def stop(self) -> None:
         if self.tracer is None:
-            raise AdapterConfigurationError(
-                '%s is not configured' % self.__class__.__name__
-            )
+            raise AdapterConfigurationError('%s is not configured' % self.name)
 
         await self.tracer.close()

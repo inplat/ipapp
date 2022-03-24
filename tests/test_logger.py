@@ -224,7 +224,6 @@ async def test_span_skip():
 
 async def test_span():
     class TestAdapter(AbcAdapter):
-        name = 'test_adapter'
         started = False
         stopped = False
         handled: List[Span] = []

@@ -1,6 +1,7 @@
 from aiohttp import ClientSession
 
 from ipapp import BaseApplication, BaseConfig
+from ipapp.db.pg import PgSpan
 from ipapp.logger.adapters.prometheus import (
     PrometheusAdapter,
     PrometheusConfig,
@@ -33,6 +34,11 @@ async def test_success(loop, unused_tcp_port):
     with app.logger.span_new(name='test_span') as span3:
         span3.tag('some_tag1', '123')
 
+    with app.logger.span_new(cls=PgSpan) as span4:
+        span4.set_name4adapter(
+            app.logger.ADAPTER_PROMETHEUS, PgSpan.P8S_NAME_ACQUIRE
+        )
+
     async with ClientSession() as sess:
         resp = await sess.get('http://127.0.0.1:%d/' % port)
         txt = await resp.text()
@@ -48,5 +54,7 @@ async def test_success(loop, unused_tcp_port):
     assert (
         'test_span_sum{tag1="123"} %s' % (span2.duration + span3.duration)
     ) in txt
+
+    assert 'db_connection_count{error="",free=""} 1.0' in txt
 
     await app.stop()

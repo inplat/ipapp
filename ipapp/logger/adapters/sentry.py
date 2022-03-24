@@ -20,7 +20,6 @@ class SentryConfig(AbcConfig):
 
 
 class SentryAdapter(AbcAdapter):
-    name = 'sentry'
     cfg: SentryConfig
     logger: 'ipapp.logger.Logger'
 
@@ -33,7 +32,7 @@ class SentryAdapter(AbcAdapter):
         self.logger = logger
         if self.cfg.dsn is None:
             raise AdapterConfigurationError(
-                '%s dsn is not configured' % self.__class__.__name__
+                '%s dsn is not configured' % self.name
             )
         self.client = Client(dsn=self.cfg.dsn)
         Hub.current.bind_client(self.client)

@@ -6,9 +6,11 @@ from aiohttp.test_utils import TestServer
 from pydantic import BaseModel
 
 from ipapp import BaseApplication, BaseConfig
+from ipapp.db.pg import PgSpan
 from ipapp.logger import Span
 from ipapp.logger.adapters import AdapterConfigurationError
 from ipapp.logger.adapters.zipkin import ZipkinAdapter, ZipkinConfig
+from ipapp.misc import json_encode
 
 
 class EndpointModel(BaseModel):
@@ -83,12 +85,27 @@ async def test_success(
                 with sp.new_child('t2', Span.KIND_CLIENT):
                     raise Exception()
 
+        with lgr.span_new(kind=Span.KIND_SERVER) as sp3:
+            sp3.set_name4adapter(lgr.ADAPTER_ZIPKIN, '111')
+            sp3.annotate4adapter(
+                lgr.ADAPTER_ZIPKIN,
+                PgSpan.ANN_RESULT,
+                json_encode({'result': '123'}),
+                ts=122211000000,
+            )
+            sp3.set_tag4adapter(
+                lgr.ADAPTER_ZIPKIN,
+                PgSpan.TAG_QUERY_NAME,
+                'get_paym',
+            )
+
         await lgr.stop()
 
-    assert len(zs.spans) == 2
+    assert len(zs.spans) == 3
 
     span: SpanModel = zs.spans[1]
     span2: SpanModel = zs.spans[0]
+    span3: SpanModel = zs.spans[2]
     assert span.name == 't1'
     assert span.tags == {'tag': 'abc'}
     assert span.annotations == [
@@ -107,6 +124,12 @@ async def test_success(
     }
 
     assert 'raise Exception()' in span2.annotations[0].value
+
+    assert span3.name == '111'
+    assert span3.tags == {PgSpan.TAG_QUERY_NAME: 'get_paym'}
+    assert span3.annotations == [
+        Annotation(value='{"result": "123"}', timestamp=122211000000000000)
+    ]
 
 
 async def test_errors(

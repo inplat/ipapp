@@ -47,17 +47,31 @@ async def test_success(loop, postgres_url: str):
     error = 'e1'
     tags = {'t1': '1', 't2': '2'}
 
-    with app.logger.span_new(
-        name='request1', kind=HttpSpan.KIND_SERVER, cls=HttpSpan
-    ) as span:
-        span.annotate(HttpSpan.ANN_REQUEST_HDRS, req_hdrs)
-        span.annotate(HttpSpan.ANN_REQUEST_BODY, req_body)
-        span.annotate(HttpSpan.ANN_RESPONSE_HDRS, resp_hdrs)
-        span.annotate(HttpSpan.ANN_RESPONSE_BODY, resp_body)
+    with app.logger.span_new(kind=HttpSpan.KIND_SERVER, cls=HttpSpan) as span:
+        span.annotate4adapter(
+            app.logger.ADAPTER_REQUESTS, HttpSpan.ANN_REQUEST_HDRS, req_hdrs
+        )
+        span.annotate4adapter(
+            app.logger.ADAPTER_REQUESTS, HttpSpan.ANN_REQUEST_BODY, req_body
+        )
+        span.annotate4adapter(
+            app.logger.ADAPTER_REQUESTS, HttpSpan.ANN_RESPONSE_HDRS, resp_hdrs
+        )
+        span.annotate4adapter(
+            app.logger.ADAPTER_REQUESTS, HttpSpan.ANN_RESPONSE_BODY, resp_body
+        )
         span.error(Exception(error))
-        span.tag(HttpSpan.TAG_HTTP_STATUS_CODE, status_code)
-        span.tag(HttpSpan.TAG_HTTP_URL, req_url)
-        span.tag(HttpSpan.TAG_HTTP_METHOD, method)
+        span.set_tag4adapter(
+            app.logger.ADAPTER_REQUESTS,
+            HttpSpan.TAG_HTTP_STATUS_CODE,
+            status_code,
+        )
+        span.set_tag4adapter(
+            app.logger.ADAPTER_REQUESTS, HttpSpan.TAG_HTTP_URL, req_url
+        )
+        span.set_tag4adapter(
+            app.logger.ADAPTER_REQUESTS, HttpSpan.TAG_HTTP_METHOD, method
+        )
         for k, v in tags.items():
             span.tag(k, v)
 

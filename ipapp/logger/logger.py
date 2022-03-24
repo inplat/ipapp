@@ -86,7 +86,7 @@ class Logger:
             raise UserWarning('Invalid adapter')
 
         self._configs.append(adapter.start(self))
-        self.adapters[adapter.__class__.__name__] = adapter
+        self.adapters[adapter.name] = adapter
         return adapter
 
     def add_before_handle_cb(self, fn: Callable[[Span], None]) -> None:

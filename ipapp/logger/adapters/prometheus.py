@@ -108,7 +108,6 @@ class PrometheusConfig(AbcConfig):
 
 
 class PrometheusAdapter(AbcAdapter):
-    name = 'prometheus'
     cfg: PrometheusConfig
 
     def __init__(self, cfg: PrometheusConfig) -> None:
@@ -145,9 +144,7 @@ class PrometheusAdapter(AbcAdapter):
 
     def handle(self, span: Span) -> None:
         if self.cfg is None:
-            raise AdapterConfigurationError(
-                '%s is not configured' % self.__class__.__name__
-            )
+            raise AdapterConfigurationError('%s is not configured' % self.name)
 
         name = span.get_name4adapter(self.name)
         tags = span.get_tags4adapter(self.name)
@@ -167,6 +164,4 @@ class PrometheusAdapter(AbcAdapter):
 
     async def stop(self) -> None:
         if self.cfg is None:
-            raise AdapterConfigurationError(
-                '%s is not configured' % self.__class__.__name__
-            )
+            raise AdapterConfigurationError('%s is not configured' % self.name)
