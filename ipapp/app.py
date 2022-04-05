@@ -162,8 +162,8 @@ class BaseApplication(object):
         self.log_info('Shutting down...')
         for comp_name in self._components:
             await self._stop_comp(comp_name)
-        await self._stop_logger()
         await self.loop.shutdown_asyncgens()
+        await self._stop_logger()
 
     def shutdown(self) -> None:
         self._shutdown_fut.set_result(None)
