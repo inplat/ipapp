@@ -46,15 +46,6 @@ async def test_base(loop, postgres_url):
     assert len(res) == 0
 
     result = list()
-    async for res in db.cursor(
-        'SELECT $1::int as a', 10, query_name='db5', prefetch=2
-    ):
-        result.append(res)
-        assert isinstance(res, asyncpg.Record)
-        assert res['a'] == 10
-    assert len(res) == 1
-
-    result = list()
     a = [10, 15, 105]
     b = ['dd', 'a', '7i']
     async with db.connection() as conn:

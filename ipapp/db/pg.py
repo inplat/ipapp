@@ -322,28 +322,6 @@ class Postgres(Component):
             )
         return res
 
-    async def cursor(
-        self,
-        query: str,
-        *args: Any,
-        prefetch: Optional[int] = None,
-        timeout: Optional[int] = None,
-        query_name: Optional[str] = None,
-        model_cls: Optional[Type[BaseModel]] = None,
-    ) -> AsyncGenerator:
-        async with self.connection() as conn:
-            async with conn.xact():
-                cursor = conn.cursor(
-                    query,
-                    *args,
-                    prefetch=prefetch,
-                    timeout=timeout,
-                    query_name=query_name,
-                    model_cls=model_cls,
-                )
-                async for row in cursor:
-                    yield row
-
     async def execute(
         self,
         query: str,
@@ -697,21 +675,20 @@ class PreparedStatement:
             )
             if self._query_name is not None:
                 span.tag(PgSpan.TAG_QUERY_NAME, self._query_name)
-            async with self._conn._lock:
-                if self._conn._db.cfg.log_query:
-                    args_enc = self._json_encode(args)
-                    span.annotate(PgSpan.ANN_PARAMS, args_enc)
-                    span.annotate4adapter(
-                        self._conn._db.app.logger.ADAPTER_ZIPKIN,
-                        PgSpan.ANN_PARAMS,
-                        self._json_encode({'query_params': args_enc}),
-                    )
-
-                count = 0
+            if self._conn._db.cfg.log_query:
+                args_enc = self._json_encode(args)
+                span.annotate(PgSpan.ANN_PARAMS, args_enc)
+                span.annotate4adapter(
+                    self._conn._db.app.logger.ADAPTER_ZIPKIN,
+                    PgSpan.ANN_PARAMS,
+                    self._json_encode({'query_params': args_enc}),
+                )
+            count = 0
+            try:
                 async for row in cursor:
                     count += 1
                     yield row
-
+            finally:
                 if self._conn._db.cfg.log_result:
                     span.annotate(PgSpan.ANN_RESULT, f'{count} rows')
                     span.annotate4adapter(
@@ -1046,31 +1023,30 @@ class Connection:
             )
             if query_name is not None:
                 span.tag(PgSpan.TAG_QUERY_NAME, query_name)
-            async with self._lock:
-                span.annotate(PgSpan.ANN_PID, self.pid)
+            span.annotate(PgSpan.ANN_PID, self.pid)
+            span.annotate4adapter(
+                self._db.app.logger.ADAPTER_ZIPKIN,
+                PgSpan.ANN_PID,
+                self._json_encode({'pid': str(self.pid)}),
+            )
+            if self._db.cfg.log_query:
+                span.annotate(PgSpan.ANN_QUERY, cursor._query)
                 span.annotate4adapter(
                     self._db.app.logger.ADAPTER_ZIPKIN,
-                    PgSpan.ANN_PID,
-                    self._json_encode({'pid': str(self.pid)}),
+                    PgSpan.ANN_QUERY,
+                    self._json_encode(
+                        {'query': dedent(cursor._query).strip()}
+                    ),
                 )
-                if self._db.cfg.log_query:
-                    span.annotate(PgSpan.ANN_QUERY, cursor._query)
-                    span.annotate4adapter(
-                        self._db.app.logger.ADAPTER_ZIPKIN,
-                        PgSpan.ANN_QUERY,
-                        self._json_encode(
-                            {'query': dedent(cursor._query).strip()}
-                        ),
-                    )
-                    args_enc = self._json_encode(cursor._args)
-                    span.annotate(PgSpan.ANN_PARAMS, args_enc)
-                    span.annotate4adapter(
-                        self._db.app.logger.ADAPTER_ZIPKIN,
-                        PgSpan.ANN_PARAMS,
-                        self._json_encode({'query_params': args_enc}),
-                    )
-
-                count = 0
+                args_enc = self._json_encode(cursor._args)
+                span.annotate(PgSpan.ANN_PARAMS, args_enc)
+                span.annotate4adapter(
+                    self._db.app.logger.ADAPTER_ZIPKIN,
+                    PgSpan.ANN_PARAMS,
+                    self._json_encode({'query_params': args_enc}),
+                )
+            count = 0
+            try:
                 async for row in cursor:
                     if row is None:
                         res = None
@@ -1082,7 +1058,7 @@ class Connection:
                         )
                     count += 1
                     yield res
-
+            finally:
                 if self._db.cfg.log_result:
                     span.annotate(PgSpan.ANN_RESULT, f'{count} rows')
                     span.annotate4adapter(
