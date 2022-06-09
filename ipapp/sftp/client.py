@@ -4,10 +4,11 @@ import os
 from asyncio import Future
 from enum import Enum
 from pathlib import PurePath
-from typing import Any, Callable, List, Optional, Union
+from typing import Any, Callable, List, Optional, Union, Sequence
 
 import asyncssh
 from asyncssh import (
+    BytesOrStr,
     SFTPAttrs,
     SFTPClient,
     SFTPName,
@@ -24,9 +25,9 @@ from ..misc import json_encode as default_json_encode
 from ..misc import mask_url_pwd
 
 Path = Union[str, bytes, PurePath]
-Paths = Union[str, bytes, PurePath, List[Path]]
+Paths = Sequence[Union[bytes, Union[str, PurePath]]]
 ErrorHandler = Callable[[Exception], None]
-ProgressHandler = Callable[[str, str, int, int], None]
+ProgressHandler = Callable[[bytes, bytes, int, int], None]
 
 
 class LogLevel(str, Enum):
@@ -363,7 +364,7 @@ class SftpClient(Component):
 
     async def readdir(
         self, path: Path = ".", *, log_result: bool = True
-    ) -> List[SFTPName]:
+    ) -> Sequence[SFTPName]:
         """
         Метод получает список файлов на сервере
         """
@@ -482,7 +483,7 @@ class SftpClient(Component):
             span.annotate(SftpClientSpan.ANN_EVENT, str(path))
             return await self._client.chdir(path=path)
 
-    async def getcwd(self) -> str:
+    async def getcwd(self) -> BytesOrStr:
         """
         Метод возвращает текущую рабочую директорию на сервере
         """
@@ -533,7 +534,7 @@ class SshClient(SSHClient):
         super().__init__()
         self._client: Optional[SftpClient] = None
 
-    def connection_lost(self, exc: Exception) -> None:
+    def connection_lost(self, exc: Optional[Exception]) -> None:
         if self._client is None or self._client.stopping:
             return
 
