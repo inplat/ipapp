@@ -1633,7 +1633,7 @@ testing = ["black", "flake8", "mock", "mypy", "bandit", "isort", "safety", "pyli
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "773bdb1839fac2a99954800c90459c3440b4d30905d7a3a59c20c97dd30bc815"
+content-hash = "e0c196cd71c0a4e181c20209f6b98c419345f1bd2dac436c68f2c8e180805dba"
 
 [metadata.files]
 aiobotocore = [
