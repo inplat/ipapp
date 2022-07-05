@@ -38,8 +38,13 @@ class RpcClient(Client):
         self,
         cfg: RpcClientConfig,
         json_encode: Callable[[Any], str] = default_json_encode,
+        session_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
-        super().__init__(cfg, json_encode=json_encode)
+        super().__init__(
+            cfg,
+            json_encode=json_encode,
+            session_kwargs=session_kwargs,
+        )
         self.cfg = cfg
 
     async def call(
@@ -50,9 +55,8 @@ class RpcClient(Client):
         with self.app.logger.capture_span(ClientHttpSpan) as trap:
             req_err: Optional[Exception] = None
             try:
-                tout = timeout or self.cfg.timeout
-                if tout:
-                    otout = ClientTimeout(tout)
+                if timeout:
+                    otout = ClientTimeout(timeout)
                 resp = await self.request(
                     'POST', self.cfg.url, body=body, timeout=otout
                 )

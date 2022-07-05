@@ -1,4 +1,4 @@
-from typing import Any, Mapping, Optional, Type
+from typing import Any, Dict, Mapping, Optional, Type
 
 from aiohttp import ClientTimeout
 from pydantic import BaseModel, Field
@@ -18,8 +18,12 @@ class RestRpcHttpClient(Client):
     cfg: RestRpcHttpClientConfig
     clt: _RestRpcClient
 
-    def __init__(self, cfg: RestRpcHttpClientConfig) -> None:
-        super().__init__(cfg)
+    def __init__(
+        self,
+        cfg: RestRpcHttpClientConfig,
+        session_kwargs: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        super().__init__(cfg, session_kwargs=session_kwargs)
         self.cfg = cfg
 
     async def prepare(self) -> None:
@@ -65,5 +69,4 @@ class RestRpcHttpClient(Client):
             body=request,
             timeout=_clt_timeout,
         )
-        res = await resp.read()
-        return res
+        return resp._body
