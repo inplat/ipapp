@@ -619,7 +619,8 @@ async def test_propagate_trace(loop, postgres_url: str, with_trace_id: bool):
                     propagate_trace=True,
                 )
             else:
-                # колонки с trace_id нет в БД, поэтому будет ошибка с propagate_trace=True
+                # колонки с trace_id нет в БД, поэтому будет ошибка
+                # с propagate_trace=True
                 with pytest.raises(asyncpg.exceptions.UndefinedColumnError):
                     await tm.schedule(
                         test,
@@ -643,3 +644,5 @@ async def test_propagate_trace(loop, postgres_url: str, with_trace_id: bool):
 
     res = await wait_for(fut, 10)
     assert res == 123
+
+    await app.stop()

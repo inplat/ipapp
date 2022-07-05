@@ -1,7 +1,7 @@
 import json
 import os
 
-from ipapp.rpc import method
+from ipapp.rpc import RpcRegistry
 from ipapp.rpc.jsonrpc.openrpc import OpenRPC
 from ipapp.rpc.jsonrpc.openrpc.discover import discover
 
@@ -29,8 +29,9 @@ def test_openrpc():
         """
 
         __version__ = '1.0.1'
+        reg = RpcRegistry()
 
-        @method()
+        @reg.method()
         async def sum(self, a: int, b: int) -> int:
             """
             Sum
@@ -45,7 +46,7 @@ def test_openrpc():
             """
             return a + b
 
-        @method()
+        @reg.method()
         async def echo(self, a):
             return a
 
