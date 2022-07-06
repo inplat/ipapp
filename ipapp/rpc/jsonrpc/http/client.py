@@ -1,4 +1,4 @@
-from typing import Any, Iterable, Mapping, Optional, Tuple, Type, Union
+from typing import Any, Dict, Iterable, Mapping, Optional, Tuple, Type, Union
 
 from aiohttp import ClientTimeout
 from pydantic import BaseModel, Field
@@ -19,8 +19,12 @@ class JsonRpcHttpClient(Client):
     cfg: JsonRpcHttpClientConfig
     clt: _JsonRpcClient
 
-    def __init__(self, cfg: JsonRpcHttpClientConfig) -> None:
-        super().__init__(cfg)
+    def __init__(
+        self,
+        cfg: JsonRpcHttpClientConfig,
+        session_kwargs: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        super().__init__(cfg, session_kwargs=session_kwargs)
         self.cfg = cfg
 
     async def prepare(self) -> None:
@@ -66,6 +70,5 @@ class JsonRpcHttpClient(Client):
         resp = await self.request(
             'POST', self.cfg.url, body=request, timeout=_clt_timeout
         )
-        res = await resp.read()
 
-        return res
+        return resp._body

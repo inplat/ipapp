@@ -46,7 +46,7 @@ async def wait_service(
 ) -> None:
     last_err: Optional[Exception] = None
     try:
-        with async_timeout(timeout):
+        async with async_timeout(timeout):
             while True:
                 try:
                     await check_fn(url)

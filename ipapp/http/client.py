@@ -75,10 +75,17 @@ class Client(Component, ClientServerAnnotator):
         self,
         cfg: Optional[ClientConfig] = None,
         json_encode: Callable[[Any], str] = default_json_encode,
+        session_kwargs: Optional[Dict[str, Any]] = None,
     ):
+        _session_kwargs = session_kwargs or {}
+        timeout = getattr(cfg, 'timeout', None)
+        if timeout:
+            _session_kwargs.update({'timeout': ClientTimeout(timeout)})
+
         if cfg is not None:
             self.cfg = cfg
         self._json_encode = json_encode
+        self._session = ClientSession(**_session_kwargs)
 
     async def prepare(self) -> None:
         pass
@@ -98,7 +105,6 @@ class Client(Component, ClientServerAnnotator):
         headers: Dict[str, str] = None,
         timeout: Optional[ClientTimeout] = None,
         ssl: Optional[SSLContext] = None,
-        session_kwargs: Optional[Dict[str, Any]] = None,
         request_kwargs: Optional[Dict[str, Any]] = None,
         propagate_trace: bool = True,
     ) -> ClientResponse:
@@ -128,19 +134,16 @@ class Client(Component, ClientServerAnnotator):
             if 'User-Agent' not in headers:
                 headers['User-Agent'] = USER_AGENT
 
-            async with ClientSession(
+            ts1 = time.time()
+            async with self._session.request(
+                method=method,
+                url=url,
+                data=body,
+                headers=headers,
+                ssl=ssl,
                 timeout=timeout,
-                **(session_kwargs or {}),
-            ) as session:
-                ts1 = time.time()
-                resp = await session.request(
-                    method=method,
-                    url=url,
-                    data=body,
-                    headers=headers,
-                    ssl=ssl,
-                    **(request_kwargs or {}),
-                )
+                **(request_kwargs or {}),
+            ) as resp:
                 ts2 = time.time()
                 if self.cfg.log_req_hdrs:
                     self._span_annotate_req_hdrs(
@@ -150,8 +153,9 @@ class Client(Component, ClientServerAnnotator):
                     self._span_annotate_req_body(span, body, ts1)
                 if self.cfg.log_resp_hdrs:
                     self._span_annotate_resp_hdrs(span, resp.headers, ts2)
+
+                resp_body = await resp.read()
                 if self.cfg.log_resp_body:
-                    resp_body = await resp.read()
                     self._span_annotate_resp_body(span, resp_body, ts2)
 
                 span.tag(HttpSpan.TAG_HTTP_RESPONSE_SIZE, resp.content_length)

@@ -2,12 +2,14 @@ from functools import wraps
 
 import pytest
 
-from ipapp.rpc import Executor, InvalidArguments, RpcRegistry, method
+from ipapp.rpc import Executor, InvalidArguments, RpcRegistry
 
 
 async def test_exec_params_by_name_legacy():
+    reg = RpcRegistry()
+
     class Api:
-        @method()
+        @reg.method()
         async def sum(self, a: int, b: int, c: int = 0) -> int:
             return a + b + c
 
