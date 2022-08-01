@@ -73,7 +73,7 @@ python-magic = {version = "^0.4.22", optional = true}
 asyncssh = {version = "^2.3.0", extras = ["pyOpenSSL"], optional = true}
 # testing
 black = {version = "21.9b0", optional = true}
-flake8 = {version = "3.9.2", optional = true}
+flake8 = {version = "5.0.1", optional = true}
 mock = {version = "^4.0.2", optional = true}
 mypy = {version = "0.812", optional = true}
 bandit = {version = "1.6.3", optional = true}
