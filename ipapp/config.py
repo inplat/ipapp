@@ -22,6 +22,11 @@ from typing import (
 )
 from uuid import UUID
 
+try:
+    import dotenv
+except ImportError:
+    dotenv = None  # type: ignore
+
 import yaml
 from pydantic.fields import SHAPE_SINGLETON
 from pydantic.main import BaseModel, Extra
@@ -57,8 +62,18 @@ class BaseConfig(BaseModel, Generic[T]):
         return output_dict
 
     @classmethod
-    def from_env(cls: Type[T], prefix: str = "") -> T:
+    def from_env(
+        cls: Type[T],
+        prefix: Optional[str] = None,
+        env_file: Optional[str] = None,
+    ) -> T:
         d: Dict[str, Optional[Any]] = {}
+        prefix = prefix or cls.Config.env_prefix or ""
+        env_file = env_file or cls.Config.env_file
+
+        if dotenv and env_file:
+            dotenv.load_dotenv(dotenv_path=env_file)
+
         env_vars = cls._filter_dict(os.environ, prefix)
 
         for field in cls.__fields__.values():
@@ -312,5 +327,7 @@ class BaseConfig(BaseModel, Generic[T]):
         json_dumps: Callable = json.dumps
         yaml_load: Callable = yaml.load
         yaml_dump: Callable = yaml.dump
+        env_file: str = '.env'
+        env_prefix = 'APP_'
 
     __config__: Config  # type: ignore
