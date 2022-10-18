@@ -94,7 +94,7 @@ class Client(Component, ClientServerAnnotator):
         pass
 
     async def stop(self) -> None:
-        pass
+        await self._session.close()
 
     async def request(
         self,
