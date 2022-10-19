@@ -369,11 +369,11 @@ class _Method:
         if len(ispec.annotations) > 0:
             opt = self.optional_params
 
-            self._model = create_model(
+            self._model = create_model(  # type: ignore
                 'Model',
                 __config__=_PydanticConfig,
                 __validators__=validators,
-                **{  # type: ignore
+                **{
                     k: (v, ... if k not in opt else opt[k])
                     for k, v in ispec.annotations.items()
                     if k != 'return' and k != self_name

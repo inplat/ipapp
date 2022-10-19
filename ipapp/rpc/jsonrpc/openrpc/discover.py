@@ -313,8 +313,8 @@ def _get_method(
 
         response["result"] = (ResponseResultModel, None)
 
-        ResponseModel: Type[BaseModel] = create_model(
-            response_model_name, **response  # type: ignore
+        ResponseModel: Type[BaseModel] = create_model(  # type: ignore
+            response_model_name, **response
         )
 
         params_def = _get_model_definition(
