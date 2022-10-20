@@ -11,16 +11,15 @@ from .error import ConfigurationError
 class Args(NamedTuple):
     version: bool
     autoreload: bool
-    env_prefix: str
+    env_prefix: Optional[str]
+    env_file: Optional[str]
     show_config: Optional[str]
     log_level: str
     log_file: Optional[str]
     config: Optional[str]
 
 
-def _parse_argv(
-    prog: str, options: list, default_env_prefix: str = 'APP_'
-) -> Args:
+def _parse_argv(prog: str, options: list) -> Args:
     parser = argparse.ArgumentParser(prog=prog)
 
     parser.add_argument(
@@ -34,9 +33,15 @@ def _parse_argv(
     parser.add_argument(
         '--env-prefix',
         dest='env_prefix',
-        default=default_env_prefix,
         type=str,
         help='Environment variables prefix',
+    )
+
+    parser.add_argument(
+        '--env-file',
+        dest='env_file',
+        type=str,
+        help='DotEnv file name',
     )
 
     parser.add_argument(
@@ -82,6 +87,7 @@ def _parse_argv(
     return Args(
         config=parsed.config,
         env_prefix=parsed.env_prefix,
+        env_file=parsed.env_file,
         show_config=parsed.show_config,
         version=parsed.version,
         autoreload=parsed.autoreload,
@@ -110,7 +116,10 @@ def load_config(options: Args, cfg_cls: Type[BaseConfig]) -> BaseConfig:
                 '.json, .yml, .yaml'
             )
     else:
-        return cfg_cls.from_env(prefix=options.env_prefix)
+        return cfg_cls.from_env(
+            prefix=options.env_prefix,
+            env_file=options.env_file,
+        )
 
 
 def _show_config(options: Args, cfg: BaseConfig) -> None:
@@ -139,12 +148,11 @@ def main(
     app_cls: Type[BaseApplication],
     cfg_cls: Type[BaseConfig],
     *,
-    default_env_prefix: str = 'APP_',
     build_stamp: Optional[float] = None,
 ) -> int:
     try:
         prog, args = argv[0], argv[1:]
-        options = _parse_argv(prog, args, default_env_prefix)
+        options = _parse_argv(prog, args)
         if options.version:
             print(version)
             return 0
