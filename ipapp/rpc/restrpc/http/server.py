@@ -1,4 +1,3 @@
-import asyncio
 import inspect
 import json
 from contextvars import ContextVar
@@ -86,7 +85,6 @@ class RestRpcHttpHandlerConfig(BaseModel):
     healthcheck_path: str = Field(
         "/health", description="Путь health check RPC сервера"
     )
-    shield: bool = False
     cors_enabled: bool = True
     cors_origin: str = ""
     openapi_json_url: str = Field(
@@ -166,11 +164,11 @@ class RestRpcHttpHandler(_ServerHandler):
         if path.endswith("/"):
             path = path[:-1]
         for method_name in self._methods.keys():
-            self.server.add_post(f"{path}/{method_name}/", self.rpc_handler)
+            self.server.add_post(f"{path}/{method_name}/", self._handle)
             self.server.add_options(
                 f"{path}/{method_name}/", self.rpc_options_handler
             )
-            self.server.add_post(f"{path}/{method_name}", self.rpc_handler)
+            self.server.add_post(f"{path}/{method_name}", self._handle)
             self.server.add_options(
                 f"{path}/{method_name}", self.rpc_options_handler
             )
@@ -192,11 +190,6 @@ class RestRpcHttpHandler(_ServerHandler):
 
     async def rpc_options_handler(self, request: web.Request) -> web.Response:
         return web.HTTPOk(headers=self._get_cors_headers())
-
-    async def rpc_handler(self, request: web.Request) -> web.Response:
-        if self._cfg.shield:
-            return await asyncio.shield(self._handle(request))
-        return await self._handle(request)
 
     async def _handle(self, request: web.Request) -> web.Response:
         req_body = await request.read()

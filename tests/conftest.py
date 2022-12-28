@@ -59,7 +59,7 @@ async def wait_service(
 
 
 @pytest.fixture
-async def postgres_url(request: FixtureRequest) -> AsyncGenerator[str, None]:
+async def postgres_url(request: FixtureRequest) -> str:
     url = request.config.getoption('postgres_url')
     if not url:
         url = COMPOSE_POSTGRES_URL

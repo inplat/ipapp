@@ -1,16 +1,28 @@
+import asyncio
 import logging
 import time
 from abc import ABCMeta
 from contextvars import Token
 from datetime import datetime, timezone
 from ssl import SSLContext
-from typing import Awaitable, Callable, Dict, List, Optional, Union
+from typing import (
+    Any,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Union,
+)
 
 from aiohttp import web
 from aiohttp.payload import Payload
 from aiohttp.web_log import AccessLogger
 from aiohttp.web_runner import AppRunner, BaseSite, TCPSite
 from aiohttp.web_urldispatcher import AbstractResource, AbstractRoute
+from aiojobs import Scheduler
+from aiojobs.aiohttp import spawn
 from pydantic import BaseModel, Field
 
 import ipapp.app  # noqa
@@ -40,6 +52,17 @@ class ServerConfig(BaseModel):
 
     host: str = Field("0.0.0.0", description="Адрес HTTP сервера")  # nosec
     port: int = Field(8080, ge=1, le=65535, description="Порт HTTP сервера")
+    shield: int = Field(
+        False,
+        description="Защищать запросы от отмены перед остановкой сервера",
+    )
+    graceful_timeout: float = Field(
+        60.0,
+        description=(
+            "Максимальное время ожидания завершения запросов "
+            "перед началом остановки сервера"
+        ),
+    )
     shutdown_timeout: float = Field(
         60.0,
         description=(
@@ -210,6 +233,12 @@ class Server(Component, ClientServerAnnotator):
         self.sites: List[BaseSite] = []
 
         self.web_app = web.Application()
+        if cfg.shield:
+            self.setup(
+                self.web_app,
+                graceful_timeout=cfg.graceful_timeout,
+                close_timeout=self.shutdown_timeout,
+            )
         self.runner = AppRunner(
             self.web_app,
             handle_signals=True,
@@ -217,9 +246,20 @@ class Server(Component, ClientServerAnnotator):
             access_log_format=AccessLogger.LOG_FORMAT,
             access_log=access_logger,
         )
-        self.web_app.middlewares.append(self._req_wrapper)
+        self.web_app.middlewares.append(self._middleware)
 
     @web.middleware
+    async def _middleware(
+        self,
+        request: web.Request,
+        handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
+    ) -> Union[web.Response, web.FileResponse]:
+        if self.cfg.shield:
+            job = await spawn(request, self._req_wrapper(request, handler))
+            return await job.wait()
+        else:
+            return await self._req_wrapper(request, handler)
+
     async def _req_wrapper(
         self,
         request: web.Request,
@@ -412,6 +452,27 @@ class Server(Component, ClientServerAnnotator):
                 reuse_port=self.reuse_port,
             )
         )
+
+    @staticmethod
+    def setup(
+        app: web.Application,
+        graceful_timeout: Optional[float] = None,
+        **kwargs: Any,
+    ) -> None:
+        async def cleanup_context(app: web.Application) -> AsyncIterator[None]:
+            app["AIOJOBS_SCHEDULER"] = scheduler = Scheduler(**kwargs)
+            yield
+            if graceful_timeout and scheduler._jobs:
+                await asyncio.gather(
+                    *[
+                        job.wait(timeout=graceful_timeout)
+                        for job in scheduler._jobs
+                    ],
+                    return_exceptions=True,
+                )
+            await scheduler.close()
+
+        app.cleanup_ctx.append(cleanup_context)
 
     async def start(self) -> None:
         self.app.log_info("Starting HTTP server")

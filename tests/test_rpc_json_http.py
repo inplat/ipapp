@@ -4,11 +4,12 @@ import os
 from typing import Any, Awaitable, Optional
 
 import pytest
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientTimeout
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
 from ipapp import BaseApplication, BaseConfig
+from ipapp.db.pg import Postgres, PostgresConfig
 from ipapp.http.server import Server, ServerConfig
 from ipapp.rpc import RpcRegistry
 from ipapp.rpc.error import InvalidArguments
@@ -37,7 +38,12 @@ class RunAppCtx:
         await self.app.stop()
 
 
-def runapp(port, handler):
+def runapp(
+    port,
+    handler,
+    postgres_url: Optional[str] = None,
+    shield: Optional[bool] = False,
+):
     class Cfg(BaseConfig):
         srv: ServerConfig
 
@@ -53,12 +59,26 @@ def runapp(port, handler):
                     )
                 ),
             )
+            if postgres_url:
+                self.add(
+                    'db',
+                    Postgres(
+                        PostgresConfig(
+                            url=postgres_url, log_result=True, log_query=True
+                        )
+                    ),
+                    stop_after=['srv'],
+                )
 
         @property
         def clt(self):
             return self.get('clt')
 
-    app = App(Cfg(**{'srv': {'port': port}}))
+        @property
+        def db(self) -> Postgres:
+            return self.get('db')  # type: ignore
+
+    app = App(Cfg(**{'srv': {'port': port, 'shield': shield}}))
 
     return RunAppCtx(app)
 
@@ -529,3 +549,53 @@ async def test_rpc_bytes_in_response(loop, unused_tcp_port):
             result = await resp.json()
             expected = f'{BASE64_MARKER}{base64.b64encode(some_data).decode()}'
             assert result == {'id': 1, 'jsonrpc': '2.0', 'result': expected}
+
+
+@pytest.mark.parametrize("shield, result", [(True, True), (False, False)])
+async def test_server_graceful_shutdown(
+    unused_tcp_port,
+    postgres_url,
+    shield,
+    result,
+):
+    reg = RpcRegistry()
+    futs = []
+
+    req = {'method': 'get_some_data', 'jsonrpc': '2.0', 'id': 1}
+    url = 'http://127.0.0.1:%s/' % unused_tcp_port
+
+    @reg.method()
+    async def get_some_data():
+        fut = asyncio.Future()
+        futs.append(fut)
+        await asyncio.sleep(app.sleep)
+        await app.db.execute('SELECT 1')
+        fut.set_result(1)
+        return
+
+    async def send_request_timeout(timeout=None):
+        async with ClientSession() as client:
+            try:
+                await client.post(
+                    url,
+                    json=req,
+                    raise_for_status=False,
+                    timeout=ClientTimeout(total=timeout),
+                )
+            except asyncio.TimeoutError:
+                pass
+
+    async with runapp(
+        unused_tcp_port,
+        JsonRpcHttpHandler(reg, JsonRpcHttpHandlerConfig()),
+        postgres_url=postgres_url,
+        shield=shield,
+    ) as app:
+        app.sleep = 4
+        await send_request_timeout(timeout=1)
+
+        app.sleep = 0
+        await send_request_timeout()
+
+    assert len(futs)
+    assert all([fut.done() for fut in futs]) == result
