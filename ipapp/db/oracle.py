@@ -6,8 +6,8 @@ https://cx-oracle.readthedocs.io/en/latest/user_guide/introduction.html
 https://container-registry.oracle.com/pls/apex/f?p=113:4:103772846430850::NO:::
 """
 import asyncio
-from contextvars import Token
 import functools
+from contextvars import Token
 from typing import Any, Callable, List, Optional, Type, Union
 
 import cx_Oracle

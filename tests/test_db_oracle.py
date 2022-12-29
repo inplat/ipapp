@@ -21,10 +21,10 @@
  Execute:
  > LD_LIBRARY_PATH=path_to_instantclient_libraries pytest -v tests/test_db_oracle.py
  """
-import cx_Oracle
 import asyncio
 import functools
 
+import cx_Oracle
 import pytest
 
 from ipapp import BaseApplication, BaseConfig

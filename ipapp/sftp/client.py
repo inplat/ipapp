@@ -4,7 +4,7 @@ import os
 from asyncio import Future
 from enum import Enum
 from pathlib import PurePath
-from typing import Any, Callable, List, Optional, Union, Sequence
+from typing import Any, Callable, List, Optional, Sequence, Union
 
 import asyncssh
 from asyncssh import (
