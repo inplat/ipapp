@@ -1455,7 +1455,7 @@ python-versions = "*"
 
 [[package]]
 name = "types-pyyaml"
-version = "6.0.12"
+version = "6.0.12.2"
 description = "Typing stubs for PyYAML"
 category = "main"
 optional = true
@@ -1579,7 +1579,7 @@ testing = ["black", "flake8", "mock", "mypy", "bandit", "isort", "pylint", "pyte
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "5469ea137a7ee1f196fb813def05ae0ea4f86203d5de407cfea210a07734c29a"
+content-hash = "8d6bc00095c7798f80193ed0b52ccc04490e235f19a4c9cab35f888b51edfb41"
 
 [metadata.files]
 aiobotocore = [
@@ -2712,8 +2712,8 @@ types-pytz = [
     {file = "types_pytz-2021.3.8-py3-none-any.whl", hash = "sha256:aef4a917ab28c585d3f474bfce4f4b44b91e95d9d47d4de29dd845e0db8e3910"},
 ]
 types-pyyaml = [
-    {file = "types-PyYAML-6.0.12.tar.gz", hash = "sha256:f6f350418125872f3f0409d96a62a5a5ceb45231af5cc07ee0034ec48a3c82fa"},
-    {file = "types_PyYAML-6.0.12-py3-none-any.whl", hash = "sha256:29228db9f82df4f1b7febee06bbfb601677882e98a3da98132e31c6874163e15"},
+    {file = "types-PyYAML-6.0.12.2.tar.gz", hash = "sha256:6840819871c92deebe6a2067fb800c11b8a063632eb4e3e755914e7ab3604e83"},
+    {file = "types_PyYAML-6.0.12.2-py3-none-any.whl", hash = "sha256:1e94e80aafee07a7e798addb2a320e32956a373f376655128ae20637adb2655b"},
 ]
 typing-extensions = [
     {file = "typing_extensions-4.4.0-py3-none-any.whl", hash = "sha256:16fa4864408f655d35ec496218b85f79b3437c829e93320c7c9215ccfd92489e"},

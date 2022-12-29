@@ -9,7 +9,7 @@ try:
     from watchdog import observers
     from watchdog.events import FileSystemEvent
 except ImportError:
-    observers = None
+    observers = None  # type: ignore
 
 
 _has_execv: bool = sys.platform != 'win32'
