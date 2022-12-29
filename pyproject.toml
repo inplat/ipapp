@@ -110,7 +110,7 @@ sftp = ["asyncssh"]
 dbtm = ["asyncpg", "crontab"]
 testing = ["black", "flake8", "mock", "mypy", "bandit", "isort", "pylint", "pytest-aiohttp", "pytest",
     "pytest-asyncio", "pytest-cov", "coverage", "Sphinx", "sphinx-rtd-theme", "pip", "wheel",
-    "docker-compose", "watchdog"]
+    "docker-compose", "watchdog", "types-pyyaml"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
