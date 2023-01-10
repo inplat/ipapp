@@ -533,7 +533,7 @@ class PikaChannel(ABC):
             span.tag(AmqpSpan.TAG_ROUTING_KEY, str(routing_key))
             span.tag(AmqpSpan.TAG_URL, self._conn.pika._masked_url)
 
-            with timeout(self.amqp.cfg.publish_timeout):
+            async with timeout(self.amqp.cfg.publish_timeout):
                 if not self._ch.is_closed or self.name is None:
 
                     if propagate_trace:
