@@ -5,11 +5,12 @@ from datetime import date
 from typing import Any, Awaitable, Dict, List, Optional
 
 import pytest
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientTimeout
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
 from ipapp import BaseApplication, BaseConfig
+from ipapp.db.pg import Postgres, PostgresConfig
 from ipapp.http.server import Server, ServerConfig
 from ipapp.misc import BASE64_MARKER
 from ipapp.rpc import RpcRegistry
@@ -38,7 +39,12 @@ class RunAppCtx:
         await self.app.stop()
 
 
-def runapp(port, handler):  # type: ignore
+def runapp(
+    port,
+    handler,
+    postgres_url: Optional[str] = None,
+    shield: Optional[bool] = False,
+):  # type: ignore
     class Cfg(BaseConfig):
         srv: ServerConfig
 
@@ -54,12 +60,26 @@ def runapp(port, handler):  # type: ignore
                     )
                 ),
             )
+            if postgres_url:
+                self.add(
+                    'db',
+                    Postgres(
+                        PostgresConfig(
+                            url=postgres_url, log_result=True, log_query=True
+                        )
+                    ),
+                    stop_after=['srv'],
+                )
 
         @property
         def clt(self):  # type: ignore
             return self.get('clt')
 
-    app = App(Cfg(**{'srv': {'port': port}}))
+        @property
+        def db(self) -> Postgres:
+            return self.get('db')  # type: ignore
+
+    app = App(Cfg(**{'srv': {'port': port, 'shield': shield}}))
 
     return RunAppCtx(app)
 
@@ -585,7 +605,8 @@ async def test_rpc_client_with_any_subpath(loop, unused_tcp_port):  # type: igno
         RestRpcHttpHandler(
             reg,
             RestRpcHttpHandlerConfig(
-                path='/api/v1', cors_enabled=False, shield=True
+                path='/api/v1',
+                cors_enabled=False,
             ),
         ),
     ) as app:
@@ -707,3 +728,53 @@ async def test_openapi(loop, unused_tcp_port):  # type: ignore
                     )
                 ]
             )
+
+
+@pytest.mark.parametrize("shield, result", [(True, True), (False, False)])
+async def test_server_graceful_shutdown(
+    unused_tcp_port,
+    postgres_url,
+    shield,
+    result,
+):
+    reg = RpcRegistry()
+    futs = []
+
+    req = {'a': 'anything'}
+    url = 'http://127.0.0.1:%s/method/' % unused_tcp_port
+
+    @reg.method()
+    async def method(a: Any):
+        fut = asyncio.Future()
+        futs.append(fut)
+        await asyncio.sleep(app.sleep)
+        await app.db.execute('SELECT 1')
+        fut.set_result(a)
+        return
+
+    async def send_request_timeout(timeout=None):
+        async with ClientSession() as client:
+            try:
+                await client.post(
+                    url,
+                    json=req,
+                    raise_for_status=False,
+                    timeout=ClientTimeout(total=timeout),
+                )
+            except asyncio.TimeoutError:
+                pass
+
+    async with runapp(
+        unused_tcp_port,
+        RestRpcHttpHandler(reg, RestRpcHttpHandlerConfig()),
+        postgres_url=postgres_url,
+        shield=shield,
+    ) as app:
+        app.sleep = 4
+        await send_request_timeout(timeout=1)
+
+        app.sleep = 0
+        await send_request_timeout()
+
+    assert len(futs)
+    assert all([fut.done() for fut in futs]) == result

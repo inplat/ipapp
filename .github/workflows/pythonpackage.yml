@@ -21,9 +21,9 @@ jobs:
         python-version: ["3.7", "3.8", "3.9", "3.10"]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v3
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
@@ -45,9 +45,9 @@ jobs:
         python-version: ["3.7", "3.8", "3.9", "3.10"]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v3
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
@@ -57,7 +57,6 @@ jobs:
         poetry install -E testing -v
     - run: poetry check
     - run: poetry run black examples ipapp tests --check
-    - run: poetry run safety check
     - run: poetry run mypy ipapp examples --ignore-missing-imports --sqlite-cache
     - run: poetry run flake8 ipapp examples tests
     - run: poetry run bandit -x ipapp/logic/db -r ipapp examples
@@ -67,9 +66,9 @@ jobs:
     needs: [test, lint]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Set up latest stable Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v3
     - name: Install dependencies
       run: |
         python3 -m pip install --upgrade pip

@@ -281,7 +281,7 @@ def test_mod():
 
 
 def test_pow():
-    assert int_ctx ** 2 == int_obj ** 2
+    assert int_ctx**2 == int_obj**2
 
 
 def test_lshift():
@@ -333,7 +333,7 @@ def test_rmod():
 
 
 def test_rpow():
-    assert 2 ** int_ctx == 2 ** int_obj
+    assert 2**int_ctx == 2**int_obj
 
 
 def test_rlshift():

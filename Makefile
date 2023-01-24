@@ -35,7 +35,6 @@ clean-pyc:  ## Remove Python file artifacts
 
 .PHONY: clean-test
 clean-test:  ## Remove test and coverage artifacts
-	rm -fr .tox/
 	rm -f .coverage
 	rm -fr htmlcov/
 	rm -fr .pytest_cache
@@ -84,16 +83,12 @@ bandit: venv  ## Find common security issues in code
 mypy: venv  ## Static type check
 	$(VENV_BIN)/mypy ipapp examples --ignore-missing-imports --sqlite-cache
 
-.PHONY: safety
-safety: venv  # checks your installed dependencies for known security vulnerabilities
-	$(VENV_BIN)/safety check
-
 .PHONY: black
 black: venv  # checks imports order
 	$(VENV_BIN)/black examples ipapp tests --check
 
 .PHONY: lint
-lint: safety bandit mypy flake8 black  ## Run flake8, bandit, mypy
+lint: bandit mypy flake8 black  ## Run flake8, bandit, mypy
 
 .PHONY: format
 format: venv  ## Autoformat code

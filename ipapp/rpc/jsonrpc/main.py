@@ -92,9 +92,7 @@ class JsonRpcExecutor:
         self._external_docs: Optional[ExternalDocs] = external_docs
 
     async def start_scheduler(self) -> None:
-        self._scheduler = await aiojobs.create_scheduler(
-            **self._scheduler_kwargs
-        )
+        self._scheduler = aiojobs.Scheduler(**self._scheduler_kwargs)
 
     async def stop_scheduler(self) -> None:
         if self._scheduler is not None:

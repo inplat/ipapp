@@ -1,4 +1,3 @@
-import asyncio
 from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Union
@@ -50,7 +49,6 @@ response_del_cookies: ContextVar[List[_DelCookie]] = ContextVar(
 class JsonRpcHttpHandlerConfig(BaseModel):
     path: str = '/'
     healthcheck_path: str = '/health'
-    shield: bool = False
     discover_enabled: bool = True
     cors_enabled: bool = True
     cors_origin: str = 'https://playground.open-rpc.org'
@@ -81,7 +79,7 @@ class JsonRpcHttpHandler(_ServerHandler):
         )
         if self._cfg.healthcheck_path:
             self._setup_healthcheck(self._cfg.healthcheck_path)
-        self.server.add_route('POST', self._cfg.path, self.rpc_handler)
+        self.server.add_route('POST', self._cfg.path, self._handle)
         self.server.add_route(
             'OPTIONS', self._cfg.path, self.rpc_options_handler
         )
@@ -102,12 +100,6 @@ class JsonRpcHttpHandler(_ServerHandler):
 
     async def rpc_options_handler(self, request: web.Request) -> web.Response:
         return web.HTTPOk(headers=self._get_cors_headers())
-
-    async def rpc_handler(self, request: web.Request) -> web.Response:
-        if self._cfg.shield:
-            return await asyncio.shield(self._handle(request))
-        else:
-            return await self._handle(request)
 
     async def _handle(self, request: web.Request) -> web.Response:
         req_body = await request.read()

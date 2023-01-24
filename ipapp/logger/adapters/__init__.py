@@ -1,5 +1,4 @@
 from ._abc import AbcAdapter, AbcConfig, AdapterConfigurationError
-
 from .prometheus import PrometheusAdapter
 from .requests import RequestsAdapter
 from .sentry import SentryAdapter
