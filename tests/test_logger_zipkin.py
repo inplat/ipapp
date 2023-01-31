@@ -272,16 +272,19 @@ async def test_db_cursor_span_breaked(loop, postgres_url: str):
         a = [10, 15, 105]
         b = ['dd', 'a', '7i']
 
-        async with db.connection() as conn:
-            async with conn.xact():
-                cur = conn.cursor(
-                    sql_cursor, a, b, prefetch=2, query_name='cur_log'
-                )
-                async for res in cur:
-                    res_cursor.append(res)
-                    assert res['a'] == a[len(res_cursor) - 1]
-                    assert res['b'] == b[len(res_cursor) - 1]
-                    break
+        async def handler():
+            async with db.connection() as conn:
+                async with conn.xact():
+                    cur = conn.cursor(
+                        sql_cursor, a, b, prefetch=2, query_name='cur_log'
+                    )
+                    async for res in cur:
+                        res_cursor.append(res)
+                        assert res['a'] == a[len(res_cursor) - 1]
+                        assert res['b'] == b[len(res_cursor) - 1]
+                        break
+
+        await handler()
         await app.stop()
 
     assert len(zs.spans) == 4
@@ -334,16 +337,18 @@ async def test_db_cursor_prepared_breaked(loop, postgres_url: str):
         a = [10, 15, 105]
         b = ['dd', 'a', '7i']
 
-        async with db.connection() as conn:
-            st = await conn.prepare(
-                sql_cursor,
-                query_name='cur_prepared_breaked',
-            )
-            async with conn.xact():
-                cur = st.cursor(a, b, prefetch=2)
-                async for _ in cur:
-                    break
+        async def handler():
+            async with db.connection() as conn:
+                st = await conn.prepare(
+                    sql_cursor,
+                    query_name='cur_prepared_breaked',
+                )
+                async with conn.xact():
+                    cur = st.cursor(a, b, prefetch=2)
+                    async for _ in cur:
+                        break
 
+        await handler()
         await app.stop()
 
     span_cursor = zs.spans[-1]
