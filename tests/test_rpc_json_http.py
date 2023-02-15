@@ -10,7 +10,8 @@ from pydantic.fields import FieldInfo
 
 from ipapp import BaseApplication, BaseConfig
 from ipapp.db.pg import Postgres, PostgresConfig
-from ipapp.http.server import Server, ServerConfig
+from ipapp.http.server import Server, ServerConfig, Span
+from ipapp.misc import ctx_span_get
 from ipapp.rpc import RpcRegistry
 from ipapp.rpc.error import InvalidArguments
 from ipapp.rpc.jsonrpc import JsonRpcError
@@ -113,11 +114,12 @@ async def test_rpc_error(loop, unused_tcp_port):
 
     @reg.method()
     def method1():
+        app.last_span = ctx_span_get()
         raise MyError(data={'a': 1})
 
     async with runapp(
         unused_tcp_port, JsonRpcHttpHandler(reg, JsonRpcHttpHandlerConfig())
-    ):
+    ) as app:  # type: BaseApplication
         async with ClientSession() as sess:
             resp = await sess.request(
                 'POST',
@@ -130,6 +132,9 @@ async def test_rpc_error(loop, unused_tcp_port):
                 'jsonrpc': '2.0',
                 'error': {'code': 100, 'message': 'Err', 'data': {'a': 1}},
             }
+            span: Span = app.last_span  # type: ignore
+            assert span.tags.get(Span.TAG_ERROR_MESSAGE) == MyError.message
+            assert span._exception is not None
 
 
 async def test_batch(loop, unused_tcp_port):
