@@ -393,8 +393,10 @@ class JsonRpcExecutor:
     def _set_span_err(self, err: Exception) -> None:
         if not span:
             return
+        span._exception = err
         span.tag('error', 'true')
         span.annotate(span.ANN_TRACEBACK, traceback.format_exc())
+        span.tag(span.TAG_ERROR_MESSAGE, str(err))
         if hasattr(err, 'jsonrpc_error_code'):
             span.tag(
                 SPAN_TAG_JSONRPC_CODE,

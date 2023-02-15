@@ -2,10 +2,18 @@ import json
 from typing import List
 
 import asyncpg
+from aiohttp import ClientSession
 
 from ipapp.app import BaseApplication, BaseConfig
 from ipapp.http import HttpSpan
+from ipapp.http.server import Server, ServerConfig, Span
 from ipapp.logger.adapters.requests import RequestsAdapter, RequestsConfig
+from ipapp.misc import ctx_span_get
+from ipapp.rpc.jsonrpc.http.server import (
+    JsonRpcHttpHandler,
+    JsonRpcHttpHandlerConfig,
+    RpcRegistry,
+)
 
 
 async def get_requests(
@@ -112,3 +120,51 @@ async def test_success(loop, postgres_url: str):
     assert row['status_code'] is None
     assert row['error'] is None
     assert row['tags'] is None
+
+
+async def test_jsonrpc_error(loop, postgres_url: str):
+    table_name = '_requests_log_table'
+
+    cfg = RequestsConfig(
+        dsn=postgres_url,
+        db_table_name=table_name,
+        send_max_count=2,
+    )
+    adapter = RequestsAdapter(cfg)
+    app = BaseApplication(BaseConfig())
+    app.logger.add(adapter)
+
+    reg = RpcRegistry()
+    app.last_span: Span  # type: ignore
+    app.add(
+        'srv',
+        Server(
+            ServerConfig(),
+            JsonRpcHttpHandler(reg, JsonRpcHttpHandlerConfig()),
+        ),
+    )
+
+    srv: Server = app.get('srv')  # type: ignore
+
+    @reg.method()
+    def method1():
+        app.last_span = ctx_span_get()
+        raise UserWarning('error message')
+
+    await app.start()
+
+    req = {'jsonrpc': '2.0', 'id': 1, 'method': 'method1'}
+    async with ClientSession() as sess:
+        res = await sess.post(
+            f'http://{srv.host}:{srv.port}/',
+            json=req,
+        )
+        resp = await res.json()
+
+    await app.stop()
+
+    rows = await get_requests(postgres_url, table_name, app.last_span.trace_id)
+    assert len(rows) == 1
+    assert rows[0]['error'] == resp['error']['message']
+    assert rows[0]['status_code'] == resp['error']['code']
+    assert rows[0]['method'] == req['method']
