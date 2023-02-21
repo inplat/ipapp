@@ -70,6 +70,7 @@ class Client(Component, ClientServerAnnotator):
     # TODO make pool of clients
 
     cfg = ClientConfig()
+    _session: ClientSession
 
     def __init__(
         self,
@@ -77,21 +78,20 @@ class Client(Component, ClientServerAnnotator):
         json_encode: Callable[[Any], str] = default_json_encode,
         session_kwargs: Optional[Dict[str, Any]] = None,
     ):
-        _session_kwargs = session_kwargs or {}
-        timeout = getattr(cfg, 'timeout', None)
-        if timeout:
-            _session_kwargs.update({'timeout': ClientTimeout(timeout)})
-
         if cfg is not None:
             self.cfg = cfg
         self._json_encode = json_encode
-        self._session = ClientSession(**_session_kwargs)
+        self._session_kwargs = session_kwargs
 
     async def prepare(self) -> None:
         pass
 
     async def start(self) -> None:
-        pass
+        _session_kwargs = self._session_kwargs or {}
+        timeout = getattr(self.cfg, 'timeout', None)
+        if timeout:
+            _session_kwargs.update({'timeout': ClientTimeout(timeout)})
+        self._session = ClientSession(**_session_kwargs)
 
     async def stop(self) -> None:
         await self._session.close()
