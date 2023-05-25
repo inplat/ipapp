@@ -1,7 +1,7 @@
 from aiohttp import ClientResponse, web
 
 from ipapp import BaseApplication, BaseConfig
-from ipapp.http.client import Client
+from ipapp.http.client import Client, ClientHttpSpan
 from ipapp.http.server import Server, ServerConfig, ServerHandler
 
 
@@ -33,6 +33,7 @@ async def test_http(unused_tcp_port):
             self.server.add_route('GET', '/', self.home)
             self.server.add_head('/', self.test_head)
             self.server.add_get('/test_get', self.test_get)
+            self.server.add_get('/test_get_win1251', self.test_get_win1251)
             self.server.add_post('/test_post', self.test_post)
             self.server.add_patch('/test_patch', self.test_patch)
             self.server.add_put('/test_put', self.test_put)
@@ -44,6 +45,10 @@ async def test_http(unused_tcp_port):
         async def test_get(self, request: web.Request) -> web.Response:
             body = request.method
             return web.Response(text=body)
+
+        async def test_get_win1251(self, request: web.Request) -> web.Response:
+            body = 'Тест кодировки'
+            return web.Response(text=body, charset='windows-1251')
 
         async def test_head(self, request: web.Request) -> web.Response:
             return web.Response()
@@ -81,6 +86,14 @@ async def test_http(unused_tcp_port):
     resp_get = await app.get('clt').send_add_get(f'{url_test}/test_get')
     assert resp_get.status == 200
     assert await resp_get.text() == 'GET'
+
+    with app.logger.capture_span(ClientHttpSpan) as trap:
+        resp_get_win = await app.get('clt').send_add_get(
+            f'{url_test}/test_get_win1251'
+        )
+        assert trap.span.annotations['response_body'][0][0] == 'Тест кодировки'
+    assert resp_get_win.status == 200
+    assert await resp_get_win.text() == 'Тест кодировки'
 
     resp_post = await app.get('clt').send_add_post(f'{url_test}/test_post')
     assert resp_post.status == 200
