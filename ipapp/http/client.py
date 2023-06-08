@@ -2,7 +2,7 @@ import logging
 import re
 import time
 from ssl import SSLContext
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Union
 
 from aiohttp import ClientResponse, ClientSession, ClientTimeout
 from aiohttp.typedefs import StrOrURL
@@ -101,7 +101,8 @@ class Client(Component, ClientServerAnnotator):
         method: str,
         url: StrOrURL,
         *,
-        body: Optional[bytes] = None,
+        body: Optional[Union[dict, bytes]] = None,
+        log_body: Optional[Union[dict, bytes]] = None,
         headers: Dict[str, str] = None,
         timeout: Optional[ClientTimeout] = None,
         ssl: Optional[SSLContext] = None,
@@ -150,7 +151,9 @@ class Client(Component, ClientServerAnnotator):
                         span, resp.request_info.headers, ts1
                     )
                 if self.cfg.log_req_body:
-                    self._span_annotate_req_body(span, body, ts1)
+                    if log_body is None:
+                        log_body = body
+                    self._span_annotate_req_body(span, log_body, ts1)
                 if self.cfg.log_resp_hdrs:
                     self._span_annotate_resp_hdrs(span, resp.headers, ts2)
 

@@ -1,3 +1,5 @@
+from typing import Optional, Union
+
 from aiohttp import ClientResponse, web
 
 from ipapp import BaseApplication, BaseConfig
@@ -7,6 +9,8 @@ from ipapp.http.server import Server, ServerConfig, ServerHandler
 
 async def test_http(unused_tcp_port):
     class TestClient(Client):
+        _secret_keys = ('pwssd',)
+
         async def send(self, url: str) -> ClientResponse:
             return await self.request('GET', url)
 
@@ -16,8 +20,15 @@ async def test_http(unused_tcp_port):
         async def send_add_head(self, url: str) -> ClientResponse:
             return await self.request('HEAD', url)
 
-        async def send_add_post(self, url: str) -> ClientResponse:
-            return await self.request('POST', url)
+        async def send_add_post(
+            self,
+            url: str,
+            body: Optional[Union[dict, bytes]] = None,
+            log_body: Optional[Union[dict, bytes]] = None,
+        ) -> ClientResponse:
+            return await self.request(
+                'POST', url, body=body, log_body=log_body
+            )
 
         async def send_add_put(self, url: str) -> ClientResponse:
             return await self.request('PUT', url)
@@ -95,9 +106,26 @@ async def test_http(unused_tcp_port):
     assert resp_get_win.status == 200
     assert await resp_get_win.text() == 'Тест кодировки'
 
+    with app.logger.capture_span(ClientHttpSpan) as trap:
+        await app.get('clt').send_add_get(f'{url_test}/test_get?pwssd=dggg')
+        assert (
+            trap.span.tags[ClientHttpSpan.TAG_HTTP_URL]
+            == f'{url_test}/test_get?pwssd=***'
+        )
+
     resp_post = await app.get('clt').send_add_post(f'{url_test}/test_post')
     assert resp_post.status == 200
     assert await resp_post.text() == 'POST'
+
+    with app.logger.capture_span(ClientHttpSpan) as trap:
+        body = {'pdqwq': '334ff'}
+        log_body = {'pdqwq': '***'}
+        await app.get('clt').send_add_post(
+            f'{url_test}/test_post', body=body, log_body=log_body
+        )
+        assert trap.span.annotations[ClientHttpSpan.ANN_REQUEST_BODY][0][
+            0
+        ] == str(log_body)
 
     resp_patch = await app.get('clt').send_add_patch(f'{url_test}/test_patch')
     assert resp_patch.status == 200

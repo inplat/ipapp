@@ -1,6 +1,6 @@
 import re
 import warnings
-from typing import Optional
+from typing import Optional, Tuple, Union
 
 from multidict import MultiMapping
 from yarl import URL
@@ -16,11 +16,18 @@ RE_SECRET_WORDS = re.compile(
 
 class ClientServerAnnotator:
     app: 'ipapp.app.BaseApplication'
+    _secret_keys: Optional[Tuple[str]] = None
 
-    @staticmethod
-    def _mask_url(url: URL) -> str:
+    def _mask_url(self, url: URL) -> str:
         if url.password:
             url = url.with_password('***')
+        query = url.query
+        if query and self._secret_keys:
+            keys_to_upd = {}
+            for key_mask in self._secret_keys:
+                if key_mask in query:
+                    keys_to_upd[key_mask] = '***'
+            url = url.update_query(keys_to_upd)
         for key, val in url.query.items():
             if RE_SECRET_WORDS.match(key):
                 url = url.update_query({key: '***'})
@@ -42,7 +49,7 @@ class ClientServerAnnotator:
     def _span_annotate_req_body(
         self,
         span: 'HttpSpan',
-        body: Optional[bytes],
+        body: Optional[Union[dict, bytes]],
         ts: float,
         encoding: Optional[str] = None,
     ) -> None:
