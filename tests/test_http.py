@@ -1,4 +1,5 @@
 from typing import Optional, Union
+from urllib.parse import urlencode
 
 from aiohttp import ClientResponse, web
 
@@ -126,6 +127,9 @@ async def test_http(unused_tcp_port):
         assert trap.span.annotations[ClientHttpSpan.ANN_REQUEST_BODY][0][
             0
         ] == str(log_body)
+        assert trap.span.tags[ClientHttpSpan.TAG_HTTP_REQUEST_SIZE] == str(
+            len(urlencode(body).encode())
+        )
 
     resp_patch = await app.get('clt').send_add_patch(f'{url_test}/test_patch')
     assert resp_patch.status == 200

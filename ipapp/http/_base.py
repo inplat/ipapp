@@ -48,6 +48,8 @@ class ClientServerAnnotator:
         try:
             if body is None:
                 content = ''
+            elif isinstance(body, dict):
+                content = str(body)
             else:
                 content = self._decode_bytes(body, encoding=encoding)
 

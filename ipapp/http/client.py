@@ -4,6 +4,7 @@ import time
 from ssl import SSLContext
 from typing import Any, Callable, Dict, Optional, Union
 
+import aiohttp.hdrs
 from aiohttp import ClientResponse, ClientSession, ClientTimeout
 from aiohttp.typedefs import StrOrURL
 from pydantic import BaseModel, Field
@@ -120,10 +121,6 @@ class Client(Component, ClientServerAnnotator):
             span.tag(HttpSpan.TAG_HTTP_HOST, url.host)
             span.tag(HttpSpan.TAG_HTTP_METHOD, method)
             span.tag(HttpSpan.TAG_HTTP_PATH, url.path)
-            if body is not None:
-                span.tag(HttpSpan.TAG_HTTP_REQUEST_SIZE, len(body))
-            else:
-                span.tag(HttpSpan.TAG_HTTP_REQUEST_SIZE, 0)
 
             if timeout is None:
                 timeout = ClientTimeout()
@@ -146,6 +143,15 @@ class Client(Component, ClientServerAnnotator):
                 **(request_kwargs or {}),
             ) as resp:
                 ts2 = time.time()
+
+                if body is not None:
+                    span.tag(
+                        HttpSpan.TAG_HTTP_REQUEST_SIZE,
+                        resp.request_info.headers.getone(
+                            aiohttp.hdrs.CONTENT_LENGTH, "0"
+                        ),
+                    )
+
                 if self.cfg.log_req_hdrs:
                     self._span_annotate_req_hdrs(
                         span, resp.request_info.headers, ts1
