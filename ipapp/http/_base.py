@@ -1,4 +1,3 @@
-import re
 import warnings
 from typing import Optional, Tuple, Union
 
@@ -8,10 +7,6 @@ from yarl import URL
 import ipapp.app  # noqa
 import ipapp.misc as misc
 from ipapp.logger.span import Span
-
-RE_SECRET_WORDS = re.compile(
-    "(pas+wo?r?d|pass(phrase)?|pwd|token|secrete?)", re.IGNORECASE
-)
 
 
 class ClientServerAnnotator:
@@ -28,9 +23,6 @@ class ClientServerAnnotator:
                 if key_mask in query:
                     keys_to_upd[key_mask] = '***'
             url = url.update_query(keys_to_upd)
-        for key, val in url.query.items():
-            if RE_SECRET_WORDS.match(key):
-                url = url.update_query({key: '***'})
         return str(url)
 
     def _span_annotate_req_hdrs(
