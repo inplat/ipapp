@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 import ssl
 from contextvars import Token
 from functools import partial
@@ -16,9 +17,12 @@ from yarl import URL
 from ipapp.component import Component
 from ipapp.ctx import span
 from ipapp.http import HttpSpan
-from ipapp.http._base import RE_SECRET_WORDS
 from ipapp.http.server import ServerHttpSpan
 from ipapp.misc import ctx_span_reset, ctx_span_set
+
+RE_SECRET_WORDS = re.compile(
+    "(pas+wo?r?d|pass(phrase)?|pwd|token|secrete?)", re.IGNORECASE
+)
 
 
 class UvicornConfig(BaseModel):

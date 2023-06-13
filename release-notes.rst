@@ -3,6 +3,100 @@
 #########
 Изменения
 #########
+
+.. 2.0.0:
+
+2.0.0:
+======
+
+* Fix: save response parameters before read the body answer.
+* Fix: size of request's contentf for body as dict.
+* Chg: remove search secret params using regex.
+* Add: set request params to mask in spans.
+
+.. 1.3.15:
+
+1.3.15:
+=======
+
+* Fix: encoding the http client response body for the logger using content encoding.
+
+.. 1.3.14:
+
+1.3.14:
+=======
+
+* Chg: update poetry lock file and 3d party packages
+* Fix: the client session must be open when the component is started.
+
+.. 1.3.13:
+
+1.3.13:
+=======
+
+* Fix: The span error message tag is set to save it the log requests table.
+
+.. 1.3.12:
+
+1.3.12:
+=======
+
+* Fix: revert change from commit 4db3798d and fix tests
+
+.. 1.3.11:
+
+1.3.11:
+=======
+
+* Fix: graceful shutdown of the http server
+* Fix: deprecation warnings
+* Fix: trouble with flake8
+* Fix: unable to run mypy without stubs
+* Fmt: auto format code
+* Fix: mypy errors
+* Fix: black error of import
+* Chg: remove tox
+* Chg: update actions to use Node16
+* Chg: remove safety
+* Add: Create codeql.yml
+
+.. 1.3.10:
+
+1.3.10:
+=======
+
+Chg: update mypy, black, safety and pydantic packages
+Fix: close the client-session when http-client component is stops.
+
+.. 1.3.9:
+
+1.3.9:
+======
+
+Chg: single session for an http-client component.
+Fix: linters warnings
+Chg: aiohttp is updated to the last version.
+
+.. 1.3.8:
+
+1.3.8:
+======
+
+* Fix: pip packages has been update for safety & mypy errors has been fixed
+* Fix: remove dead locks inside async generators. (#254)
+* Add: cursor support for postgres component. (#251)
+* Fix data loss for named logger adapters (#243)
+* Add LICENSE
+* Chg fastapi span names & add params data tags (#241)
+
+.. 1.3.7:
+
+1.3.7:
+======
+
+* Add: refresh and retry behaviors for invalid sessions
+
+
 .. 1.3.6:
 
 1.3.6:

@@ -2,8 +2,9 @@ import logging
 import re
 import time
 from ssl import SSLContext
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Union
 
+import aiohttp.hdrs
 from aiohttp import ClientResponse, ClientSession, ClientTimeout
 from aiohttp.typedefs import StrOrURL
 from pydantic import BaseModel, Field
@@ -101,7 +102,8 @@ class Client(Component, ClientServerAnnotator):
         method: str,
         url: StrOrURL,
         *,
-        body: Optional[bytes] = None,
+        body: Optional[Union[dict, bytes]] = None,
+        log_body: Optional[Union[dict, bytes]] = None,
         headers: Dict[str, str] = None,
         timeout: Optional[ClientTimeout] = None,
         ssl: Optional[SSLContext] = None,
@@ -119,10 +121,6 @@ class Client(Component, ClientServerAnnotator):
             span.tag(HttpSpan.TAG_HTTP_HOST, url.host)
             span.tag(HttpSpan.TAG_HTTP_METHOD, method)
             span.tag(HttpSpan.TAG_HTTP_PATH, url.path)
-            if body is not None:
-                span.tag(HttpSpan.TAG_HTTP_REQUEST_SIZE, len(body))
-            else:
-                span.tag(HttpSpan.TAG_HTTP_REQUEST_SIZE, 0)
 
             if timeout is None:
                 timeout = ClientTimeout()
@@ -145,26 +143,38 @@ class Client(Component, ClientServerAnnotator):
                 **(request_kwargs or {}),
             ) as resp:
                 ts2 = time.time()
+
+                if body is not None:
+                    span.tag(
+                        HttpSpan.TAG_HTTP_REQUEST_SIZE,
+                        resp.request_info.headers.getone(
+                            aiohttp.hdrs.CONTENT_LENGTH, "0"
+                        ),
+                    )
+
                 if self.cfg.log_req_hdrs:
                     self._span_annotate_req_hdrs(
                         span, resp.request_info.headers, ts1
                     )
                 if self.cfg.log_req_body:
-                    self._span_annotate_req_body(span, body, ts1)
+                    if log_body is None:
+                        log_body = body
+                    self._span_annotate_req_body(span, log_body, ts1)
                 if self.cfg.log_resp_hdrs:
                     self._span_annotate_resp_hdrs(span, resp.headers, ts2)
 
+                span.tag(HttpSpan.TAG_HTTP_RESPONSE_SIZE, resp.content_length)
+                span.tag(HttpSpan.TAG_HTTP_STATUS_CODE, str(resp.status))
+
                 resp_body = await resp.read()
+
                 if self.cfg.log_resp_body:
                     self._span_annotate_resp_body(
                         span,
                         resp_body,
-                        ts2,
+                        time.time(),
                         encoding=resp.charset,
                     )
-
-                span.tag(HttpSpan.TAG_HTTP_RESPONSE_SIZE, resp.content_length)
-                span.tag(HttpSpan.TAG_HTTP_STATUS_CODE, str(resp.status))
 
                 return resp
 
