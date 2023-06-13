@@ -163,17 +163,18 @@ class Client(Component, ClientServerAnnotator):
                 if self.cfg.log_resp_hdrs:
                     self._span_annotate_resp_hdrs(span, resp.headers, ts2)
 
+                span.tag(HttpSpan.TAG_HTTP_RESPONSE_SIZE, resp.content_length)
+                span.tag(HttpSpan.TAG_HTTP_STATUS_CODE, str(resp.status))
+
                 resp_body = await resp.read()
+
                 if self.cfg.log_resp_body:
                     self._span_annotate_resp_body(
                         span,
                         resp_body,
-                        ts2,
+                        time.time(),
                         encoding=resp.charset,
                     )
-
-                span.tag(HttpSpan.TAG_HTTP_RESPONSE_SIZE, resp.content_length)
-                span.tag(HttpSpan.TAG_HTTP_STATUS_CODE, str(resp.status))
 
                 return resp
 
