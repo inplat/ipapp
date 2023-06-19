@@ -53,6 +53,11 @@ DEFAULT_HISTOGRAM_LABELS: LabelsCfg = {  # {name: {label: tag}, }
         'error': 'error.class',
         'query': 'db.query',
     },
+    'db_executemany': {
+        'le': DEFAULT_LE,  # le mapping to quantiles
+        'error': 'error.class',
+        'query': 'db.query',
+    },
     'db_callproc': {
         'le': DEFAULT_LE,  # le mapping to quantiles
         'error': 'error.class',
@@ -74,6 +79,36 @@ DEFAULT_HISTOGRAM_LABELS: LabelsCfg = {  # {name: {label: tag}, }
         'query': 'db.query',
     },
     'db_fetch': {
+        'le': DEFAULT_LE,  # le mapping to quantiles
+        'error': 'error.class',
+        'query': 'db.query',
+    },
+    'db_query_one': {
+        'le': DEFAULT_LE,  # le mapping to quantiles
+        'error': 'error.class',
+        'query': 'db.query',
+    },
+    'db_query_all': {
+        'le': DEFAULT_LE,  # le mapping to quantiles
+        'error': 'error.class',
+        'query': 'db.query',
+    },
+    'db_query_one_prepared': {
+        'le': DEFAULT_LE,  # le mapping to quantiles
+        'error': 'error.class',
+        'query': 'db.query',
+    },
+    'db_query_all_prepared': {
+        'le': DEFAULT_LE,  # le mapping to quantiles
+        'error': 'error.class',
+        'query': 'db.query',
+    },
+    'db_cursor': {
+        'le': DEFAULT_LE,  # le mapping to quantiles
+        'error': 'error.class',
+        'query': 'db.query',
+    },
+    'db_cursor_prepared': {
         'le': DEFAULT_LE,  # le mapping to quantiles
         'error': 'error.class',
         'query': 'db.query',
