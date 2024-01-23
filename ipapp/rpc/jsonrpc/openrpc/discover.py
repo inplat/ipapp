@@ -249,7 +249,7 @@ def _get_method(
     if deprecated:
         kwargs['deprecated'] = True
 
-    params_docs: Dict[str, str] = {}
+    params_docs: Dict[str, Optional[str]] = {}
     result_doc: Optional[str] = None
 
     if docstr:

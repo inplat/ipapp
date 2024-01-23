@@ -1,5 +1,5 @@
 import re
-from typing import Dict
+from typing import Dict, Sequence, Union
 
 from prometheus_client import Histogram, start_http_server
 from pydantic import Field
@@ -127,7 +127,7 @@ class PrometheusAdapter(AbcAdapter):
         )
 
         for hist_name, labels_cfg in self.p8s_hist_labels.items():
-            buckets = Histogram.DEFAULT_BUCKETS
+            buckets: Sequence[Union[float, str]] = Histogram.DEFAULT_BUCKETS
             labelnames = []
             if labels_cfg:
                 for label in labels_cfg.keys():

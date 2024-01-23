@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
 
     steps:
     - uses: actions/checkout@v3
@@ -32,17 +32,17 @@ jobs:
         pip install poetry${USING_POETRY_VERSION}
         poetry install -E fastapi -E oracle -E postgres -E rabbitmq -E s3 -E sftp -E dbtm -E testing -E redis -v
     - name: Spin up environment
-      run: poetry run docker-compose -f tests/docker-compose.yml up -d
+      run: docker-compose -f tests/docker-compose.yml up -d
     - name: Run tests
       run: poetry run pytest -v -s tests
     - name: Tear down environment
-      run: poetry run docker-compose -f tests/docker-compose.yml kill
+      run: docker-compose -f tests/docker-compose.yml kill
 
   lint:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
 
     steps:
     - uses: actions/checkout@v3
