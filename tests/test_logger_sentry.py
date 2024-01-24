@@ -36,7 +36,7 @@ class SentryServer:
         if request.method == 'POST' and request.path == '/api/1/store/':
             self.errors.append(await request.json())
 
-        return web.HTTPOk()
+        return web.Response()
 
 
 async def test_success(loop):

@@ -189,7 +189,7 @@ class RestRpcHttpHandler(_ServerHandler):
         }
 
     async def rpc_options_handler(self, request: web.Request) -> web.Response:
-        return web.HTTPOk(headers=self._get_cors_headers())
+        return web.Response(headers=self._get_cors_headers())
 
     async def _handle(self, request: web.Request) -> web.Response:
         req_body = await request.read()
@@ -201,7 +201,7 @@ class RestRpcHttpHandler(_ServerHandler):
         if method_name.endswith("/"):
             method_name = method_name[:-1]
         if not method_name:
-            return web.HTTPNotFound()
+            raise web.HTTPNotFound()
         response_set_headers_token = response_set_headers.set(CIMultiDict())
         response_set_cookies_token = response_set_cookies.set([])
         response_del_cookies_token = response_del_cookies.set([])
@@ -241,13 +241,6 @@ class RestRpcHttpHandler(_ServerHandler):
         response_set_cookies.reset(response_set_cookies_token)
         response_del_cookies.reset(response_del_cookies_token)
         return resp
-
-    async def error_handler(
-        self, request: web.Request, err: Exception
-    ) -> web.Response:
-        if isinstance(err, web.Response):
-            return err
-        return web.HTTPInternalServerError()
 
     def openapi_routers_prepare(self) -> None:
         for schema in self._cfg.openapi_schemas:

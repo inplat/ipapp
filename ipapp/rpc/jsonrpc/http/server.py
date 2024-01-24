@@ -99,7 +99,7 @@ class JsonRpcHttpHandler(_ServerHandler):
             return {}
 
     async def rpc_options_handler(self, request: web.Request) -> web.Response:
-        return web.HTTPOk(headers=self._get_cors_headers())
+        return web.Response(headers=self._get_cors_headers())
 
     async def _handle(self, request: web.Request) -> web.Response:
         req_body = await request.read()
