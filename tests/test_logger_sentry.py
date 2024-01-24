@@ -22,7 +22,7 @@ class SentryServer:
 
     async def __aenter__(self):
         self.server = TestServer(self.app, port=None)
-        await self.server.start_server(loop=self.app.loop)
+        await self.server.start_server()
         self.addr = 'http://%s@127.0.0.1:%d/1' % (self.key, self.server.port)
         return self
 

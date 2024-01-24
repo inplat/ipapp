@@ -48,7 +48,7 @@ class ZipkinServer:
 
     async def __aenter__(self):
         self.server = TestServer(self.app, port=None)
-        await self.server.start_server(loop=self.app.loop)
+        await self.server.start_server()
         self.addr = 'http://127.0.0.1:%d/api/v2/spans' % self.server.port
         return self
 
