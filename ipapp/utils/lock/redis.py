@@ -62,7 +62,7 @@ class RedisLock(LockerInterface):
                 self.cfg.url,
                 encoding=self.encoding,
             )
-            self.mpsc = Receiver(loop=app.loop)
+            self.mpsc = Receiver()
             await self.redis_subscr.subscribe(
                 self.mpsc.channel(self.cfg.channel)
             )
