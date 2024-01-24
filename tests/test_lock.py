@@ -4,7 +4,7 @@ from asyncio import TimeoutError
 from typing import Optional
 
 import pytest
-from async_timeout import timeout as atimeout
+from async_timeout import timeout
 
 from ipapp import BaseApplication, BaseConfig
 from ipapp.misc import rndstr
@@ -39,7 +39,7 @@ async def test_lock_redis_same_keys(redis_url: str):
 
     key = rndstr()
 
-    with atimeout(10):
+    async with timeout(10):
         assert len(locks) == 0
         await asyncio.gather(coro(lock1, key, 1), coro(lock2, key, 2))
         assert len(locks) == 0
@@ -58,7 +58,7 @@ async def test_lock_redis_diff_keys(redis_url: str):
             locks.remove(key)
             assert len(locks) == end_lock_cnt
 
-    with atimeout(10):
+    async with timeout(10):
         await asyncio.gather(coro(lock1, '1', 1, 1), coro(lock2, '2', 2, 0))
         assert len(locks) == 0
 
@@ -125,7 +125,7 @@ async def test_lock_pg_same_keys(postgres_url: str):
 
     key = rndstr()
 
-    with atimeout(10):
+    async with timeout(10):
         assert len(locks) == 0
         await asyncio.gather(coro(lock1, key, 1), coro(lock2, key, 2))
         assert len(locks) == 0
@@ -144,7 +144,7 @@ async def test_lock_pg_diff_keys(postgres_url: str):
             locks.remove(key)
             assert len(locks) == end_lock_cnt
 
-    with atimeout(10):
+    async with timeout(10):
         await asyncio.gather(coro(lock1, '1', 1, 1), coro(lock2, '2', 2, 0))
         assert len(locks) == 0
 

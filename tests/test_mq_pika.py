@@ -18,7 +18,7 @@ from ipapp.mq.pika import (
 async def wait_for(fn: Callable, timeout=60) -> Any:
     err = None
     try:
-        with async_timeout(timeout):
+        async with async_timeout(timeout):
             while True:
                 try:
                     if asyncio.iscoroutine(fn):
