@@ -22,7 +22,6 @@ omit = ["site-packages"]
 asyncio_mode = "auto"
 addopts = "-s -v --cov --cov-report term --cov-report=html --cov-config pyproject.toml"
 testpaths = ["tests"]
-filterwarnings = ["ignore::DeprecationWarning:distutils"]
 
 [tool.isort]
 line_length = 79
