@@ -22,7 +22,7 @@ from aiohttp.web_log import AccessLogger
 from aiohttp.web_runner import AppRunner, BaseSite, TCPSite
 from aiohttp.web_urldispatcher import AbstractResource, AbstractRoute
 from aiojobs import Scheduler
-from aiojobs.aiohttp import spawn
+from aiojobs.aiohttp import AIOJOBS_SCHEDULER, spawn
 from pydantic import BaseModel, Field
 
 import ipapp.app  # noqa
@@ -238,6 +238,7 @@ class Server(Component, ClientServerAnnotator):
             access_log_class=AccessLogger,
             access_log_format=AccessLogger.LOG_FORMAT,
             access_log=access_logger,
+            shutdown_timeout=self.shutdown_timeout,
         )
         self.web_app.middlewares.append(self._middleware)
 
@@ -457,7 +458,7 @@ class Server(Component, ClientServerAnnotator):
         **kwargs: Any,
     ) -> None:
         async def cleanup_context(app: web.Application) -> AsyncIterator[None]:
-            app["AIOJOBS_SCHEDULER"] = scheduler = Scheduler(**kwargs)
+            app[AIOJOBS_SCHEDULER] = scheduler = Scheduler(**kwargs)
             yield
             if graceful_timeout and scheduler._jobs:
                 await asyncio.gather(
