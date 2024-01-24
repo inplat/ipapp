@@ -28,7 +28,7 @@ async def get_requests(
     return res
 
 
-async def test_success(loop, postgres_url: str):
+async def test_success(postgres_url: str):
     table_name = '_requests_log_table'
     max_hdrs_length = 5
     max_body_length = 4
@@ -122,7 +122,7 @@ async def test_success(loop, postgres_url: str):
     assert row['tags'] is None
 
 
-async def test_jsonrpc_error(loop, postgres_url: str):
+async def test_jsonrpc_error(postgres_url: str):
     table_name = '_requests_log_table'
 
     cfg = RequestsConfig(

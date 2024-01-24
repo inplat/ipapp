@@ -74,7 +74,7 @@ async def save(
         assert obj.body == f.read()
 
 
-async def test_s3(loop, s3: S3) -> None:
+async def test_s3(s3: S3) -> None:
     # create/Delete Bucket
     uuid = uuid4().hex
     location = await s3.create_bucket(uuid)
@@ -114,7 +114,7 @@ async def test_s3(loop, s3: S3) -> None:
     await s3.delete_bucket(uuid)
 
 
-async def test_s3_file_copy(loop, s3: S3) -> None:
+async def test_s3_file_copy(s3: S3) -> None:
     uuid = uuid4().hex
     filepath = 'tests/files/test.pdf'
     bucket_name = 'tests'
@@ -148,7 +148,7 @@ async def test_s3_file_copy(loop, s3: S3) -> None:
         )
 
 
-async def test_s3_list_objects(loop, s3: S3) -> None:
+async def test_s3_list_objects(s3: S3) -> None:
     uuid = uuid4().hex
     filepath = 'tests/files/test.pdf'
     bucket_name = 'tests'
@@ -175,7 +175,7 @@ async def test_s3_list_objects(loop, s3: S3) -> None:
         ]
 
 
-async def test_s3_file_delete(loop, s3: S3) -> None:
+async def test_s3_file_delete(s3: S3) -> None:
     uuid = uuid4().hex
     filepath = 'tests/files/test.pdf'
     bucket_name = 'tests'
@@ -203,7 +203,7 @@ async def test_s3_file_delete(loop, s3: S3) -> None:
         )
 
 
-async def test_s3_file_save(loop, s3: S3) -> None:
+async def test_s3_file_save(s3: S3) -> None:
     # Save PDF
     uuid = uuid4().hex
     filepath = 'tests/files/test.pdf'

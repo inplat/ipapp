@@ -92,7 +92,7 @@ async def wait_no_pending(postgres_url, schema):
     "with_trace_id",
     [True, False],
 )
-async def test_success(loop, postgres_url: str, with_trace_id: bool):
+async def test_success(postgres_url: str, with_trace_id: bool):
     test_schema_name = await prepare(postgres_url, with_trace_id=with_trace_id)
 
     fut = Future()
@@ -159,7 +159,7 @@ async def test_success(loop, postgres_url: str, with_trace_id: bool):
     "with_trace_id",
     [True, False],
 )
-async def test_reties_success(loop, postgres_url: str, with_trace_id: bool):
+async def test_reties_success(postgres_url: str, with_trace_id: bool):
     test_schema_name = await prepare(postgres_url, with_trace_id=with_trace_id)
 
     fut = Future()
@@ -231,7 +231,7 @@ async def test_reties_success(loop, postgres_url: str, with_trace_id: bool):
     "with_trace_id",
     [True, False],
 )
-async def test_reties_error(loop, postgres_url: str, with_trace_id: bool):
+async def test_reties_error(postgres_url: str, with_trace_id: bool):
     test_schema_name = await prepare(postgres_url, with_trace_id=with_trace_id)
 
     fut = Future()
@@ -311,7 +311,7 @@ async def test_reties_error(loop, postgres_url: str, with_trace_id: bool):
     "with_trace_id",
     [True, False],
 )
-async def test_tasks_by_ref(loop, postgres_url: str, with_trace_id: bool):
+async def test_tasks_by_ref(postgres_url: str, with_trace_id: bool):
     test_schema_name = await prepare(postgres_url, with_trace_id=with_trace_id)
 
     fut = Future()
@@ -361,7 +361,7 @@ async def test_tasks_by_ref(loop, postgres_url: str, with_trace_id: bool):
     "with_trace_id",
     [True, False],
 )
-async def test_task_cancel(loop, postgres_url: str, with_trace_id: bool):
+async def test_task_cancel(postgres_url: str, with_trace_id: bool):
     test_schema_name = await prepare(postgres_url, with_trace_id=with_trace_id)
 
     fut = Future()
@@ -411,7 +411,7 @@ async def test_task_cancel(loop, postgres_url: str, with_trace_id: bool):
     "with_trace_id",
     [True, False],
 )
-async def test_task_crontab(loop, postgres_url: str, with_trace_id: bool):
+async def test_task_crontab(postgres_url: str, with_trace_id: bool):
     test_schema_name = await prepare(postgres_url, with_trace_id=with_trace_id)
 
     fut = Future()
@@ -457,7 +457,7 @@ async def test_task_crontab(loop, postgres_url: str, with_trace_id: bool):
     [True, False],
 )
 async def test_task_crontab_with_date_attr(
-    loop, postgres_url: str, with_trace_id: bool
+    postgres_url: str, with_trace_id: bool
 ):
     test_schema_name = await prepare(postgres_url, with_trace_id=with_trace_id)
 
@@ -506,7 +506,7 @@ async def test_task_crontab_with_date_attr(
     "with_trace_id",
     [True, False],
 )
-async def test_decorator(loop, postgres_url: str, with_trace_id: bool):
+async def test_decorator(postgres_url: str, with_trace_id: bool):
     test_schema_name = await prepare(postgres_url, with_trace_id=with_trace_id)
 
     fut = Future()
@@ -582,7 +582,7 @@ async def test_decorator(loop, postgres_url: str, with_trace_id: bool):
     "with_trace_id",
     [True, False],
 )
-async def test_propagate_trace(loop, postgres_url: str, with_trace_id: bool):
+async def test_propagate_trace(postgres_url: str, with_trace_id: bool):
     test_schema_name = await prepare(postgres_url, with_trace_id=with_trace_id)
 
     fut = Future()

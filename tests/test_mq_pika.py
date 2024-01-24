@@ -39,7 +39,7 @@ async def wait_for(fn: Callable, timeout=60) -> Any:
             raise
 
 
-async def test_pika(loop, rabbitmq_url):
+async def test_pika(rabbitmq_url):
 
     messages: List[Tuple[bytes]] = []
 
@@ -86,7 +86,7 @@ async def test_pika(loop, rabbitmq_url):
     await app.stop()
 
 
-async def test_dead_letter_exchange(loop, rabbitmq_url):
+async def test_dead_letter_exchange(rabbitmq_url):
     messages: List[Tuple[bytes]] = []
     queue: str
 

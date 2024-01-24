@@ -84,7 +84,7 @@ def runapp(
     return RunAppCtx(app)
 
 
-async def test_rpc(loop, unused_tcp_port):  # type: ignore
+async def test_rpc(unused_tcp_port):  # type: ignore
     reg = RpcRegistry()
 
     @reg.method()
@@ -169,7 +169,7 @@ async def test_rpc(loop, unused_tcp_port):  # type: ignore
             assert res_6 == {'error': {'code': 400, 'message': 'Bad Request'}}
 
 
-async def test_rpc_error(loop, unused_tcp_port):  # type: ignore
+async def test_rpc_error(unused_tcp_port):  # type: ignore
     class MyError(RestRpcError):
         code = 1000
         message = 'Err'
@@ -216,7 +216,7 @@ async def test_rpc_error(loop, unused_tcp_port):  # type: ignore
             assert resp_2.reason == 'Conflict'
 
 
-async def test_rpc_client(loop, unused_tcp_port):  # type: ignore
+async def test_rpc_client(unused_tcp_port):  # type: ignore
     reg = RpcRegistry()
 
     @reg.method()
@@ -230,7 +230,7 @@ async def test_rpc_client(loop, unused_tcp_port):  # type: ignore
         assert result == {'method1': 'ok'}
 
 
-async def test_rpc_client_info_field(loop, unused_tcp_port):  # type: ignore
+async def test_rpc_client_info_field(unused_tcp_port):  # type: ignore
     reg = RpcRegistry()
 
     @reg.method()
@@ -277,7 +277,7 @@ async def test_rpc_client_info_field(loop, unused_tcp_port):  # type: ignore
         assert result == {'sum': 15}
 
 
-async def test_rpc_client_info_field_missed_argument(loop, unused_tcp_port):  # type: ignore
+async def test_rpc_client_info_field_missed_argument(unused_tcp_port):  # type: ignore
     reg = RpcRegistry()
 
     @reg.method()
@@ -324,7 +324,7 @@ async def test_rpc_client_info_field_missed_argument(loop, unused_tcp_port):  # 
             await clt.sum()
 
 
-async def test_rpc_client_timeout(loop, unused_tcp_port):  # type: ignore
+async def test_rpc_client_timeout(unused_tcp_port):  # type: ignore
     reg = RpcRegistry()
 
     @reg.method()
@@ -348,7 +348,7 @@ async def test_rpc_client_timeout(loop, unused_tcp_port):  # type: ignore
         )  # no timeout
 
 
-async def test_rpc_client_custom_error(loop, unused_tcp_port):  # type: ignore
+async def test_rpc_client_custom_error(unused_tcp_port):  # type: ignore
     class MyErrr(RestRpcError):
         code = 1000
         message = "My err {some_var} {some_else}"
@@ -372,7 +372,7 @@ async def test_rpc_client_custom_error(loop, unused_tcp_port):  # type: ignore
             assert False
 
 
-async def test_rpc_response_header(loop, unused_tcp_port):  # type: ignore
+async def test_rpc_response_header(unused_tcp_port):  # type: ignore
     reg = RpcRegistry()
 
     @reg.method()
@@ -410,7 +410,7 @@ async def test_rpc_response_header(loop, unused_tcp_port):  # type: ignore
             assert resp_2.reason == 'OK'
 
 
-async def test_rpc_client_arg_as_bytes(loop, unused_tcp_port):  # type: ignore
+async def test_rpc_client_arg_as_bytes(unused_tcp_port):  # type: ignore
     reg = RpcRegistry()
     some_data = os.urandom(100)
 
@@ -445,7 +445,7 @@ async def test_rpc_client_arg_as_bytes(loop, unused_tcp_port):  # type: ignore
         assert result == {'compare_bytes': True}
 
 
-async def test_rpc_client_model_with_bytes(loop, unused_tcp_port):  # type: ignore
+async def test_rpc_client_model_with_bytes(unused_tcp_port):  # type: ignore
     reg = RpcRegistry()
     some_data = os.urandom(100)
 
@@ -491,7 +491,7 @@ async def test_rpc_client_model_with_bytes(loop, unused_tcp_port):  # type: igno
         assert result == {'compare_model_bytes': True}
 
 
-async def test_rpc_bytes_in_response(loop, unused_tcp_port):  # type: ignore
+async def test_rpc_bytes_in_response(unused_tcp_port):  # type: ignore
     reg = RpcRegistry()
     some_data = os.urandom(100)
 
@@ -542,7 +542,7 @@ def runapp_with_any_subpath(port, handler):  # type: ignore
     return RunAppCtx(app)
 
 
-async def test_rpc_with_any_subpath(loop, unused_tcp_port):  # type: ignore
+async def test_rpc_with_any_subpath(unused_tcp_port):  # type: ignore
     reg = RpcRegistry()
 
     @reg.method()
@@ -593,7 +593,7 @@ async def test_rpc_with_any_subpath(loop, unused_tcp_port):  # type: ignore
             assert resp_4.reason == 'Not Found'
 
 
-async def test_rpc_client_with_any_subpath(loop, unused_tcp_port):  # type: ignore
+async def test_rpc_client_with_any_subpath(unused_tcp_port):  # type: ignore
     reg = RpcRegistry()
 
     @reg.method()
@@ -632,7 +632,7 @@ TEST_EXAMLE: List[Dict[str, Any]] = [
 ]
 
 
-async def test_openapi(loop, unused_tcp_port):  # type: ignore
+async def test_openapi(unused_tcp_port):  # type: ignore
     reg = RpcRegistry()
 
     class MethodResponse(BaseModel):

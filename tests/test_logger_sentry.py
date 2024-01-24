@@ -39,7 +39,7 @@ class SentryServer:
         return web.Response()
 
 
-async def test_success(loop):
+async def test_success():
     async with SentryServer() as ss:
         cfg = SentryConfig(dsn=ss.addr)
         adapter = SentryAdapter(cfg)

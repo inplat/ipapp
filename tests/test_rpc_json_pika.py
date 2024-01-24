@@ -72,7 +72,7 @@ async def test_rpc_legacy(loop, rabbitmq_url):
             assert res == 'ok %s' % val
 
 
-async def test_rpc(loop, rabbitmq_url):
+async def test_rpc(rabbitmq_url):
     reg = RpcRegistry()
 
     @reg.method()
@@ -86,7 +86,7 @@ async def test_rpc(loop, rabbitmq_url):
             assert res == 'ok %s' % val
 
 
-async def test_rpc_error(loop, rabbitmq_url):
+async def test_rpc_error(rabbitmq_url):
     class MyError(JsonRpcError):
         jsonrpc_error_code = 111
 
@@ -104,7 +104,7 @@ async def test_rpc_error(loop, rabbitmq_url):
                 assert err.jsonrpc_error_code == 111
 
 
-async def test_rpc_batch(loop, rabbitmq_url):
+async def test_rpc_batch(rabbitmq_url):
     reg = RpcRegistry()
 
     @reg.method()
