@@ -4,11 +4,9 @@ from types import TracebackType
 from typing import IO, Any, Dict, List, Optional, Type, Union
 from urllib.parse import ParseResult, urlparse
 
-import aiobotocore
 import magic
-from aiobotocore.session import AioSession
+from aiobotocore.session import AioSession, ClientCreatorContext, get_session
 from aiobotocore.config import AioConfig
-from aiobotocore.session import ClientCreatorContext
 from pydantic import BaseModel, Field
 
 from ipapp.component import Component
@@ -626,7 +624,7 @@ class S3(Component):
         )
 
     async def prepare(self) -> None:
-        self.session = aiobotocore.get_session()
+        self.session = get_session()
 
     async def start(self) -> None:
         pass
