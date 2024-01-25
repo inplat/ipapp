@@ -26,13 +26,25 @@ class RedisLock(LockerInterface):
         self._reader_fut: Optional[asyncio.Future] = None
         self.waiters: Dict[str, List[asyncio.Future]] = {}
         self._ttl = int(self.cfg.max_lock_time * 1000)
-        self._reader_err: Optional[Exception] = None
         self.encoding = 'UTF-8'
+        self.stopping = False
 
     async def start(self) -> None:
         await self._connect()
         if self.redis_lock is None or self.redis_subscr is None:
             raise UserWarning
+
+    async def stop(self) -> None:
+        self.stopping = True
+        if self.redis_subscr:
+            if self.mpsc:
+                await self.redis_subscr.unsubscribe(
+                    self.mpsc.channel(self.cfg.channel)
+                )
+                self.mpsc.stop()
+            self.redis_subscr.close()
+        if self.redis_lock:
+            self.redis_lock.close()
 
     async def _connect(self) -> None:
         for i in range(self.cfg.connect_max_attempts):
@@ -67,45 +79,41 @@ class RedisLock(LockerInterface):
                 self.mpsc.channel(self.cfg.channel)
             )
             self._reader_fut = asyncio.ensure_future(self._reader(self.mpsc))
+            self._reader_fut.add_done_callback(self._reader_cb)
+
+    async def _reconnect_subscr(self) -> None:
+        while True:
+            try:
+                await self._connect_subscr()
+                return
+            except Exception:
+                await asyncio.sleep(0.1)
+
+    def _reader_cb(self, reader_fut: asyncio.Future) -> None:
+        # сбрасываем все Future, т.к. они скорее всего не дождутся
+        # поступления из канала, т.о. они будут
+        # бороться за захват в реальном времени
+        for wl in self.waiters.values():
+            for fut in wl:
+                if not fut.done():
+                    fut.set_result(NO_WAIT)
+
+        if err := reader_fut.exception():
+            app.log_err(err)
+        if self.stopping:
+            return
+
+        asyncio.create_task(self._reconnect_subscr())
 
     async def _reader(self, mpsp: Receiver) -> None:
-        reader_err: Optional[Exception] = None
-        try:
-            while True:
-                _, msg = await mpsp.get()
-                msg_str = msg.decode(self.encoding)
-                if msg_str in self.waiters:
-                    for fut in self.waiters[msg_str]:
-                        fut.set_result(None)
-        except Exception as err:
-            reader_err = err
-            app.log_err(err)
-
-            while True:
-                # сбрасываем все Future, т.к. они скорее всего не дождутся
-                # поступления из канала, т.о. они будут
-                # бороться за захват в реальном времени
-                for wl in self.waiters.values():
-                    for fut in wl:
-                        if not fut.done():
-                            fut.set_result(NO_WAIT)
-
-                try:
-                    await self._connect_subscr()
-                    reader_err = None
-                    return
-                except Exception:
-                    await asyncio.sleep(0.1)
-        finally:
-            # если не удалось переподключиться, то сохраняем ошибку
-            # из-за которой все случилось
-            self._reader_err = reader_err
+        async for ch, msg in mpsp.iter(encoding=self.encoding):
+            if msg in self.waiters:
+                for fut in self.waiters[msg]:
+                    fut.set_result(None)
 
     async def health(self) -> None:
         if self.redis_lock is None or self.redis_subscr is None:
             raise RuntimeError
-        if self._reader_err:
-            raise self._reader_err
         await self.redis_lock.get('none')
 
     async def acquire(self, key: str, timeout: Optional[float] = None) -> None:
