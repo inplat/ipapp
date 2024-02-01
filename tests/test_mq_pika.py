@@ -59,7 +59,7 @@ async def test_pika(rabbitmq_url):
             await self.consume('myqueue', self.message)
 
         async def message(
-            self, body: bytes, deliver: Deliver, proprties: Properties
+            self, body: bytes, deliver: Deliver, properties: Properties
         ) -> None:
             await self.ack(delivery_tag=deliver.delivery_tag)
             messages.append((body,))
@@ -123,10 +123,10 @@ async def test_dead_letter_exchange(rabbitmq_url):
             await self.consume('myqueue1', self.message)
 
         async def message(
-            self, body: bytes, deliver: Deliver, proprties: Properties
+            self, body: bytes, deliver: Deliver, properties: Properties
         ) -> None:
             await self.ack(delivery_tag=deliver.delivery_tag)
-            messages.append((body, proprties))
+            messages.append((body, properties))
 
     app = BaseApplication(BaseConfig())
     app.add(

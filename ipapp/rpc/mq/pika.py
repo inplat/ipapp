@@ -105,7 +105,7 @@ class RpcServerChannel(PikaChannel):
             await self._lock.acquire()
 
     async def _message(
-        self, body: bytes, deliver: Deliver, proprties: Properties
+        self, body: bytes, deliver: Deliver, properties: Properties
     ) -> None:
         async with self._lock:
             with self.amqp.app.logger.capture_span(AmqpSpan) as trap:
@@ -120,7 +120,7 @@ class RpcServerChannel(PikaChannel):
                 if isinstance(result.error, InternalError):
                     self.amqp.app.log_err(result.error)
 
-            if proprties.reply_to:
+            if properties.reply_to:
                 if result.error is not None:
                     resp = {
                         "code": result.error.code,
@@ -142,15 +142,15 @@ class RpcServerChannel(PikaChannel):
                 span.tag(SPAN_TAG_RPC_CODE, resp['code'])
                 msg = self._json_encode(resp).encode(self.cfg.encoding)
                 props = Properties()
-                if proprties.correlation_id:
-                    props.correlation_id = proprties.correlation_id
+                if properties.correlation_id:
+                    props.correlation_id = properties.correlation_id
                 if self.cfg.propagate_trace:
                     props.headers = span.to_headers()
 
                 with self.amqp.app.logger.capture_span(AmqpSpan) as trap:
                     await self.publish(
                         '',
-                        proprties.reply_to,
+                        properties.reply_to,
                         msg,
                         props,
                         propagate_trace=False,
@@ -184,15 +184,15 @@ class RpcClientChannel(PikaChannel):
             await self._lock.acquire()
 
     async def _message(
-        self, body: bytes, deliver: Deliver, proprties: Properties
+        self, body: bytes, deliver: Deliver, properties: Properties
     ) -> None:
         async with self._lock:
             await self.ack(delivery_tag=deliver.delivery_tag)
 
         js = json.loads(body, encoding=self.cfg.encoding)
 
-        if proprties.correlation_id in self._futs:
-            fut, parent_span = self._futs[proprties.correlation_id]
+        if properties.correlation_id in self._futs:
+            fut, parent_span = self._futs[properties.correlation_id]
 
             anns = span.annotations.get(AmqpSpan.ANN_IN_PROPS)
             if anns is not None and len(anns) > 0:
