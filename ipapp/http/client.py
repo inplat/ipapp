@@ -6,8 +6,8 @@ from typing import Any, Callable, Dict, Optional, Union
 
 import aiohttp.hdrs
 from aiohttp import ClientResponse, ClientSession, ClientTimeout
-from aiohttp.typedefs import StrOrURL
 from aiohttp.client import _CharsetResolver
+from aiohttp.typedefs import StrOrURL
 from pydantic import BaseModel, Field
 from yarl import URL
 
@@ -33,6 +33,7 @@ try:
 
     def _fallback_charset_resolver(r: ClientResponse, b: bytes) -> str:
         return detect(b)["encoding"] or "utf-8"  # type: ignore
+
 except Exception:
     _fallback_charset_resolver = None
 
@@ -103,9 +104,9 @@ class Client(Component, ClientServerAnnotator):
         if timeout:
             _session_kwargs.update({'timeout': ClientTimeout(timeout)})
         if _fallback_charset_resolver:
-            _session_kwargs.update({
-                'fallback_charset_resolver': _fallback_charset_resolver
-            })
+            _session_kwargs.update(
+                {'fallback_charset_resolver': _fallback_charset_resolver}
+            )
         self._session = ClientSession(**_session_kwargs)
 
     async def stop(self) -> None:

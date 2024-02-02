@@ -47,8 +47,7 @@ async def test_http(unused_tcp_port):
             self.server.add_get('/test_get', self.test_get)
             self.server.add_get('/test_get_win1251', self.test_get_win1251)
             self.server.add_get(
-                '/test_get_charset_resolver',
-                self.test_get_charset_resolver
+                '/test_get_charset_resolver', self.test_get_charset_resolver
             )
             self.server.add_post('/test_post', self.test_post)
             self.server.add_patch('/test_patch', self.test_patch)
@@ -66,8 +65,9 @@ async def test_http(unused_tcp_port):
             body = 'Тест кодировки'
             return web.Response(text=body, charset='windows-1251')
 
-        async def test_get_charset_resolver(self, request: web.Request) \
-                -> web.Response:
+        async def test_get_charset_resolver(
+            self, request: web.Request
+        ) -> web.Response:
             body = 'Тест кодировки'.encode('windows-1251')
             return web.Response(
                 body=body,

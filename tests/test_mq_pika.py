@@ -88,7 +88,6 @@ async def test_pika(rabbitmq_url):
 
 async def test_dead_letter_exchange(rabbitmq_url):
     messages: List[Tuple[bytes]] = []
-    queue: str
 
     class TestPubChg(PikaChannel):
         name = 'pub'

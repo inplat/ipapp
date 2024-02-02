@@ -1,4 +1,5 @@
 """Rest RPC Protocol implementation."""
+
 import asyncio
 import collections
 import json

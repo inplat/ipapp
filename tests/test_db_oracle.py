@@ -21,6 +21,7 @@
  Execute:
  > LD_LIBRARY_PATH=path_to_instantclient_libraries pytest -v tests/test_db_oracle.py
  """
+
 import asyncio
 import functools
 

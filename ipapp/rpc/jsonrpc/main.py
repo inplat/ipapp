@@ -684,9 +684,9 @@ class JsonRpcClient:
                     self._raise_jsonrpc_error(
                         code=code,
                         message=str(rep_err.error),
-                        data=rep_err.data
-                        if hasattr(rep_err, 'data')
-                        else None,
+                        data=(
+                            rep_err.data if hasattr(rep_err, 'data') else None
+                        ),
                     )
                 else:
                     self._raise_jsonrpc_error(message='Invalid reply')

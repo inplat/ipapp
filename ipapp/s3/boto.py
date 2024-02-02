@@ -5,8 +5,8 @@ from typing import IO, Any, Dict, List, Optional, Type, Union
 from urllib.parse import ParseResult, urlparse
 
 import magic
-from aiobotocore.session import AioSession, ClientCreatorContext, get_session
 from aiobotocore.config import AioConfig
+from aiobotocore.session import AioSession, ClientCreatorContext, get_session
 from pydantic import BaseModel, Field
 
 from ipapp.component import Component
