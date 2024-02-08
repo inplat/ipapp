@@ -46,6 +46,9 @@ async def test_http(unused_tcp_port):
             self.server.add_head('/', self.test_head)
             self.server.add_get('/test_get', self.test_get)
             self.server.add_get('/test_get_win1251', self.test_get_win1251)
+            self.server.add_get(
+                '/test_get_charset_resolver', self.test_get_charset_resolver
+            )
             self.server.add_post('/test_post', self.test_post)
             self.server.add_patch('/test_patch', self.test_patch)
             self.server.add_put('/test_put', self.test_put)
@@ -61,6 +64,15 @@ async def test_http(unused_tcp_port):
         async def test_get_win1251(self, request: web.Request) -> web.Response:
             body = 'Тест кодировки'
             return web.Response(text=body, charset='windows-1251')
+
+        async def test_get_charset_resolver(
+            self, request: web.Request
+        ) -> web.Response:
+            body = 'Тест кодировки'.encode('windows-1251')
+            return web.Response(
+                body=body,
+                headers={'Content-Type': 'windows-1251'},
+            )
 
         async def test_head(self, request: web.Request) -> web.Response:
             return web.Response()
@@ -104,8 +116,18 @@ async def test_http(unused_tcp_port):
             f'{url_test}/test_get_win1251'
         )
         assert trap.span.annotations['response_body'][0][0] == 'Тест кодировки'
+
     assert resp_get_win.status == 200
     assert await resp_get_win.text() == 'Тест кодировки'
+
+    with app.logger.capture_span(ClientHttpSpan) as trap:
+        resp_get_charset_resolver = await app.get('clt').send_add_get(
+            f'{url_test}/test_get_charset_resolver'
+        )
+        assert trap.span.annotations['response_body'][0][0] == 'Тест кодировки'
+
+    assert resp_get_charset_resolver.status == 200
+    assert await resp_get_charset_resolver.text() == 'Тест кодировки'
 
     with app.logger.capture_span(ClientHttpSpan) as trap:
         await app.get('clt').send_add_get(f'{url_test}/test_get?pwssd=dggg')

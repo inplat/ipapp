@@ -38,6 +38,5 @@ services:
     image: atmoz/sftp:alpine-3.7
     environment:
       - SFTP_USERS=user:password:::upload
-    restart: on-failure
     ports:
         - "2222:22"

@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, Optional, Union
 
 import aiohttp.hdrs
 from aiohttp import ClientResponse, ClientSession, ClientTimeout
+from aiohttp.client import _CharsetResolver
 from aiohttp.typedefs import StrOrURL
 from pydantic import BaseModel, Field
 from yarl import URL
@@ -25,6 +26,16 @@ access_logger = logging.getLogger('aiohttp.access')
 RE_SECRET_WORDS = re.compile(
     "(pas+wo?r?d|pass(phrase)?|pwd|token|secrete?)", re.IGNORECASE
 )
+
+_fallback_charset_resolver: Optional[_CharsetResolver]
+try:
+    from charset_normalizer import detect
+
+    def _fallback_charset_resolver(r: ClientResponse, b: bytes) -> str:
+        return detect(b)["encoding"] or "utf-8"  # type: ignore
+
+except Exception:
+    _fallback_charset_resolver = None
 
 
 class ClientConfig(BaseModel):
@@ -92,6 +103,10 @@ class Client(Component, ClientServerAnnotator):
         timeout = getattr(self.cfg, 'timeout', None)
         if timeout:
             _session_kwargs.update({'timeout': ClientTimeout(timeout)})
+        if _fallback_charset_resolver:
+            _session_kwargs.update(
+                {'fallback_charset_resolver': _fallback_charset_resolver}
+            )
         self._session = ClientSession(**_session_kwargs)
 
     async def stop(self) -> None:
@@ -173,7 +188,7 @@ class Client(Component, ClientServerAnnotator):
                         span,
                         resp_body,
                         time.time(),
-                        encoding=resp.charset,
+                        encoding=resp.get_encoding(),
                     )
 
                 return resp

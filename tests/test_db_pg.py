@@ -4,7 +4,7 @@ from ipapp import BaseApplication, BaseConfig
 from ipapp.db.pg import Postgres, PostgresConfig
 
 
-async def test_base(loop, postgres_url):
+async def test_base(postgres_url):
     app = BaseApplication(BaseConfig())
     app.add(
         'db',
@@ -71,7 +71,7 @@ async def test_base(loop, postgres_url):
     await app.stop()
 
 
-async def test_statement_cache_size(loop, postgres_url):
+async def test_statement_cache_size(postgres_url):
     app = BaseApplication(BaseConfig())
     app.add(
         'db',
@@ -91,7 +91,7 @@ async def test_statement_cache_size(loop, postgres_url):
     await app.stop()
 
 
-async def test_xact(loop, postgres_url):
+async def test_xact(postgres_url):
     app = BaseApplication(BaseConfig())
     app.add(
         'db',
@@ -117,7 +117,7 @@ async def test_xact(loop, postgres_url):
         assert r['c'] == 0
 
 
-async def test_prepare(loop, postgres_url):
+async def test_prepare(postgres_url):
     app = BaseApplication(BaseConfig())
     app.add(
         'db',

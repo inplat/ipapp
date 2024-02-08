@@ -84,7 +84,7 @@ def runapp(
     return RunAppCtx(app)
 
 
-async def test_rpc(loop, unused_tcp_port):
+async def test_rpc(unused_tcp_port):
     reg = RpcRegistry()
 
     @reg.method()
@@ -105,7 +105,7 @@ async def test_rpc(loop, unused_tcp_port):
             assert result == {'id': 1, 'jsonrpc': '2.0', 'result': 'ok'}
 
 
-async def test_rpc_error(loop, unused_tcp_port):
+async def test_rpc_error(unused_tcp_port):
     class MyError(JsonRpcError):
         jsonrpc_error_code = 100
         message = 'Err'
@@ -137,7 +137,7 @@ async def test_rpc_error(loop, unused_tcp_port):
             assert span._exception is not None
 
 
-async def test_batch(loop, unused_tcp_port):
+async def test_batch(unused_tcp_port):
     reg = RpcRegistry()
 
     @reg.method()
@@ -163,7 +163,7 @@ async def test_batch(loop, unused_tcp_port):
             ]
 
 
-async def test_batch_complicated(loop, unused_tcp_port):
+async def test_batch_complicated(unused_tcp_port):
     reg = RpcRegistry()
 
     @reg.method()
@@ -236,7 +236,7 @@ async def test_batch_complicated(loop, unused_tcp_port):
             ]
 
 
-async def test_rpc_client(loop, unused_tcp_port):
+async def test_rpc_client(unused_tcp_port):
     reg = RpcRegistry()
 
     @reg.method()
@@ -250,7 +250,7 @@ async def test_rpc_client(loop, unused_tcp_port):
         assert result == 'ok'
 
 
-async def test_rpc_client_info_field(loop, unused_tcp_port):
+async def test_rpc_client_info_field(unused_tcp_port):
     reg = RpcRegistry()
 
     @reg.method()
@@ -297,7 +297,7 @@ async def test_rpc_client_info_field(loop, unused_tcp_port):
         assert result == 15
 
 
-async def test_rpc_client_info_field_missed_argument(loop, unused_tcp_port):
+async def test_rpc_client_info_field_missed_argument(unused_tcp_port):
     reg = RpcRegistry()
 
     @reg.method()
@@ -344,7 +344,7 @@ async def test_rpc_client_info_field_missed_argument(loop, unused_tcp_port):
             await clt.sum()
 
 
-async def test_rpc_client_batch(loop, unused_tcp_port):
+async def test_rpc_client_batch(unused_tcp_port):
     reg = RpcRegistry()
 
     @reg.method()
@@ -365,7 +365,7 @@ async def test_rpc_client_batch(loop, unused_tcp_port):
         assert res2 == 'ok2'
 
 
-async def test_rpc_client_timeout(loop, unused_tcp_port):
+async def test_rpc_client_timeout(unused_tcp_port):
     reg = RpcRegistry()
 
     @reg.method()
@@ -385,7 +385,7 @@ async def test_rpc_client_timeout(loop, unused_tcp_port):
         await app.clt.exec('method2', timeout=0)  # no timeout
 
 
-async def test_rpc_client_custom_error(loop, unused_tcp_port):
+async def test_rpc_client_custom_error(unused_tcp_port):
     class MyErrr(JsonRpcError):
         jsonrpc_error_code = 100
         message = "My err {some_var} {some_else}"
@@ -409,7 +409,7 @@ async def test_rpc_client_custom_error(loop, unused_tcp_port):
             assert False
 
 
-async def test_rpc_as_list(loop, unused_tcp_port):
+async def test_rpc_as_list(unused_tcp_port):
     reg = RpcRegistry()
 
     @reg.method()
@@ -430,7 +430,7 @@ async def test_rpc_as_list(loop, unused_tcp_port):
             assert result == {'id': 1, 'jsonrpc': '2.0', 'result': 'ok'}
 
 
-async def test_rpc_response_header(loop, unused_tcp_port):
+async def test_rpc_response_header(unused_tcp_port):
     reg = RpcRegistry()
 
     @reg.method()
@@ -457,7 +457,7 @@ async def test_rpc_response_header(loop, unused_tcp_port):
             assert resp.cookies['G'].value == ''
 
 
-async def test_rpc_client_arg_as_bytes(loop, unused_tcp_port):
+async def test_rpc_client_arg_as_bytes(unused_tcp_port):
     reg = RpcRegistry()
     some_data = os.urandom(100)
 
@@ -492,7 +492,7 @@ async def test_rpc_client_arg_as_bytes(loop, unused_tcp_port):
         assert result is True
 
 
-async def test_rpc_client_model_with_bytes(loop, unused_tcp_port):
+async def test_rpc_client_model_with_bytes(unused_tcp_port):
     reg = RpcRegistry()
     some_data = os.urandom(100)
 
@@ -533,7 +533,7 @@ async def test_rpc_client_model_with_bytes(loop, unused_tcp_port):
         assert result is True
 
 
-async def test_rpc_bytes_in_response(loop, unused_tcp_port):
+async def test_rpc_bytes_in_response(unused_tcp_port):
     reg = RpcRegistry()
     some_data = os.urandom(100)
 

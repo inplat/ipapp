@@ -2,7 +2,7 @@ from typing import Union
 
 from ipapp import BaseApplication, BaseConfig
 from ipapp.mq.pika import Pika, PikaConfig
-from ipapp.rpc import RpcRegistry, method
+from ipapp.rpc import RpcRegistry
 from ipapp.rpc.jsonrpc.error import JsonRpcError
 from ipapp.rpc.jsonrpc.mq.pika import (
     RpcClientChannel,
@@ -59,9 +59,11 @@ def runapp(rabbitmq_url: str, registry: Union[RpcRegistry, object]):
     return RunAppCtx(app)
 
 
-async def test_rpc_legacy(loop, rabbitmq_url):
+async def test_rpc_legacy(rabbitmq_url):
+    reg = RpcRegistry()
+
     class Api:
-        @method()
+        @reg.method()
         def method1(self, val: str) -> str:
             return 'ok %s' % val
 
@@ -72,7 +74,7 @@ async def test_rpc_legacy(loop, rabbitmq_url):
             assert res == 'ok %s' % val
 
 
-async def test_rpc(loop, rabbitmq_url):
+async def test_rpc(rabbitmq_url):
     reg = RpcRegistry()
 
     @reg.method()
@@ -86,7 +88,7 @@ async def test_rpc(loop, rabbitmq_url):
             assert res == 'ok %s' % val
 
 
-async def test_rpc_error(loop, rabbitmq_url):
+async def test_rpc_error(rabbitmq_url):
     class MyError(JsonRpcError):
         jsonrpc_error_code = 111
 
@@ -104,7 +106,7 @@ async def test_rpc_error(loop, rabbitmq_url):
                 assert err.jsonrpc_error_code == 111
 
 
-async def test_rpc_batch(loop, rabbitmq_url):
+async def test_rpc_batch(rabbitmq_url):
     reg = RpcRegistry()
 
     @reg.method()

@@ -98,7 +98,7 @@ class RpcServerChannel(PikaChannel):
             await self._lock.acquire()
 
     async def _message(
-        self, body: bytes, deliver: Deliver, proprties: Properties
+        self, body: bytes, deliver: Deliver, properties: Properties
     ) -> None:
         async with self._lock:
             with self.amqp.app.logger.capture_span(AmqpSpan) as trap:
@@ -107,17 +107,17 @@ class RpcServerChannel(PikaChannel):
 
             result = await self._rpc.exec(body)
 
-            if proprties.reply_to:
+            if properties.reply_to:
                 props = Properties()
-                if proprties.correlation_id:
-                    props.correlation_id = proprties.correlation_id
+                if properties.correlation_id:
+                    props.correlation_id = properties.correlation_id
                 if self.cfg.propagate_trace:
                     props.headers = span.to_headers()
 
                 with self.amqp.app.logger.capture_span(AmqpSpan) as trap:
                     await self.publish(
                         '',
-                        proprties.reply_to,
+                        properties.reply_to,
                         result,
                         props,
                         propagate_trace=False,
@@ -158,13 +158,13 @@ class RpcClientChannel(PikaChannel):
             await self._lock.acquire()
 
     async def _message(
-        self, body: bytes, deliver: Deliver, proprties: Properties
+        self, body: bytes, deliver: Deliver, properties: Properties
     ) -> None:
         async with self._lock:
             await self.ack(delivery_tag=deliver.delivery_tag)
 
-        if proprties.correlation_id in self._futs:
-            fut, parent_span = self._futs[proprties.correlation_id]
+        if properties.correlation_id in self._futs:
+            fut, parent_span = self._futs[properties.correlation_id]
 
             anns = span.annotations.get(AmqpSpan.ANN_IN_PROPS)
             if anns is not None and len(anns) > 0:

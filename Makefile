@@ -58,7 +58,7 @@ clean-poetry:  ## Remove poetry.lock
 	-rm poetry.lock
 
 $(VENV_PATH):  ## Create a virtual environment
-	virtualenv -p python3.7 $@
+	virtualenv -p python3.8 $@
 	$(VENV_PATH)/bin/pip install -U pip setuptools
 
 $(VENV_PATH)/pip-status: pyproject.toml | $(VENV_PATH) ## Install (upgrade) all development requirements
@@ -83,6 +83,10 @@ bandit: venv  ## Find common security issues in code
 mypy: venv  ## Static type check
 	$(VENV_BIN)/mypy ipapp examples --ignore-missing-imports --sqlite-cache
 
+.PHONY: safety
+safety: venv  ## Static type check
+	$(VENV_BIN)/safety check
+
 .PHONY: black
 black: venv  # checks imports order
 	$(VENV_BIN)/black examples ipapp tests --check
@@ -98,9 +102,9 @@ format: venv  ## Autoformat code
 
 .PHONY: test
 test: venv  ## Run tests
-	$(VENV_BIN)/docker-compose -f tests/docker-compose.yml up -d
+	docker-compose -f tests/docker-compose.yml up -d
 	$(VENV_BIN)/pytest -v -s tests
-	$(VENV_BIN)/docker-compose -f tests/docker-compose.yml kill
+	docker-compose -f tests/docker-compose.yml kill
 
 .PHONY: build
 build: venv  ## Run tests

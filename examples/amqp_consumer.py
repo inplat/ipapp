@@ -40,7 +40,7 @@ class ConsumerChannel(PikaChannel):
         await self.consume(self.cfg.queue, self._message)
 
     async def _message(
-        self, body: bytes, deliver: Deliver, proprties: Properties
+        self, body: bytes, deliver: Deliver, properties: Properties
     ) -> None:
         await self.ack(deliver.delivery_tag)
         print('MESSAGE', body)

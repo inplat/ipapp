@@ -48,7 +48,7 @@ class ZipkinServer:
 
     async def __aenter__(self):
         self.server = TestServer(self.app, port=None)
-        await self.server.start_server(loop=self.app.loop)
+        await self.server.start_server()
         self.addr = 'http://127.0.0.1:%d/api/v2/spans' % self.server.port
         return self
 
@@ -66,9 +66,7 @@ class ZipkinServer:
             self.err = err
 
 
-async def test_success(
-    loop,
-):
+async def test_success():
     async with ZipkinServer() as zs:
         cfg = ZipkinConfig(name='123', addr=zs.addr)
         adapter = ZipkinAdapter(cfg)
@@ -132,9 +130,7 @@ async def test_success(
     ]
 
 
-async def test_errors(
-    loop,
-):
+async def test_errors():
     app = BaseApplication(BaseConfig())
     lgr = app.logger
     cfg = ZipkinConfig(name='123')
@@ -155,7 +151,7 @@ async def test_errors(
     ],
 )
 async def test_zipkin_trace_id_size_settings(
-    loop, use_64bit_trace_id: bool, trace_id_string_length: int
+    use_64bit_trace_id: bool, trace_id_string_length: int
 ):
     app = BaseApplication(BaseConfig())
     lgr = app.logger
@@ -182,7 +178,7 @@ _map_spans = {
 }
 
 
-async def test_db_cursor_span(loop, postgres_url: str):
+async def test_db_cursor_span(postgres_url: str):
     app = BaseApplication(BaseConfig())
 
     db_config = PostgresConfig(
@@ -242,7 +238,7 @@ async def test_db_cursor_span(loop, postgres_url: str):
     )
 
 
-async def test_db_cursor_span_breaked(loop, postgres_url: str):
+async def test_db_cursor_span_breaked(postgres_url: str):
     app = BaseApplication(BaseConfig())
 
     db_config = PostgresConfig(
@@ -308,7 +304,7 @@ async def test_db_cursor_span_breaked(loop, postgres_url: str):
     )
 
 
-async def test_db_cursor_prepared_breaked(loop, postgres_url: str):
+async def test_db_cursor_prepared_breaked(postgres_url: str):
     app = BaseApplication(BaseConfig())
 
     db_config = PostgresConfig(

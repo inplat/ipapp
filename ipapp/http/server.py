@@ -22,7 +22,7 @@ from aiohttp.web_log import AccessLogger
 from aiohttp.web_runner import AppRunner, BaseSite, TCPSite
 from aiohttp.web_urldispatcher import AbstractResource, AbstractRoute
 from aiojobs import Scheduler
-from aiojobs.aiohttp import spawn
+from aiojobs.aiohttp import AIOJOBS_SCHEDULER, spawn
 from pydantic import BaseModel, Field
 
 import ipapp.app  # noqa
@@ -176,13 +176,6 @@ class ServerHandler(object):
     async def stop(self) -> None:
         pass
 
-    async def error_handler(
-        self, request: web.Request, err: Exception
-    ) -> web.Response:
-        if isinstance(err, web.Response):
-            return err
-        return web.HTTPInternalServerError()
-
 
 class ServerHttpSpan(HttpSpan):
     P8S_NAME = 'http_in'
@@ -245,6 +238,7 @@ class Server(Component, ClientServerAnnotator):
             access_log_class=AccessLogger,
             access_log_format=AccessLogger.LOG_FORMAT,
             access_log=access_logger,
+            shutdown_timeout=self.shutdown_timeout,
         )
         self.web_app.middlewares.append(self._middleware)
 
@@ -296,44 +290,48 @@ class Server(Component, ClientServerAnnotator):
                     route = request.match_info.route.resource.canonical
                     span.tag(HttpSpan.TAG_HTTP_ROUTE, route)
 
-                ts2: float
+                ts2: Optional[float] = None
                 try:
                     resp = await handler(request)
                     ts2 = time.time()
+                except web.HTTPException as err:
+                    resp = err
+                    raise
                 except Exception as err:
                     self.app.log_err(err)
                     span.error(err)
-                    try:
-                        resp = await self.handler.error_handler(request, err)
+                    resp = web.HTTPInternalServerError()
+                    raise resp
+                finally:
+                    if not isinstance(resp, (web.Response, web.FileResponse)):
+                        raise UserWarning('Invalid response: %s' % resp)
+
+                    if 'Server' not in resp.headers:
+                        resp.headers['Server'] = SERVER
+
+                    span.tag(HttpSpan.TAG_HTTP_STATUS_CODE, str(resp.status))
+
+                    if not ts2:
                         ts2 = time.time()
-                    except Exception as err2:
-                        self.app.log_err(err2)
-                        span.error(err2)
-                        if isinstance(err2, web.Response):
-                            resp = err2
-                        ts2 = time.time()
-                if not isinstance(resp, (web.Response, web.FileResponse)):
-                    raise UserWarning('Invalid response: %s' % resp)
 
-                if 'Server' not in resp.headers:
-                    resp.headers['Server'] = SERVER
-
-                span.tag(HttpSpan.TAG_HTTP_STATUS_CODE, str(resp.status))
-
-                if self.cfg.log_resp_hdrs:
-                    self._span_annotate_resp_hdrs(span, resp.headers, ts=ts2)
-                if self.cfg.log_resp_body and isinstance(resp, web.Response):
-                    if resp.body is not None:
-                        if isinstance(resp.body, Payload):
-                            body = (
-                                '--- payload %s ---'
-                                '' % resp.body.__class__.__name__
-                            ).encode()
-                        else:
-                            body = resp.body
-                        self._span_annotate_resp_body(
-                            span, body, ts=ts2, encoding=resp.charset
+                    if self.cfg.log_resp_hdrs:
+                        self._span_annotate_resp_hdrs(
+                            span, resp.headers, ts=ts2
                         )
+                    if self.cfg.log_resp_body and isinstance(
+                        resp, web.Response
+                    ):
+                        if resp.body is not None:
+                            if isinstance(resp.body, Payload):
+                                body = (
+                                    '--- payload %s ---'
+                                    '' % resp.body.__class__.__name__
+                                ).encode()
+                            else:
+                                body = resp.body
+                            self._span_annotate_resp_body(
+                                span, body, ts=ts2, encoding=resp.charset
+                            )
 
                 return resp
         finally:
@@ -460,7 +458,7 @@ class Server(Component, ClientServerAnnotator):
         **kwargs: Any,
     ) -> None:
         async def cleanup_context(app: web.Application) -> AsyncIterator[None]:
-            app["AIOJOBS_SCHEDULER"] = scheduler = Scheduler(**kwargs)
+            app[AIOJOBS_SCHEDULER] = scheduler = Scheduler(**kwargs)
             yield
             if graceful_timeout and scheduler._jobs:
                 await asyncio.gather(

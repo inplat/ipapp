@@ -22,7 +22,7 @@ class SentryServer:
 
     async def __aenter__(self):
         self.server = TestServer(self.app, port=None)
-        await self.server.start_server(loop=self.app.loop)
+        await self.server.start_server()
         self.addr = 'http://%s@127.0.0.1:%d/1' % (self.key, self.server.port)
         return self
 
@@ -36,10 +36,10 @@ class SentryServer:
         if request.method == 'POST' and request.path == '/api/1/store/':
             self.errors.append(await request.json())
 
-        return web.HTTPOk()
+        return web.Response()
 
 
-async def test_success(loop):
+async def test_success():
     async with SentryServer() as ss:
         cfg = SentryConfig(dsn=ss.addr)
         adapter = SentryAdapter(cfg)

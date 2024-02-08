@@ -4,6 +4,25 @@
 Изменения
 #########
 
+.. 3.0.0:
+
+3.0.0:
+======
+
+* Rfct: lock by redis
+* Fix: rpc method deprecated warning
+* Fix: parametr loop is deprecated for aiohttp application
+* Fix: timeout deprecation warning
+* Fix: loop fixture is deprecated
+* Cln: remove unused exclude warnings for tests
+* Fix: redis loop parameter is deprecated
+* Fix: aioboto session
+* Fmt: fix length string
+* Fix: aiojobs
+* Fix: aiohttp return http-error deprecation warnings
+* Chg: upgrade packages
+
+
 .. 2.0.0:
 
 2.0.0:

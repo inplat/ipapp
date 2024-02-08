@@ -6,7 +6,7 @@ from ipapp import BaseApplication, BaseConfig
 from ipapp.sftp.client import SftpClient, SftpClientConfig
 
 
-async def test_sftp(loop) -> None:
+async def test_sftp() -> None:
     app = BaseApplication(BaseConfig())
     app.add(
         "sftp",

@@ -4,11 +4,9 @@ from types import TracebackType
 from typing import IO, Any, Dict, List, Optional, Type, Union
 from urllib.parse import ParseResult, urlparse
 
-import aiobotocore
 import magic
-from aiobotocore import AioSession
 from aiobotocore.config import AioConfig
-from aiobotocore.session import ClientCreatorContext
+from aiobotocore.session import AioSession, ClientCreatorContext, get_session
 from pydantic import BaseModel, Field
 
 from ipapp.component import Component
@@ -94,7 +92,8 @@ class S3Config(BaseModel):
     )
     retry_max_attempts: int = Field(
         3,
-        description='Максимальное количество попыток повторно выполнить запрос',
+        description='Максимальное количество попыток '
+        'повторно выполнить запрос',
     )
     retry_mode: str = Field(
         'standard',
@@ -162,7 +161,8 @@ class Client:
         dst_bucket_name: Optional[str] = None,
         **kwargs: Any,
     ) -> CopyObject:
-        """https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.copy_object"""
+        """https://boto3.amazonaws.com/v1/documentation/api/latest/reference/
+        services/s3.html#S3.Client.copy_object"""
         self.component.app.log_debug(
             "S3 copy object '%s':'%s' to '%s':'%s'",
             src_bucket_name,
@@ -201,7 +201,8 @@ class Client:
     async def delete_object(
         self, file_path: str, bucket_name: Optional[str] = None, **kwargs: Any
     ) -> DeleteObject:
-        """https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.delete_object"""
+        """https://boto3.amazonaws.com/v1/documentation/api/latest/
+        reference/services/s3.html#S3.Client.delete_object"""
 
         bucket_name = bucket_name or self.bucket_name
 
@@ -260,7 +261,8 @@ class Client:
     async def list_objects(
         self, path: str, bucket_name: Optional[str] = None, **kwargs: Any
     ) -> ListObjects:
-        """https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.list_objects_v2"""
+        """https://boto3.amazonaws.com/v1/documentation/api/latest/reference/
+        services/s3.html#S3.Client.list_objects_v2"""
         bucket_name = bucket_name or self.bucket_name
 
         self.component.app.log_debug(
@@ -622,7 +624,7 @@ class S3(Component):
         )
 
     async def prepare(self) -> None:
-        self.session = aiobotocore.get_session()
+        self.session = get_session()
 
     async def start(self) -> None:
         pass

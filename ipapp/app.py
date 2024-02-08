@@ -163,7 +163,6 @@ class BaseApplication(object):
         for comp_name in self._components:
             await self._stop_comp(comp_name)
         await self._stop_logger()
-        await self.loop.shutdown_asyncgens()
 
     def shutdown(self) -> None:
         self._shutdown_fut.set_result(None)
