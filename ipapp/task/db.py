@@ -326,13 +326,13 @@ class TaskManager(Component):
         await self._lock.acquire()
         if self._scan_fut is not None:
             if not self._scan_fut.done():
-                if (
-                    self._scan_sleep_fut is not None
-                    and not self._scan_sleep_fut.cancelled()
-                ):
-                    self._scan_sleep_fut.cancel()
                 async with self._lock:
                     self._scan_fut.cancel()
+        if (
+            self._scan_sleep_fut is not None
+            and not self._scan_sleep_fut.cancelled()
+        ):
+            self._scan_sleep_fut.cancel()
 
     async def health(self) -> None:
         if self._db is not None:
