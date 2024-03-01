@@ -20,11 +20,14 @@ class LockConfig(BaseModel):
     )
     key_prefix: str = 'autopay__'
     channel: str = 'autopay_locks'
+    single_connection_client: bool = Field(
+        False, description='Использовать одни коннект к редису вместо пула'
+    )
     default_timeout: float = 90.0
     max_lock_time: float = Field(
         600.0,
         description='Максимальное время жизни блокировки '
-                    'в секундах (только для Redis)',
+        'в секундах (только для Redis)',
     )
     connect_max_attempts: int = Field(
         60,

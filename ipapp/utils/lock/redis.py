@@ -2,8 +2,7 @@ import asyncio
 import time
 from typing import Dict, List, Optional
 
-from aioredis import Redis, create_redis
-from aioredis.pubsub import Receiver
+import redis.asyncio as redis  # type: ignore
 
 from ipapp.ctx import app
 from ipapp.error import PrepareError
@@ -14,104 +13,73 @@ NO_WAIT = object()
 
 
 class RedisLock(LockerInterface):
+
     def __init__(self, cfg: LockConfig) -> None:
         super().__init__(cfg)
         self.cfg = cfg
-        self.redis_lock: Optional[Redis] = None
-        self.redis_subscr: Optional[Redis] = None
-        self.redis_connect_lock: asyncio.Lock = asyncio.Lock()
-        self.redis_connect_subscr: asyncio.Lock = asyncio.Lock()
+        self.redis_lock = redis.from_url(
+            self.cfg.url,
+            encoding='utf-8',
+            single_connection_client=self.cfg.single_connection_client,
+        )
+        self.redis_subscr = redis.from_url(
+            self.cfg.url,
+            encoding='utf-8',
+            single_connection_client=self.cfg.single_connection_client,
+        )
 
-        self.mpsc: Optional[Receiver] = None
-        self._reader_fut: Optional[asyncio.Future] = None
+        self.pubsub = self.redis_subscr.pubsub(ignore_subscribe_messages=True)
         self.waiters: Dict[str, List[asyncio.Future]] = {}
         self._ttl = int(self.cfg.max_lock_time * 1000)
-        self.encoding = 'UTF-8'
-        self.stopping = False
 
     async def start(self) -> None:
-        await self._connect()
-        if self.redis_lock is None or self.redis_subscr is None:
-            raise UserWarning
-
-    async def stop(self) -> None:
-        self.stopping = True
-        if self.redis_subscr:
-            if self.mpsc:
-                await self.redis_subscr.unsubscribe(
-                    self.mpsc.channel(self.cfg.channel)
-                )
-                self.mpsc.stop()
-            self.redis_subscr.close()
-        if self.redis_lock:
-            self.redis_lock.close()
-
-    async def _connect(self) -> None:
         for i in range(self.cfg.connect_max_attempts):
             app.log_info("Connecting to %s", masked_url(self.cfg.url))
             try:
-                await self._connect_lock()
-                await self._connect_subscr()
+                await self.redis_lock.ping()
+                await self.redis_subscr.ping()
                 app.log_info("Connected to %s", masked_url(self.cfg.url))
-                return
+                break
             except Exception as e:
                 app.log_err(str(e))
                 await asyncio.sleep(self.cfg.connect_retry_delay)
-        raise PrepareError(
-            "Could not connect to %s" % masked_url(self.cfg.url)
-        )
-
-    async def _connect_lock(self) -> None:
-        async with self.redis_connect_lock:
-            self.redis_lock = await create_redis(
-                self.cfg.url,
-                encoding=self.encoding,
+        else:
+            raise PrepareError(
+                "Could not connect to %s" % masked_url(self.cfg.url)
             )
 
-    async def _connect_subscr(self) -> None:
-        async with self.redis_connect_subscr:
-            self.redis_subscr = await create_redis(
-                self.cfg.url,
-                encoding=self.encoding,
-            )
-            self.mpsc = Receiver()
-            await self.redis_subscr.subscribe(
-                self.mpsc.channel(self.cfg.channel)
-            )
-            self._reader_fut = asyncio.ensure_future(self._reader(self.mpsc))
-            self._reader_fut.add_done_callback(self._reader_cb)
+        await self.pubsub.subscribe(self.cfg.channel)
+        asyncio.create_task(self._reader(self.pubsub))
 
-    async def _reconnect_subscr(self) -> None:
-        while True:
-            try:
-                await self._connect_subscr()
-                return
-            except Exception:
-                await asyncio.sleep(0.1)
+    async def stop(self) -> None:
+        if self.redis_subscr:
+            if self.pubsub:
+                await self.pubsub.unsubscribe(self.cfg.channel)
+                await self.pubsub.aclose()
+            await self.redis_subscr.aclose()
+        if self.redis_lock:
+            await self.redis_lock.aclose()
 
-    def _reader_cb(self, reader_fut: asyncio.Future) -> None:
-        # сбрасываем все Future, т.к. они скорее всего не дождутся
-        # поступления из канала, т.о. они будут
-        # бороться за захват в реальном времени
-        for wl in self.waiters.values():
-            for fut in wl:
-                if not fut.done():
-                    fut.set_result(NO_WAIT)
-
-        if err := reader_fut.exception():
+    async def _reader(self, channel: redis.client.PubSub) -> None:
+        try:
+            async for message in channel.listen():
+                if message is not None:
+                    key = message['data'].decode()
+                    if key in self.waiters:
+                        for fut in self.waiters[key]:
+                            fut.set_result(None)
+        except Exception as err:
             app.log_err(err)
-        if self.stopping:
-            return
-
-        asyncio.create_task(self._reconnect_subscr())
-
-    async def _reader(self, mpsp: Receiver) -> None:
-        async for ch, msg in mpsp.iter(encoding=self.encoding):
-            if msg in self.waiters:
-                for fut in self.waiters[msg]:
-                    fut.set_result(None)
+            # сбрасываем все Future, т.к. они скорее всего не дождутся
+            # поступления из канала, т.о. они будут
+            # бороться за захват в реальном времени
+            for wl in self.waiters.values():
+                for fut in wl:
+                    if not fut.done():
+                        fut.set_result(NO_WAIT)
 
     async def health(self) -> None:
+        self.redis_lock.hello()
         if self.redis_lock is None or self.redis_subscr is None:
             raise RuntimeError
         await self.redis_lock.get('none')
@@ -126,17 +94,13 @@ class RedisLock(LockerInterface):
 
         no_wait = False
         while True:
-
-            if self.redis_lock.closed:
-                await self._connect_lock()
-
             fut: asyncio.Future = asyncio.Future()
             if key not in self.waiters:
                 self.waiters[key] = []
             self.waiters[key].append(fut)
             try:
 
-                res = await self.redis_lock.execute(
+                res = await self.redis_lock.execute_command(
                     'SET', key, 1, 'PX', self._ttl, 'NX'
                 )
                 if res is None:  # no acquired
@@ -160,9 +124,5 @@ class RedisLock(LockerInterface):
                     self.waiters.pop(key)
 
     async def release(self, key: str) -> None:
-        if (
-            self.redis_lock is None or self.redis_subscr is None
-        ):  # pragma: no-cover
-            raise UserWarning
         await self.redis_lock.delete(key)
         await self.redis_lock.publish(self.cfg.channel, key)
