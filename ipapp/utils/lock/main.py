@@ -23,7 +23,8 @@ class LockConfig(BaseModel):
     default_timeout: float = 90.0
     max_lock_time: float = Field(
         600.0,
-        description='Максимальное время жизни блокировки в секундах (только для Redis)',
+        description='Максимальное время жизни блокировки '
+                    'в секундах (только для Redis)',
     )
     connect_max_attempts: int = Field(
         60,
