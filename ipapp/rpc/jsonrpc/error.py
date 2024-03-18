@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 from tinyrpc.protocols.jsonrpc import FixedErrorMessageMixin
 
@@ -18,7 +18,7 @@ class JsonRpcError(FixedErrorMessageMixin, RpcError):
         data: Any = None,
         **kwargs: Any,
     ) -> None:
-        self.kwargs: dict = defaultdict(lambda: "")
+        self.kwargs: Dict = defaultdict(lambda: "")
         self.kwargs.update(kwargs)
 
         if jsonrpc_error_code is not None:

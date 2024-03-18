@@ -5,7 +5,9 @@ from pydantic import BaseModel, Extra, Field
 
 
 class S3Model(BaseModel):
-    response_metadata: Dict[str, Any] = Field(None, alias='ResponseMetadata')
+    response_metadata: Optional[Dict[str, Any]] = Field(
+        None, alias='ResponseMetadata'
+    )
 
 
 class Owner(S3Model):
@@ -19,7 +21,7 @@ class Contents(S3Model):
     etag: Optional[str] = Field(None, alias='ETag')
     size: Optional[int] = Field(None, alias='Size')
     storage_class: Optional[str] = Field(None, alias='StorageClass')
-    owner: Owner = Field(None, alias='Owner')
+    owner: Optional[Owner] = Field(None, alias='Owner')
 
 
 class ListObjects(S3Model):
@@ -42,7 +44,7 @@ class CopyObjectResult(S3Model):
 
 
 class CopyObject(S3Model):
-    copy_object_result: CopyObjectResult = Field(
+    copy_object_result: Optional[CopyObjectResult] = Field(
         None, alias='CopyObjectResult'
     )
     expiration: Optional[str] = Field(None, alias='Expiration')
@@ -104,7 +106,7 @@ class GetObject(S3Model):
     server_side_encryption: Optional[str] = Field(
         None, alias='ServerSideEncryption'
     )
-    metadata: Dict[str, str] = Field(None, alias='Metadata')
+    metadata: Optional[Dict[str, str]] = Field(None, alias='Metadata')
     sse_customer_algorithm: Optional[str] = Field(
         None, alias='SSECustomerAlgorithm'
     )

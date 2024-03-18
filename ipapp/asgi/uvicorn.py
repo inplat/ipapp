@@ -154,7 +154,7 @@ class AppWrapper:
                 logging.exception(err)
 
         # parse route params
-        request_path = scope.get('path')
+        request_path = scope.get('path', '')
         path_regex, path_format, param_convertors = compile_path(
             starlette_route.path
         )

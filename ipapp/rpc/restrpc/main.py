@@ -2,6 +2,7 @@
 
 import asyncio
 import collections
+import collections.abc
 import json
 import traceback
 from typing import (
@@ -112,7 +113,7 @@ class RestRpcRequest(RPCRequest):
     def __init__(self) -> None:
         super().__init__()
         self.one_way = False
-        self.method
+        self.method: str
         self.kwargs: Any = {}
 
     def error_respond(
@@ -157,7 +158,8 @@ class RestRpcProtocol(RPCProtocol):
     def create_request(
         self,
         method: str,
-        kwargs: Dict[str, Any] = None,
+        args: Optional[List[Any]] = None,
+        kwargs: Optional[Dict[str, Any]] = None,
         one_way: bool = False,
     ) -> 'RestRpcRequest':
         request = self.request_factory()
@@ -476,12 +478,12 @@ class RestRpcCall:
     def _encode(self) -> bytes:
         req = self.client._proto.create_request(
             self.method,
-            RestRpcExecutor.cast2dump(
+            kwargs=RestRpcExecutor.cast2dump(
                 self.params
                 if isinstance(self.params, collections.abc.Mapping)
                 else None
             ),
-            self.one_way,
+            one_way=self.one_way,
         )
         return req.serialize()
 

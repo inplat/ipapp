@@ -320,12 +320,12 @@ class _Method:
         self._analyse_arguments(func)
         self._validators: Dict[str, dict] = {}
         if hasattr(func, '__validators__'):
-            self._validators = func.__validators__  # type: ignore
+            self._validators = func.__validators__
 
     def _analyse_arguments(self, func: Callable) -> None:
         is_method = isinstance(func, MethodType)
         while hasattr(func, '__wrapped__'):
-            func = func.__wrapped__  # type: ignore
+            func = func.__wrapped__
         self.required_params: List[str] = []
         self.optional_params: Dict[str, Any] = {}
         self.params_order = []

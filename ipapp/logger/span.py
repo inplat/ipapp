@@ -276,9 +276,9 @@ class Span:
         )
         if has_tb:
             trace = "".join(traceback.format_tb(err.__traceback__))
-        elif hasattr(err, 'trace') and isinstance(err.trace, str):  # type: ignore
+        elif hasattr(err, 'trace') and isinstance(err.trace, str):
             # RPC err
-            trace = err.trace  # type: ignore
+            trace = err.trace
         else:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             if exc_type is not None:

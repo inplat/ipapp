@@ -78,8 +78,8 @@ class BaseApplication(object):
             )
             if not has_tb:
                 # for RPC
-                if hasattr(err, 'trace') and isinstance(err.trace, str):  # type: ignore
-                    logging.error(err.trace, *args, **kwargs)  # type: ignore
+                if hasattr(err, 'trace') and isinstance(err.trace, str):
+                    logging.error(err.trace, *args, **kwargs)
                     return
 
             logging.exception(err, *args, **kwargs)

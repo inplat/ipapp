@@ -40,16 +40,17 @@ except Exception:
 
 class ClientConfig(BaseModel):
     log_req_hdrs: bool = Field(
-        True, description="Логирование заголовков запросов HTTP клиента"
+        default=True,
+        description="Логирование заголовков запросов HTTP клиента",
     )
     log_req_body: bool = Field(
-        True, description="Логирование тела запросов HTTP клиента"
+        default=True, description="Логирование тела запросов HTTP клиента"
     )
     log_resp_hdrs: bool = Field(
-        True, description="Логирование заголовков ответов HTTP клиента"
+        default=True, description="Логирование заголовков ответов HTTP клиента"
     )
     log_resp_body: bool = Field(
-        True, description="Логирование тела ответов HTTP клиента"
+        default=True, description="Логирование тела ответов HTTP клиента"
     )
 
 
@@ -119,7 +120,7 @@ class Client(Component, ClientServerAnnotator):
         *,
         body: Optional[Union[dict, bytes]] = None,
         log_body: Optional[Union[dict, bytes]] = None,
-        headers: Dict[str, str] = None,
+        headers: Optional[Dict[str, str]] = None,
         timeout: Optional[ClientTimeout] = None,
         ssl: Optional[SSLContext] = None,
         request_kwargs: Optional[Dict[str, Any]] = None,

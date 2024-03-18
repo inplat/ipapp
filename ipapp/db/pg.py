@@ -261,7 +261,7 @@ class Postgres(Component):
             if conn._xact_lock is not None
         ]
         if len(xact_locks) > 0:
-            await asyncio.wait(
+            await asyncio.wait(  # type: ignore
                 xact_locks,
                 timeout=max(stop_timeout - stop_start + stop_start, 0.001),
             )
@@ -272,7 +272,7 @@ class Postgres(Component):
             if conn._lock is not None
         ]
         if len(conn_locks):
-            await asyncio.wait(
+            await asyncio.wait(  # type: ignore
                 conn_locks,
                 timeout=max(stop_timeout - stop_start + stop_start, 0.001),
             )
@@ -434,10 +434,10 @@ class TransactionContextManager:
     def __init__(
         self,
         conn: 'Connection',
-        isolation_level: str = None,
+        isolation_level: Optional[str] = None,
         readonly: bool = False,
         deferrable: bool = False,
-        xact_lock: asyncio.Lock = None,
+        xact_lock: Optional[asyncio.Lock] = None,
     ) -> None:
         self._conn = conn
         if isolation_level is None:
@@ -545,7 +545,7 @@ class PreparedStatement:
         self.stmt_name = stmt_name
 
     async def query_one(
-        self, *args: Any, timeout: float = None
+        self, *args: Any, timeout: Optional[float] = None
     ) -> asyncpg.Record:
         with wrap2span(
             name=PgSpan.NAME_QUERY_ONE_PREPARED,
@@ -596,7 +596,7 @@ class PreparedStatement:
                 return res
 
     async def query_all(
-        self, *args: Any, timeout: float = None
+        self, *args: Any, timeout: Optional[float] = None
     ) -> List[asyncpg.Record]:
         with wrap2span(
             name=PgSpan.NAME_QUERY_ALL_PREPARED,
@@ -733,7 +733,7 @@ class Connection:
 
     def xact(
         self,
-        isolation_level: str = None,
+        isolation_level: Optional[str] = None,
         readonly: bool = False,
         deferrable: bool = False,
     ) -> 'TransactionContextManager':
@@ -745,7 +745,7 @@ class Connection:
         self,
         query: str,
         *args: Any,
-        timeout: float = None,
+        timeout: Optional[float] = None,
         query_name: Optional[str] = None,
     ) -> str:
         with wrap2span(
@@ -795,7 +795,7 @@ class Connection:
         self,
         query: str,
         args: Any,
-        timeout: float = None,
+        timeout: Optional[float] = None,
         query_name: Optional[str] = None,
     ) -> str:
         with wrap2span(
@@ -848,7 +848,7 @@ class Connection:
         self,
         query: str,
         *args: Any,
-        timeout: float = None,
+        timeout: Optional[float] = None,
         query_name: Optional[str] = None,
         model_cls: Optional[Type[BaseModel]] = None,
     ) -> Optional[Union[asyncpg.Record, BaseModel]]:
@@ -906,7 +906,7 @@ class Connection:
         self,
         query: str,
         *args: Any,
-        timeout: float = None,
+        timeout: Optional[float] = None,
         query_name: Optional[str] = None,
         model_cls: Optional[Type[BaseModel]] = None,
     ) -> List[Union[asyncpg.Record, BaseModel]]:
@@ -963,7 +963,7 @@ class Connection:
     async def prepare(
         self,
         query: str,
-        timeout: float = None,
+        timeout: Optional[float] = None,
         query_name: Optional[str] = None,
     ) -> PreparedStatement:
         with wrap2span(

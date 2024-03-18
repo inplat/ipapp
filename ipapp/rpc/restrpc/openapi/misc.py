@@ -61,7 +61,7 @@ def snake_to_camel(value: str) -> str:
     return value.title().replace("_", "")
 
 
-def get_errors_from_func(func: Callable) -> List[RestRpcError]:
+def get_errors_from_func(func: Callable) -> List[Type[RestRpcError]]:
     errors = getattr(func, "__rpc_errors__", [])
     errors.extend(
         [
@@ -195,7 +195,7 @@ def make_rpc_path(
     *,
     method: str,
     parameters: Mapping[str, inspect.Parameter],
-    errors: List[RestRpcError],
+    errors: List[Type[RestRpcError]],
     summary: str = "",
     description: str = "",
     deprecated: bool = False,

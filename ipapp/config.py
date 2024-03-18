@@ -12,7 +12,6 @@ from typing import (
     Any,
     Callable,
     Dict,
-    Generic,
     List,
     Mapping,
     Optional,
@@ -37,7 +36,7 @@ T = TypeVar("T", bound="BaseConfig")
 IO_TYPES = (RawIOBase, TextIOBase, BufferedIOBase)
 
 
-class BaseConfig(BaseModel, Generic[T]):
+class BaseConfig(BaseModel):
     @classmethod
     def _filter_dict(
         cls: Type[T],
@@ -80,7 +79,7 @@ class BaseConfig(BaseModel, Generic[T]):
                 field_values = cls._filter_dict(env_vars, field_prefix)
                 d[field.alias] = field.type_(**field_values)
 
-        return cls(**d)
+        return cls(**d)  # type: ignore
 
     def to_env(self) -> Dict[str, str]:
         return self._dict_to_env(self.to_dict(), [])
@@ -151,7 +150,7 @@ class BaseConfig(BaseModel, Generic[T]):
         return cls(**loads(string, **kwargs))
 
     def to_json(self, stream: Union[str, IO], **kwargs: Any) -> None:
-        data = self.json(**{"indent": 4, **kwargs})  # type: ignore
+        data = self.json(**{"indent": 4, **kwargs})
 
         if isinstance(stream, str):
             with open(stream, "w") as f:
@@ -189,7 +188,7 @@ class BaseConfig(BaseModel, Generic[T]):
     ) -> None:
         dump = dump or self.__config__.yaml_dump
 
-        json_str = self.json(**{"indent": 4, **kwargs})  # type: ignore
+        json_str = self.json(**{"indent": 4, **kwargs})
         json_obj = self.__config__.json_loads(json_str)
         yaml_str = dump(json_obj, **{"Dumper": SafeDumper, **kwargs})
 

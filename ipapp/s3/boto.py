@@ -370,7 +370,7 @@ class Client:
         data: IO[Any],
         filename: Optional[str] = None,
         folder: Optional[str] = None,
-        metadata: Dict[str, Any] = None,
+        metadata: Optional[Dict[str, Any]] = None,
         bucket_name: Optional[str] = None,
         mime_type: Optional[str] = None,
     ) -> str:
@@ -539,7 +539,7 @@ class S3(Component):
         data: IO[Any],
         filename: Optional[str] = None,
         folder: Optional[str] = None,
-        metadata: Dict[str, Any] = None,
+        metadata: Optional[Dict[str, Any]] = None,
         bucket_name: Optional[str] = None,
         mime_type: Optional[str] = None,
     ) -> str:

@@ -396,7 +396,7 @@ class PikaChannel(ABC):
         durable: bool = False,
         exclusive: bool = False,
         auto_delete: bool = False,
-        arguments: dict = None,
+        arguments: Optional[dict] = None,
     ) -> pika.frame.Method:
         with wrap2span(
             name=AmqpSpan.NAME_DECLARE_QUEUE,

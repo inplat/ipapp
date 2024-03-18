@@ -1,5 +1,6 @@
 import asyncio
 import collections
+import collections.abc
 import json
 import traceback
 from typing import (
@@ -486,17 +487,17 @@ class JsonRpcCall:
     def _encode(self) -> bytes:
         req = self.client._proto.create_request(
             self.method,
-            JsonRpcExecutor.cast2dump(
+            args=JsonRpcExecutor.cast2dump(
                 self.params
                 if isinstance(self.params, collections.abc.Sequence)
                 else None
             ),
-            JsonRpcExecutor.cast2dump(
+            kwargs=JsonRpcExecutor.cast2dump(
                 self.params
                 if isinstance(self.params, collections.abc.Mapping)
                 else None
             ),
-            self.one_way,
+            one_way=self.one_way,
         )
         self.unique_id = req.unique_id
         return req.serialize()
