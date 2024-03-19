@@ -1,4 +1,4 @@
-__version__ = '3.0.0'
+__version__ = '3.1.0'
 __build_stamp__ = 0
 
 from . import app, error

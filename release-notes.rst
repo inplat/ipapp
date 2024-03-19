@@ -4,7 +4,22 @@
 Изменения
 #########
 
-.. 3.0.0:
+3.1.0:
+======
+
+* Fix: linters
+* Chg: change aioredis to redis-py package
+* Doc: fix length of string
+
+3.0.1:
+======
+
+* Fix: cancel pending sleep future when task manager is stopping.
+* Chg: upgrade black and make format
+* Bump new version
+* Cln: remove autrestart sftp container
+* Cln: remove redundan call of shutdown_asyncgens inside on corutine.
+* Rfct: rename typo in word properties
 
 3.0.0:
 ======
