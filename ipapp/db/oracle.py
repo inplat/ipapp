@@ -293,7 +293,7 @@ class Connection:
         self,
         query: str,
         *args: Any,
-        timeout: float = None,
+        timeout: Optional[float] = None,
         query_name: Optional[str] = None,
     ) -> Optional[int]:
         async with self.cursor() as curs:
@@ -306,7 +306,7 @@ class Connection:
         self,
         query: str,
         *args: Any,
-        timeout: float = None,
+        timeout: Optional[float] = None,
         query_name: Optional[str] = None,
         model_cls: Optional[Type[BaseModel]] = None,
     ) -> Optional[Union[dict, BaseModel]]:
@@ -321,7 +321,7 @@ class Connection:
         self,
         query: str,
         *args: Any,
-        timeout: float = None,
+        timeout: Optional[float] = None,
         query_name: Optional[str] = None,
         model_cls: Optional[Type[BaseModel]] = None,
     ) -> List[Union[dict, BaseModel]]:

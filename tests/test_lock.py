@@ -1,7 +1,7 @@
 import asyncio
 import socket
 from asyncio import TimeoutError
-from typing import Optional
+from typing import List, Optional
 
 import pytest
 from async_timeout import timeout
@@ -12,20 +12,36 @@ from ipapp.utils.lock import Lock, LockConfig
 from ipapp.utils.lock.local import LocalLock
 
 
-async def create_lock(url: Optional[str]) -> Lock:
-    app = BaseApplication(BaseConfig())
-    app.add(
-        'lock',
-        Lock(LockConfig(url=url)),
-    )
+class LockApp(BaseApplication):
+    lock_num: int = 0
+
+    @staticmethod
+    def _get_lock_name(num):
+        return f'lock{num}'
+
+    def add_locks(self, urls: List[Optional[str]]):
+        for url in urls:
+            self.lock_num += 1
+            self.add(
+                self._get_lock_name(self.lock_num),
+                Lock(LockConfig(url=url, single_connection_client=True)),
+            )
+
+    def get_lock(self, num: int) -> Lock:
+        return self.get(self._get_lock_name(num))  # type: ignore
+
+
+async def create_lock(urls: List[Optional[str]]) -> LockApp:
+    app = LockApp(BaseConfig())
+    app.add_locks(urls)
     await app.start()
-    lock: Lock = app.get('lock')  # type: ignore
-    return lock
+    return app
 
 
 async def test_lock_redis_same_keys(redis_url: str):
-    lock1 = await create_lock(redis_url)
-    lock2 = await create_lock(redis_url)
+    app = await create_lock([redis_url, redis_url])
+    lock1 = app.get_lock(1)
+    lock2 = app.get_lock(2)
 
     locks = []
 
@@ -42,12 +58,14 @@ async def test_lock_redis_same_keys(redis_url: str):
     async with timeout(10):
         assert len(locks) == 0
         await asyncio.gather(coro(lock1, key, 1), coro(lock2, key, 2))
-        assert len(locks) == 0
+        assert len(locks) == 0, len(locks)
+    await app.stop()
 
 
 async def test_lock_redis_diff_keys(redis_url: str):
-    lock1 = await create_lock(redis_url)
-    lock2 = await create_lock(redis_url)
+    app = await create_lock([redis_url, redis_url])
+    lock1 = app.get_lock(1)
+    lock2 = app.get_lock(2)
 
     locks = []
 
@@ -61,10 +79,12 @@ async def test_lock_redis_diff_keys(redis_url: str):
     async with timeout(10):
         await asyncio.gather(coro(lock1, '1', 1, 1), coro(lock2, '2', 2, 0))
         assert len(locks) == 0
+    await app.stop()
 
 
 async def test_lock_redis_timeout(redis_url: str):
-    lock = await create_lock(redis_url)
+    app = await create_lock([redis_url])
+    lock = app.get_lock(1)
 
     key = rndstr()
 
@@ -74,10 +94,12 @@ async def test_lock_redis_timeout(redis_url: str):
             await lock.acquire(key, 1)
     finally:
         await lock.release(key)
+    await app.stop()
 
 
 async def test_lock_redis_connection_lost(redis_url: str):
-    lock = await create_lock(redis_url)
+    app = await create_lock([redis_url])
+    lock = app.get_lock(1)
 
     key = rndstr()
 
@@ -87,13 +109,15 @@ async def test_lock_redis_connection_lost(redis_url: str):
 
     with pytest.raises(Exception):
         await lock.acquire(key)
-    assert lock._locker.redis_lock.connection.closed
+    assert not lock._locker.redis_lock.connection.is_connected
 
     await lock.acquire(key)
+    await app.stop()
 
 
 async def test_lock_redis_connection_sub_lost(redis_url: str):
-    lock = await create_lock(redis_url)
+    app = await create_lock([redis_url])
+    lock = app.get_lock(1)
 
     lock._locker.redis_subscr.connection._writer.transport._sock.shutdown(
         socket.SHUT_RDWR
@@ -105,13 +129,14 @@ async def test_lock_redis_connection_sub_lost(redis_url: str):
         await asyncio.sleep(0.1)
         await lock.release(key)
 
-    # with pytest.raises(TimeoutError)
     await asyncio.gather(coro(), coro())
+    await app.stop()
 
 
 async def test_lock_pg_same_keys(postgres_url: str):
-    lock1 = await create_lock(postgres_url)
-    lock2 = await create_lock(postgres_url)
+    app = await create_lock([postgres_url, postgres_url])
+    lock1 = app.get('lock1')
+    lock2 = app.get('lock2')
 
     locks = []
 
@@ -129,11 +154,13 @@ async def test_lock_pg_same_keys(postgres_url: str):
         assert len(locks) == 0
         await asyncio.gather(coro(lock1, key, 1), coro(lock2, key, 2))
         assert len(locks) == 0
+    await app.stop()
 
 
 async def test_lock_pg_diff_keys(postgres_url: str):
-    lock1 = await create_lock(postgres_url)
-    lock2 = await create_lock(postgres_url)
+    app = await create_lock([postgres_url, postgres_url])
+    lock1 = app.get('lock1')
+    lock2 = app.get('lock2')
 
     locks = []
 
@@ -147,10 +174,12 @@ async def test_lock_pg_diff_keys(postgres_url: str):
     async with timeout(10):
         await asyncio.gather(coro(lock1, '1', 1, 1), coro(lock2, '2', 2, 0))
         assert len(locks) == 0
+    await app.stop()
 
 
 async def test_lock_pg_timeout(postgres_url: str):
-    lock = await create_lock(postgres_url)
+    app = await create_lock([postgres_url])
+    lock = app.get_lock(1)
 
     await lock.acquire('3')
     try:
@@ -158,6 +187,7 @@ async def test_lock_pg_timeout(postgres_url: str):
             await lock.acquire('3', 1)
     finally:
         await lock.release('3')
+    await app.stop()
 
 
 async def test_local():
@@ -202,7 +232,8 @@ async def test_local_seq():
 
 
 async def test_local_timeout():
-    lock = await create_lock(None)
+    app = await create_lock([None])
+    lock = app.get_lock(1)
 
     async def coro():
         await lock.acquire('3', timeout=0.2)
@@ -211,3 +242,4 @@ async def test_local_timeout():
 
     with pytest.raises(TimeoutError):
         await asyncio.gather(coro(), coro())
+    await app.stop()

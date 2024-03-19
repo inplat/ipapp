@@ -86,7 +86,7 @@ class Api:
 
     @method(summary="Get Customers", description="Get customers description")
     async def get_customers(self, customers: List[Customer]) -> List[Customer]:
-        pass
+        return customers
 
     @method(errors=[CustomerNotFound])
     async def update_customer(

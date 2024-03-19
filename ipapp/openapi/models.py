@@ -156,7 +156,9 @@ class Encoding(BaseModel):
 
 
 class MediaType(BaseModel):
-    schema_: Optional[Union[Schema, Reference]] = Field(None, alias="schema")
+    schema_: Optional[Union[Schema, Reference]] = Field(
+        default=None, alias="schema"
+    )
     example: Optional[Any] = None
     examples: Optional[Dict[str, Union[Example, Reference]]] = None
     encoding: Optional[Dict[str, Encoding]] = None
@@ -230,7 +232,7 @@ class Operation(BaseModel):
 
 
 class PathItem(BaseModel):
-    ref: Optional[str] = Field(None, alias="$ref")
+    ref: Optional[str] = Field(default=None, alias="$ref")
     summary: Optional[str] = None
     description: Optional[str] = None
     get: Optional[Operation] = None

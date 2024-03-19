@@ -4,7 +4,7 @@ import os
 from asyncio import Future
 from enum import Enum
 from pathlib import PurePath
-from typing import Any, Callable, List, Optional, Sequence, Union
+from typing import Any, Callable, Optional, Sequence, Union
 
 import asyncssh
 from asyncssh import (
@@ -165,7 +165,7 @@ class SftpClient(Component):
             passphrase=self.cfg.passphrase,
         )
 
-        client._client = self
+        client._client = self  # type: ignore
         self._client = await self._conn.start_sftp_client()
 
     async def connect(self) -> None:
@@ -393,7 +393,7 @@ class SftpClient(Component):
 
     async def listdir(
         self, path: Path = ".", *, log_result: bool = True
-    ) -> List[str]:
+    ) -> Sequence[BytesOrStr]:
         """
         Метод получает список имен файлов на сервере
         """

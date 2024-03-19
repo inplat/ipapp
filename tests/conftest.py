@@ -1,10 +1,10 @@
 import asyncio
 from typing import Any, AsyncGenerator, Awaitable, Callable, Optional
 
-import aioredis
 import asyncpg
 import pika
 import pytest
+import redis.asyncio as redis
 from _pytest.config.argparsing import Parser
 from _pytest.fixtures import FixtureRequest
 from async_timeout import timeout as async_timeout
@@ -94,7 +94,7 @@ async def rabbitmq_url(request: FixtureRequest) -> AsyncGenerator[str, None]:
 @pytest.fixture
 async def redis_url(request: FixtureRequest) -> AsyncGenerator[str, None]:
     async def check(url: str) -> None:
-        await aioredis.create_connection(url)
+        await redis.from_url(url)
 
     url = request.config.getoption('redis_url')
     if not url:
